@@ -9,6 +9,7 @@
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
 <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+<key>ITSAppUsesNonExemptEncryption</key><false/>
 <key>NSFaceIDUsageDescription</key><string>Authenticate to change VPN credentials.</string>
 <key>UIBackgroundModes</key><array><string>fetch</string><string>remote-notification</string></array>
 <key>BGTaskSchedulerPermittedIdentifiers</key><array><string>uk.co.laingcorp.myvpn.refresh</string></array>
