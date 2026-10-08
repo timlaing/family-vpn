@@ -20,13 +20,13 @@ else
     destination='generic/platform=macOS'
     options=Config/ExportOptions/macOS-DeveloperID.plist
 fi
-xcodebuild -project MyVPN.xcodeproj -scheme MyVPN -configuration Release \
+xcodebuild -project FamilyVPN.xcodeproj -scheme FamilyVPN -configuration Release \
     -destination "$destination" -archivePath "$output/MyVPN.xcarchive" \
     -allowProvisioningUpdates archive
 xcodebuild -exportArchive -archivePath "$output/MyVPN.xcarchive" \
     -exportPath "$output/export" -exportOptionsPlist "$options" -allowProvisioningUpdates
 if [[ "$platform" == macos ]]; then
-    app="$output/export/MyVPN.app"
+    app="$output/export/FamilyVPN.app"
     codesign --verify --deep --strict "$app"
     if [[ -z "${NOTARY_KEYCHAIN_PROFILE:-}" ]]; then
         echo 'Export complete; notarization is pending. Set NOTARY_KEYCHAIN_PROFILE for a notarized release.' >&2

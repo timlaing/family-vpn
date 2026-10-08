@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "000000000000000100000000"
-               BuildableName = "MyVPN.app"
-               BlueprintName = "MyVPN"
-               ReferencedContainer = "container:MyVPN.xcodeproj">
+               BuildableName = "FamilyVPN.app"
+               BlueprintName = "FamilyVPN"
+               ReferencedContainer = "container:FamilyVPN.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -40,9 +40,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "B33333333333333333333333"
-               BuildableName = "MyVPNTests.xctest"
-               BlueprintName = "MyVPNTests"
-               ReferencedContainer = "container:MyVPN.xcodeproj">
+               BuildableName = "FamilyVPNTests.xctest"
+               BlueprintName = "FamilyVPNTests"
+               ReferencedContainer = "container:FamilyVPN.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -62,9 +62,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "000000000000000100000000"
-            BuildableName = "MyVPN.app"
-            BlueprintName = "MyVPN"
-            ReferencedContainer = "container:MyVPN.xcodeproj">
+            BuildableName = "FamilyVPN.app"
+            BlueprintName = "FamilyVPN"
+            ReferencedContainer = "container:FamilyVPN.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>

@@ -1,5 +1,5 @@
 import XCTest
-@testable import MyVPN
+@testable import FamilyVPN
 
 @MainActor final class NetworkContextTests: XCTestCase {
     func testTrustedSSIDRequiresAnExactObservedMatch() {

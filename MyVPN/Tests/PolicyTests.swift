@@ -3,7 +3,7 @@ import NetworkExtension
 #if canImport(VPNCore)
 @testable import VPNCore
 #else
-@testable import MyVPN
+@testable import FamilyVPN
 #endif
 
 final class PolicyTests: XCTestCase {

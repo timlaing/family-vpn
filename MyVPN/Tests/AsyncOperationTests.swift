@@ -2,7 +2,7 @@ import XCTest
 #if canImport(VPNCore)
 @testable import VPNCore
 #else
-@testable import MyVPN
+@testable import FamilyVPN
 #endif
 
 @MainActor private final class TestGate {
