@@ -14,7 +14,7 @@ This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashb
 
 ## Documentation
 
-- [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md).
+- [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
 - [API contract](docs/API.md), [architecture](docs/ARCHITECTURE.md) and [deployment/releases](docs/DEPLOYMENT.md).
 - [Changelog](CHANGELOG.md) and [MIT licence](LICENSE).
 
