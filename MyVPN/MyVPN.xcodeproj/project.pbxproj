@@ -6,17 +6,30 @@
 	objectVersion = 90;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		B88888888888888888888888 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 000000000000000000000000 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 000000000000000100000000;
+			remoteInfo = MyVPN;
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
-        B11111111111111111111111 = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MyVPNTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-        A11111111111111111111111 = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Helper/uk.co.laingcorp.myvpn.monitor.plist; sourceTree = SOURCE_ROOT; };
 		000000000000000000000120 /* MyVPN.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyVPN.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B11111111111111111111111 /* MyVPNTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MyVPNTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-        B22222222222222222222222 = {isa = PBXFileSystemSynchronizedRootGroup; path = Tests; sourceTree = "<group>"; };
 		000000000000000000000010 /* MyVPN */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = MyVPN;
+			sourceTree = "<group>";
+		};
+		B22222222222222222222222 /* Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tests;
 			sourceTree = "<group>";
 		};
 		EBCDF6893076DB2E000760FF /* Docs */ = {
@@ -26,25 +39,13 @@
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
-/* Begin PBXBuildFile section */
-        A22222222222222222222222 = {isa = PBXBuildFile; fileRef = A11111111111111111111111; platformFilter = macos; };
-/* End PBXBuildFile section */
-/* Begin PBXShellScriptBuildPhase section */
-        A33333333333333333333333 = {
-            isa = PBXShellScriptBuildPhase;
-            buildActionMask = 2147483647;
-            files = ();
-            inputPaths = ("$(SRCROOT)/Helper/uk.co.laingcorp.myvpn.monitor.plist",);
-            outputPaths = ("$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/uk.co.laingcorp.myvpn.monitor.plist",);
-            name = "Embed desktop monitor (macOS only)";
-            runOnlyForDeploymentPostprocessing = 0;
-            shellPath = /bin/sh;
-            shellScript = "if [ \"$PLATFORM_NAME\" = macosx ]; then\n  mkdir -p \"$(dirname \"$SCRIPT_OUTPUT_FILE_0\")\"\n  cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"\nfi\n";
-        };
-/* End PBXShellScriptBuildPhase section */
 /* Begin PBXFrameworksBuildPhase section */
-        B66666666666666666666666 = {isa = PBXFrameworksBuildPhase; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		000000000000000130000000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+		B66666666666666666666666 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			files = (
 			);
@@ -56,7 +57,7 @@
 			isa = PBXGroup;
 			children = (
 				EBCDF6893076DB2E000760FF /* Docs */,
-                B22222222222222222222222,
+				B22222222222222222222222 /* Tests */,
 				000000000000000000000010 /* MyVPN */,
 				000000000000000000000020 /* Products */,
 			);
@@ -66,7 +67,7 @@
 			isa = PBXGroup;
 			children = (
 				000000000000000000000120 /* MyVPN.app */,
-                B11111111111111111111111,
+				B11111111111111111111111 /* MyVPNTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -74,7 +75,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-        B33333333333333333333333 = {isa = PBXNativeTarget; buildConfigurationList = B44444444444444444444444; buildPhases = (B55555555555555555555555, B66666666666666666666666,); buildRules = (); dependencies = (B77777777777777777777777,); fileSystemSynchronizedGroups = (B22222222222222222222222,); name = MyVPNTests; productName = MyVPNTests; productReference = B11111111111111111111111; productType = "com.apple.product-type.bundle.unit-test"; };
 		000000000000000100000000 /* MyVPN */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 000000000000000110000000 /* Build configuration list for PBXNativeTarget "MyVPN" */;
@@ -82,7 +82,7 @@
 				000000000000000120000000 /* Sources */,
 				000000000000000130000000 /* Frameworks */,
 				000000000000000140000000 /* Resources */,
-                A33333333333333333333333 /* Embed desktop monitor */,
+				A33333333333333333333333 /* Embed desktop monitor (macOS only) */,
 			);
 			buildRules = (
 			);
@@ -94,6 +94,26 @@
 			productName = MyApp;
 			productReference = 000000000000000000000120 /* MyVPN.app */;
 			productType = "com.apple.product-type.application";
+		};
+		B33333333333333333333333 /* MyVPNTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B44444444444444444444444 /* Build configuration list for PBXNativeTarget "MyVPNTests" */;
+			buildPhases = (
+				B55555555555555555555555 /* Sources */,
+				B66666666666666666666666 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B77777777777777777777777 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				B22222222222222222222222 /* Tests */,
+			);
+			name = MyVPNTests;
+			productName = MyVPNTests;
+			productReference = B11111111111111111111111 /* MyVPNTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 /* End PBXNativeTarget section */
 
@@ -125,7 +145,7 @@
 			projectRoot = "";
 			targets = (
 				000000000000000100000000 /* MyVPN */,
-                B33333333333333333333333,
+				B33333333333333333333333 /* MyVPNTests */,
 			);
 		};
 /* End PBXProject section */
@@ -138,24 +158,49 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXContainerItemProxy section */
-        B88888888888888888888888 = {isa = PBXContainerItemProxy; containerPortal = 000000000000000000000000; proxyType = 1; remoteGlobalIDString = 000000000000000100000000; remoteInfo = MyVPN; };
-/* End PBXContainerItemProxy section */
-/* Begin PBXTargetDependency section */
-        B77777777777777777777777 = {isa = PBXTargetDependency; target = 000000000000000100000000; targetProxy = B88888888888888888888888; };
-/* End PBXTargetDependency section */
+/* Begin PBXShellScriptBuildPhase section */
+		A33333333333333333333333 /* Embed desktop monitor (macOS only) */ = {
+			isa = PBXShellScriptBuildPhase;
+			inputPaths = (
+				"$(SRCROOT)/Helper/uk.co.laingcorp.myvpn.monitor.plist",
+			);
+			name = "Embed desktop monitor (macOS only)";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(CONTENTS_FOLDER_PATH)/Library/LaunchAgents/uk.co.laingcorp.myvpn.monitor.plist",
+			);
+			shellPath = /bin/sh;
+			shellScript = (
+				"if [ \"$PLATFORM_NAME\" = macosx ]; then",
+				"  mkdir -p \"$(dirname \"$SCRIPT_OUTPUT_FILE_0\")\"",
+				"  cp \"$SCRIPT_INPUT_FILE_0\" \"$SCRIPT_OUTPUT_FILE_0\"",
+				"fi",
+				"",
+			);
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
-        B55555555555555555555555 = {isa = PBXSourcesBuildPhase; files = (); runOnlyForDeploymentPostprocessing = 0; };
 		000000000000000120000000 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+		B55555555555555555555555 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
 			);
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		B77777777777777777777777 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 000000000000000100000000 /* MyVPN */;
+			targetProxy = B88888888888888888888888 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
-        B99999999999999999999999 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = uk.co.laingcorp.myvpn.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = auto; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx"; MACOSX_DEPLOYMENT_TARGET = 26.0; IPHONEOS_DEPLOYMENT_TARGET = 26.0; TARGETED_DEVICE_FAMILY = "1,2"; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/Contents/MacOS/MyVPN"; "TEST_HOST[sdk=iphoneos*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN"; "TEST_HOST[sdk=iphonesimulator*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN"; BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; }; };
-        C11111111111111111111111 = {isa = XCBuildConfiguration; name = Release; buildSettings = {GENERATE_INFOPLIST_FILE = YES; PRODUCT_BUNDLE_IDENTIFIER = uk.co.laingcorp.myvpn.tests; PRODUCT_NAME = "$(TARGET_NAME)"; SDKROOT = auto; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx"; MACOSX_DEPLOYMENT_TARGET = 26.0; IPHONEOS_DEPLOYMENT_TARGET = 26.0; TARGETED_DEVICE_FAMILY = "1,2"; SWIFT_VERSION = 5.0; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/Contents/MacOS/MyVPN"; "TEST_HOST[sdk=iphoneos*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN"; "TEST_HOST[sdk=iphonesimulator*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN"; BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGN_STYLE = Automatic; }; };
 		000000000000000011000000 /* Debug configuration for PBXProject "MyVPN" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -291,28 +336,28 @@
 		000000000000000111000000 /* Debug configuration for PBXNativeTarget "MyVPN" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = MyVPN/MyVPN.entitlements;
-                "ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Authenticate to change VPN credentials";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Config/iOS.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/iOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 4C8FWEBR8F;
 				ENABLE_APP_SANDBOX = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-                "GENERATE_INFOPLIST_FILE[sdk=macosx*]" = NO;
-                "INFOPLIST_FILE[sdk=macosx*]" = "Config/macOS-Info.plist";
-                "GENERATE_INFOPLIST_FILE[sdk=iphoneos*]" = NO;
-                "GENERATE_INFOPLIST_FILE[sdk=iphonesimulator*]" = NO;
-                "INFOPLIST_FILE[sdk=iphoneos*]" = "Config/iOS-Info.plist";
-                "INFOPLIST_FILE[sdk=iphonesimulator*]" = "Config/iOS-Info.plist";
-                "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Config/iOS.entitlements";
-                "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "Config/iOS.entitlements";
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-                INFOPLIST_KEY_CFBundleName = "Family VPN";
-                INFOPLIST_KEY_CFBundleDisplayName = "Family VPN";
-                INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				"GENERATE_INFOPLIST_FILE[sdk=iphoneos*]" = NO;
+				"GENERATE_INFOPLIST_FILE[sdk=iphonesimulator*]" = NO;
+				"GENERATE_INFOPLIST_FILE[sdk=macosx*]" = NO;
+				"INFOPLIST_FILE[sdk=iphoneos*]" = "Config/iOS-Info.plist";
+				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "Config/iOS-Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "Config/macOS-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Family VPN";
+				INFOPLIST_KEY_CFBundleName = "Family VPN";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Authenticate to change VPN credentials";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -344,28 +389,28 @@
 		000000000000000112000000 /* Release configuration for PBXNativeTarget "MyVPN" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = MyVPN/MyVPN.entitlements;
-                "ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
-				INFOPLIST_KEY_NSFaceIDUsageDescription = "Authenticate to change VPN credentials";
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = Config/iOS.entitlements;
+				"CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = Config/iOS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 4C8FWEBR8F;
 				ENABLE_APP_SANDBOX = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-                "GENERATE_INFOPLIST_FILE[sdk=macosx*]" = NO;
-                "INFOPLIST_FILE[sdk=macosx*]" = "Config/macOS-Info.plist";
-                "GENERATE_INFOPLIST_FILE[sdk=iphoneos*]" = NO;
-                "GENERATE_INFOPLIST_FILE[sdk=iphonesimulator*]" = NO;
-                "INFOPLIST_FILE[sdk=iphoneos*]" = "Config/iOS-Info.plist";
-                "INFOPLIST_FILE[sdk=iphonesimulator*]" = "Config/iOS-Info.plist";
-                "CODE_SIGN_ENTITLEMENTS[sdk=iphoneos*]" = "Config/iOS.entitlements";
-                "CODE_SIGN_ENTITLEMENTS[sdk=iphonesimulator*]" = "Config/iOS.entitlements";
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-                INFOPLIST_KEY_CFBundleName = "Family VPN";
-                INFOPLIST_KEY_CFBundleDisplayName = "Family VPN";
-                INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				"GENERATE_INFOPLIST_FILE[sdk=iphoneos*]" = NO;
+				"GENERATE_INFOPLIST_FILE[sdk=iphonesimulator*]" = NO;
+				"GENERATE_INFOPLIST_FILE[sdk=macosx*]" = NO;
+				"INFOPLIST_FILE[sdk=iphoneos*]" = "Config/iOS-Info.plist";
+				"INFOPLIST_FILE[sdk=iphonesimulator*]" = "Config/iOS-Info.plist";
+				"INFOPLIST_FILE[sdk=macosx*]" = "Config/macOS-Info.plist";
+				INFOPLIST_KEY_CFBundleDisplayName = "Family VPN";
+				INFOPLIST_KEY_CFBundleName = "Family VPN";
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "Authenticate to change VPN credentials";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -394,10 +439,49 @@
 			};
 			name = Release;
 		};
+		B99999999999999999999999 /* Debug configuration for PBXNativeTarget "MyVPNTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.co.laingcorp.myvpn.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/Contents/MacOS/MyVPN";
+				"TEST_HOST[sdk=iphoneos*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN";
+				"TEST_HOST[sdk=iphonesimulator*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN";
+			};
+			name = Debug;
+		};
+		C11111111111111111111111 /* Release configuration for PBXNativeTarget "MyVPNTests" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = uk.co.laingcorp.myvpn.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = auto;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/Contents/MacOS/MyVPN";
+				"TEST_HOST[sdk=iphoneos*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN";
+				"TEST_HOST[sdk=iphonesimulator*]" = "$(BUILT_PRODUCTS_DIR)/MyVPN.app/MyVPN";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-        B44444444444444444444444 = {isa = XCConfigurationList; buildConfigurations = (B99999999999999999999999, C11111111111111111111111,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		000000000000000010000000 /* Build configuration list for PBXProject "MyVPN" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -411,6 +495,14 @@
 			buildConfigurations = (
 				000000000000000111000000 /* Debug configuration for PBXNativeTarget "MyVPN" */,
 				000000000000000112000000 /* Release configuration for PBXNativeTarget "MyVPN" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		B44444444444444444444444 /* Build configuration list for PBXNativeTarget "MyVPNTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B99999999999999999999999 /* Debug configuration for PBXNativeTarget "MyVPNTests" */,
+				C11111111111111111111111 /* Release configuration for PBXNativeTarget "MyVPNTests" */,
 			);
 			defaultConfigurationName = Release;
 		};
