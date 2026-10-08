@@ -14,3 +14,9 @@ Tests create synthetic data and temporary storage; smoke scripts clean up their 
 Follow REMOTE_COMMANDS.md to verify public authenticated reporting and registration-LAN enrollment and VPN-only pending-command retrieval/admin APIs from connected and disconnected devices before distribution.
 
 Additional source-ACL verification: allowed peers enroll, report and read sanitized administrative results through a stripped custom-location prefix. Denied peers receive 403 on health/enrollment/status/admin routes. Forwarded Host headers cannot change socket isolation. The configuration generator rejects open default routes, invalid ports, public/loopback upstreams and injection characters.
+
+## Pytest migration
+
+Run `python -m pip install -r requirements-test.txt` followed by `python -m pytest -v` from the repository root. Pytest discovers all 54 cases across `tests`, `MyVPN/Tools`, and `MyVPN/Watchdog`. The tests use plain assertions and `pytest.raises`; `unittest.mock` remains a standard-library mocking utility only. Runtime locks and production images exclude pytest. GitHub CI runs the combined suite; Xcode Cloud installs only the pinned pytest dependencies and runs importer tests alongside its native XCTest actions.
+
+Migration verification: all 54 cases passed on Python 3.12, 3.13 and 3.14, with pip check passing in each isolated environment. The Xcode Cloud post-clone hook passed all four importer tests, and actionlint validated the updated GitHub workflows.

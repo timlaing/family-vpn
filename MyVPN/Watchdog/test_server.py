@@ -1,30 +1,30 @@
-import unittest
+import pytest
 import uuid
 from server import validate_registration, push_headers
-class ServerTests(unittest.TestCase):
+class TestServer:
     def test_registration(self):
         identifier = str(uuid.uuid4())
-        self.assertEqual(validate_registration({"id": identifier, "token": "a" * 64}), (identifier, "a" * 64))
+        assert (validate_registration({'id': identifier, 'token': 'a' * 64})) == ((identifier, 'a' * 64))
         for length in (32, 64, 128):
-            self.assertEqual(validate_registration({"id": identifier, "token": "a" * length}), (identifier, "a" * length))
+            assert (validate_registration({'id': identifier, 'token': 'a' * length})) == ((identifier, 'a' * length))
         for value in ({"id": identifier, "token": "abc"}, {"id": "bad", "token": "a" * 64}, {"id": identifier, "token": "secret"}, {}):
-            with self.assertRaises((ValueError, TypeError, AttributeError)): validate_registration(value)
+            with pytest.raises((ValueError, TypeError, AttributeError)): validate_registration(value)
     def test_background_headers(self):
         headers = push_headers("test", "test.bundle")
-        self.assertEqual(headers["apns-push-type"], "background")
-        self.assertEqual(headers["apns-priority"], "5")
-        self.assertEqual(headers["apns-collapse-id"], "policy-check")
+        assert (headers['apns-push-type']) == ('background')
+        assert (headers['apns-priority']) == ('5')
+        assert (headers['apns-collapse-id']) == ('policy-check')
 
-class DeliveryTests(unittest.TestCase):
+class TestDelivery:
     def test_invalid_interval_and_private_fields_rejected(self):
         from unittest.mock import patch
         import server
         for interval in ("1799", "3601", "bad"):
             with patch.dict("os.environ", {"WATCHDOG_INTERVAL_SECONDS": interval}):
-                with self.assertRaises(ValueError): server.validated_interval()
+                with pytest.raises(ValueError): server.validated_interval()
         with patch.dict("os.environ", {"WATCHDOG_INTERVAL_SECONDS": "2700"}):
-            self.assertEqual(server.validated_interval(), 2700)
-        with self.assertRaises(ValueError):
+            assert (server.validated_interval()) == (2700)
+        with pytest.raises(ValueError):
             server.validate_registration({"id": str(uuid.uuid4()), "token": "a" * 64, "password": "never-store"})
 
     def test_delivery_continues_after_network_error_and_prunes_invalid_tokens(self):
@@ -54,10 +54,10 @@ class DeliveryTests(unittest.TestCase):
             with server.database() as connection:
                 connection.executemany("INSERT INTO installations VALUES (?, ?)", zip(identifiers, tokens))
             server.send_checks()
-            self.assertEqual(client.calls, 4)
+            assert (client.calls) == (4)
             with server.database() as connection:
                 remaining = {row[0] for row in connection.execute("SELECT id FROM installations")}
-            self.assertEqual(remaining, {identifiers[0], identifiers[2], identifiers[3]})
+            assert (remaining) == ({identifiers[0], identifiers[2], identifiers[3]})
 
     def test_rotated_token_is_not_deleted_by_old_delivery_response(self):
         import os
@@ -82,10 +82,10 @@ class DeliveryTests(unittest.TestCase):
                 connection.execute("INSERT INTO installations VALUES (?, ?)", (identifier, old))
             server.send_checks()
             with server.database() as connection:
-                self.assertEqual(connection.execute("SELECT token FROM installations").fetchone()[0], new)
+                assert (connection.execute('SELECT token FROM installations').fetchone()[0]) == (new)
 
 
-class RegistrationHTTPTests(unittest.TestCase):
+class TestRegistrationHTTP:
     def test_authentication_input_limits_and_token_rotation(self):
         import json
         import os
@@ -113,15 +113,13 @@ class RegistrationHTTPTests(unittest.TestCase):
                 finally: connection.close()
             try:
                 payload = json.dumps({"id": identifier, "token": "a" * 64})
-                self.assertEqual(request(payload, authorized=False), 401)
-                self.assertEqual(request(payload, path="/other"), 404)
-                self.assertEqual(request("bad-json"), 400)
-                self.assertEqual(request("x" * 1025), 400)
-                self.assertEqual(request(payload), 204)
-                self.assertEqual(request(json.dumps({"id": identifier, "token": "b" * 64})), 204)
+                assert (request(payload, authorized=False)) == (401)
+                assert (request(payload, path='/other')) == (404)
+                assert (request('bad-json')) == (400)
+                assert (request('x' * 1025)) == (400)
+                assert (request(payload)) == (204)
+                assert (request(json.dumps({'id': identifier, 'token': 'b' * 64}))) == (204)
                 with server.database() as connection:
-                    self.assertEqual(connection.execute("SELECT id, token FROM installations").fetchall(), [(identifier, "b" * 64)])
+                    assert (connection.execute('SELECT id, token FROM installations').fetchall()) == ([(identifier, 'b' * 64)])
             finally:
                 service.shutdown(); service.server_close(); thread.join(timeout=3)
-
-if __name__ == "__main__": unittest.main()

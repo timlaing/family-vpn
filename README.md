@@ -92,8 +92,11 @@ IDs are canonical UUIDs. Connection values: connected, connecting, reasserting, 
 
 ## Test
 
+Install the separate test dependencies; production images do not include pytest.
+
 ```sh
-.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m pip install -r requirements-test.txt
+.venv/bin/python -m pytest -v
 ```
 
 Tests use temporary SQLite files, synthetic tokens/provider responses and a fake sender. Coverage includes enrollment/authentication, scoped reports, credential rotation, CSRF, login throttling, payload limits, privacy, queue coalescing, token rotation during delivery, pruning, bounded history and read-only preview. These do not prove real APNs delivery, device scheduling or production deployment.

@@ -43,7 +43,7 @@ The sibling VPNWeb 0.3.0 Home Assistant add-on is the supported enrollment servi
 ```sh
 xcodebuild -project MyVPN.xcodeproj -scheme MyVPN -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
 xcodebuild -project MyVPN.xcodeproj -scheme MyVPN -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
-python3 -m unittest discover -s Watchdog -v
+python3 -m pytest Watchdog -v
 ```
 
 Xcode XCTest is the verified test path. A SwiftPM harness is also included, but this Xcode 27 environment produces conflicting Darwin SDK modules with SwiftPM.

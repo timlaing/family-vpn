@@ -10,9 +10,9 @@ Use Python 3.12–3.14 on macOS or Linux. Clone this repository, then run:
 
 ```sh
 python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements.lock
+.venv/bin/python -m pip install -r requirements-test.txt
 .venv/bin/python -m pip check
-.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python -m pytest -v
 .venv/bin/python app.py --demo --port 8081
 ```
 
@@ -22,7 +22,7 @@ The preview uses synthetic devices and blocks writes. To exercise enrollment and
 
 Keep changes focused. Explain the problem, resulting behaviour and validation in the pull request. Include tests for changes to authentication, registration, dispatch races, request validation or status reporting. For dashboard changes, inspect desktop and narrow layouts and include screenshots containing synthetic data only.
 
-Use the existing unittest framework and standard-library utilities where practical. Keep provider responses and failures as bounded, non-sensitive result codes. Do not add credentials, SSIDs, browsing information or free-form device logs to status reports. Review the [architecture](docs/ARCHITECTURE.md) and [API contract](docs/API.md) before changing client compatibility.
+Use pytest with plain assertions and pytest.raises and standard-library utilities where practical. Keep provider responses and failures as bounded, non-sensitive result codes. Do not add credentials, SSIDs, browsing information or free-form device logs to status reports. Review the [architecture](docs/ARCHITECTURE.md) and [API contract](docs/API.md) before changing client compatibility.
 
 Sign commits with your own signing key. Do not amend another contributor's history or commit generated `.env`, databases, provider keys, virtual environments or build output. Use the pull request template and ensure CI passes before merging.
 

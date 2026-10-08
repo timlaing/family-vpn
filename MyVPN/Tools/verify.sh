@@ -4,15 +4,15 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 watchdog_python="${WATCHDOG_PYTHON:-.venv/bin/python}"
 if [[ ! -x "$watchdog_python" ]]; then
-    echo 'Create .venv and install Watchdog/requirements.txt, or set WATCHDOG_PYTHON.' >&2
+    echo 'Create a test environment with ../requirements-test.txt, or set WATCHDOG_PYTHON.' >&2
     exit 1
 fi
-"$watchdog_python" -c 'import httpx, cryptography'
+"$watchdog_python" -c 'import httpx, cryptography, pytest'
 evidence="$(mktemp -d /tmp/FamilyVPN-verification.XXXXXX)"
 echo "Verification logs: $evidence"
 trap 'echo "Verification stopped; inspect logs in $evidence" >&2' ERR
-python3 -m unittest discover -s Tools -v > "$evidence/importer.log" 2>&1
-"$watchdog_python" -m unittest discover -s Watchdog -v > "$evidence/watchdog.log" 2>&1
+"$watchdog_python" -m pytest Tools -v > "$evidence/importer.log" 2>&1
+"$watchdog_python" -m pytest Watchdog -v > "$evidence/watchdog.log" 2>&1
 xcodebuild -project MyVPN.xcodeproj -scheme MyVPN -destination 'platform=macOS' \
     -derivedDataPath "$evidence/DerivedData" CODE_SIGNING_ALLOWED=NO test > "$evidence/mac-tests.log" 2>&1
 xcodebuild -project MyVPN.xcodeproj -scheme MyVPN -destination 'generic/platform=iOS Simulator' \

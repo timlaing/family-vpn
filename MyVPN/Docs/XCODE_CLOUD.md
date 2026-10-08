@@ -16,7 +16,7 @@ Use Xcode Cloud for Apple builds, XCTest, archives and distribution. Keep the Py
 | iOS release | Release tag or manual start | Archive iOS; distribute to an internal TestFlight group |
 | macOS release | Release tag or manual start | Archive macOS for direct distribution; enable notarization post-action |
 
-`ci_scripts/ci_post_clone.sh` additionally runs importer tests without third-party dependencies. XCTest is configured in the shared scheme. Do not run `MyVPN/Tools/verify.sh` inside the hook: it starts nested Xcode builds and also expects local watchdog dependencies.
+`ci_scripts/ci_post_clone.sh` additionally runs importer tests using an isolated environment with pinned pytest dependencies. XCTest is configured in the shared scheme. Do not run `MyVPN/Tools/verify.sh` inside the hook: it starts nested Xcode builds and also expects local watchdog dependencies.
 
 TestFlight requires an App Store Connect app record. Ad hoc installation can instead use the existing release-testing export configuration with registered device UDIDs. Direct macOS distribution requires Developer ID signing and successful notarization. Do not enable automatic external publishing until the physical acceptance checklist passes.
 
