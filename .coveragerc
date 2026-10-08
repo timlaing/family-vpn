@@ -1,0 +1,8 @@
+[run]
+branch = True
+relative_files = True
+source = family_vpn
+omit = */test_*.py
+
+[xml]
+output = coverage.xml

@@ -16,3 +16,10 @@ __pycache__/
 
 # Private development plans, roadmaps and verification notes
 .private-docs/
+
+# Generated analysis and coverage reports
+.scannerwork/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
