@@ -10,3 +10,6 @@ __pycache__/
 *.key
 
 .pytest_cache/
+
+# Local VPN and certificate provisioning profiles
+*.mobileconfig
