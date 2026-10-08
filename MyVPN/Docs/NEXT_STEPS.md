@@ -110,3 +110,7 @@ VPN-only REST access means disconnected devices retain their last report until r
 Use [XCODE_CLOUD.md](XCODE_CLOUD.md) to activate native CI/CD after publishing the Git repository. macOS now registers for APNs and handles signed commands in the app/background helper. Enable Push Notifications in the macOS App ID and refresh its signing profile; validate delivery with the helper running while the VPN is suspended. APNs is still best effort and cannot guarantee execution while the Mac is asleep or the helper is stopped.
 
 The disconnected status now distinguishes an observed exact trusted SSID, an untrusted SSID, unavailable network, unavailable network identity, and the last system VPN disconnect error. iOS requires Access Wi-Fi Information and an eligible installed VPN configuration; macOS CoreWLAN may withhold SSID without OS privacy permission. Missing identity is explicitly shown, never assumed trusted. SSIDs remain local and are not reported to the dashboard.
+
+## VPN endpoint setup
+
+See the [endpoint setup guide](https://github.com/timlaing/family-vpn/blob/main/docs/VPN_ENDPOINT_SETUP.md), with MikroTik RouterOS and strongSwan settings based on the inspected IKEv2/EAP deployment. Configure your gateway and authentication backend before enrolling devices.

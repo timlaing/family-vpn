@@ -99,3 +99,7 @@ python3 Tools/generate_npm_location.py --upstream 192.168.1.20 \
 Repeat `--allow` for multiple client networks or a VPN NAT gateway address. The output is a complete Nginx location, not a nested location for NPM's Advanced box. Apply its allow/deny lines to the existing custom location and use the path-rewrite instructions above. Firewall the direct mapped port separately. If a proxy precedes NPM, establish the trusted real-IP chain before treating its peer address as a VPN source.
 
 The proxy smoke test now also simulates an allowed and denied source on an isolated network: enrollment and scoped reporting succeed through `/family-vpn/` for the allowed peer, while all REST paths return 403 for the denied peer. It also checks forwarded Host headers and bearer preservation. This establishes the example proxy behaviour, not your real VPN routing or NPM configuration.
+
+## VPN endpoint setup
+
+See the [endpoint setup guide](https://github.com/timlaing/family-vpn/blob/main/docs/VPN_ENDPOINT_SETUP.md), with MikroTik RouterOS and strongSwan settings based on the inspected IKEv2/EAP deployment. Configure your gateway and authentication backend before enrolling devices.

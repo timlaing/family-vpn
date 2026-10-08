@@ -15,3 +15,7 @@ A pushed CA update displays a local notification and application badge, subject 
 Administrator password reprovisioning is a separate command. Installation or profile changes may require operating-system approval. VPN usernames and passwords remain local. Supplied CA profiles contain only the public certificate, never private keys or VPN credentials.
 
 All subnet ranges in documentation and proxy examples are illustrative. Replace them with your registration LAN and VPN client subnets. Enforce these access restrictions at your reverse proxy; the application does not infer trusted source networks from example addresses. Public status and acknowledgement routes still require device credentials.
+
+## VPN endpoint setup
+
+See the [endpoint setup guide](https://github.com/timlaing/family-vpn/blob/main/docs/VPN_ENDPOINT_SETUP.md), with MikroTik RouterOS and strongSwan settings based on the inspected IKEv2/EAP deployment. Configure your gateway and authentication backend before enrolling devices.

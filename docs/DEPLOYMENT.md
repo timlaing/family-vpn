@@ -81,3 +81,7 @@ Deploy the tested image digest with the same data volume and check `/health`, au
 Home Assistant installs currently build the self-contained `family_vpn/` context locally through Supervisor. The GHCR tag workflow publishes tested architecture-specific add-on images as well as a standalone image. No `image` URL is hardcoded in config.yaml until a repository/registry path is established; CI verifies the tagged version matches the app manifest.
 
 The architecture-specific app image names are `ghcr.io/<owner>/<repository>-family-vpn-amd64:0.3.0` and `...-family-vpn-aarch64:0.3.0` for tag v0.3.0. Native ARM runner availability depends on your GitHub plan/repository settings; local Supervisor builds remain available. The standalone image uses the original repository image name and v-prefixed tag.
+
+## VPN endpoint setup
+
+See the [endpoint setup guide](https://github.com/timlaing/family-vpn/blob/main/docs/VPN_ENDPOINT_SETUP.md), with MikroTik RouterOS and strongSwan settings based on the inspected IKEv2/EAP deployment. Configure your gateway and authentication backend before enrolling devices.

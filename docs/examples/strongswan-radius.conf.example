@@ -1,0 +1,18 @@
+# Optional backend: change remote.auth to eap-radius in swanctl.conf.
+# Merge with the distribution's existing charon plugin configuration.
+charon {
+    plugins {
+        eap-radius {
+            accounting = yes
+            servers {
+                family-vpn-radius {
+                    address = 192.168.10.54
+                    auth_port = 1812
+                    acct_port = 1813
+                    secret = REPLACE_WITH_RADIUS_SHARED_SECRET
+                    nas_identifier = family-vpn
+                }
+            }
+        }
+    }
+}

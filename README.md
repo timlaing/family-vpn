@@ -14,6 +14,8 @@ This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashb
 
 ## Documentation
 
+- [VPN endpoint setup](docs/VPN_ENDPOINT_SETUP.md): [MikroTik RouterOS](docs/MIKROTIK_IKEV2.md), [strongSwan](docs/STRONGSWAN_IKEV2.md) and [certificate setup](docs/VPN_CERTIFICATES.md) and [dashboard provisioning](docs/PROVISIONING.md).
+
 - [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
 - [API contract](docs/API.md), [architecture](docs/ARCHITECTURE.md) and [deployment/releases](docs/DEPLOYMENT.md).
 - [Changelog](CHANGELOG.md) and [MIT licence](LICENSE).
