@@ -1,0 +1,3 @@
+-r requirements-test.txt
+-r requirements-coverage.lock
+-r requirements-tools.lock

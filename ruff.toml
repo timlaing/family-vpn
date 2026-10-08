@@ -1,0 +1,7 @@
+target-version = "py312"
+line-length = 100
+extend-exclude = [".private-docs", ".venv", "MyVPN/.build"]
+
+[lint]
+# Establish correctness checks without rewriting legacy code during tooling migration.
+select = ["E9", "F63", "F7", "F82"]

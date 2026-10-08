@@ -23,3 +23,6 @@ __pycache__/
 .coverage.*
 coverage.xml
 htmlcov/
+
+# Local hook caches
+.prek-cache/

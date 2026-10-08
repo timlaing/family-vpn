@@ -1,0 +1,43 @@
+{
+  "name": "Family VPN Python web app",
+  "image": "mcr.microsoft.com/devcontainers/python:2-3.14-trixie",
+  "remoteUser": "vscode",
+  "forwardPorts": [
+    8081
+  ],
+  "portsAttributes": {
+    "8081": {
+      "label": "Family VPN synthetic dashboard",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": "bash scripts/setup.sh",
+  "postStartCommand": "bash scripts/startup.sh",
+  "containerEnv": {
+    "DEVCONTAINER": "1",
+    "PYTHONDONTWRITEBYTECODE": "1",
+    "DEV_VENV": "/home/vscode/.venvs/family-vpn"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "redhat.vscode-yaml",
+        "github.vscode-github-actions",
+        "SonarSource.sonarlint-vscode"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/home/vscode/.venvs/family-vpn/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "python.testing.pytestArgs": [
+          "tests",
+          "MyVPN/Tools",
+          "MyVPN/Watchdog"
+        ],
+        "files.trimTrailingWhitespace": true
+      }
+    }
+  }
+}

@@ -7,7 +7,7 @@ updates:
     labels: [dependencies, github_actions]
     open-pull-requests-limit: 5
   - package-ecosystem: pip
-    directories: [/, /family_vpn]
+    directories: [/, /family_vpn, /MyVPN/Watchdog]
     schedule:
       interval: weekly
     labels: [dependencies, python]

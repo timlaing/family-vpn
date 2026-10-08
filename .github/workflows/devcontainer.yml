@@ -1,0 +1,26 @@
+name: Python devcontainer
+on:
+  push:
+    branches: [main]
+    paths: ['.devcontainer/**', 'scripts/**', 'requirements*', 'family_vpn/**', 'tests/**', '.pre-commit-config.yaml', 'ruff.toml', '.github/workflows/devcontainer.yml']
+  pull_request:
+    paths: ['.devcontainer/**', 'scripts/**', 'requirements*', 'family_vpn/**', 'tests/**', '.pre-commit-config.yaml', 'ruff.toml', '.github/workflows/devcontainer.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Validate Python development environment
+        uses: devcontainers/ci@513af61f4de4f75d37e4438f184ba4358f0fc1ca # v0.3
+        with:
+          push: never
+          runCmd: |
+            bash scripts/startup.sh
+            /home/vscode/.venvs/family-vpn/bin/python -m pytest -q
+            /home/vscode/.venvs/family-vpn/bin/prek run --all-files
