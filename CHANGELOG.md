@@ -13,6 +13,8 @@
 
 ## Unreleased
 
+- Update runtime dependencies to cryptography 50.0.2, Gunicorn 26.2.0 and pycparser 3.1; allow patched cryptography in the legacy watchdog.
+
 - Add repository metadata/topics/labels, issue triage, PR labeling, release drafts, stale issue handling, CodeQL and Home Assistant app/workflow lint.
 - Add one-click Home Assistant repository installation and clarify source builds, updates and gateway setup.
 - Fix Linux add-on smoke tests to use Supervisor-style root-owned data with all capabilities dropped.

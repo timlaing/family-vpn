@@ -1,2 +1,2 @@
-httpx[http2]>=0.28,<1
-cryptography>=45,<47
+httpx[http2]>=0.28.1,<1
+cryptography>=50.0.2,<51
