@@ -30,7 +30,8 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install test and coverage dependencies
-        run: python -m pip install --only-binary=:all: --no-deps -r requirements.lock -r requirements-pytest.lock -r requirements-coverage.lock
+        run: |
+          python -m pip install --only-binary=:all: --no-deps -r requirements.lock -r requirements-pytest.lock -r requirements-coverage.lock
       - name: Run tests and generate Python coverage
         run: |
           python -m pip check
