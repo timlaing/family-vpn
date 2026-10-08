@@ -2,9 +2,11 @@
 
 > Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.150.0/24; remaining REST routes stay VPN-only. See [remote command and proxy configuration](docs/REMOTE_COMMANDS.md).
 
-# Family VPN Web
+# Family VPN
 
-Python/Flask dashboard for signed VPN commands, device administrator provisioning and authenticated status updates. It is separate from the native MyVPN project and replaces its minimal watchdog when deployed. The native app remains authoritative for VPN policy.
+Family VPN combines native iOS/iPadOS/macOS apps in `MyVPN/` with a Python/Flask dashboard and Home Assistant add-on in `family_vpn/`. The dashboard provisions administrator access, sends signed VPN commands and receives authenticated status updates. The native app remains authoritative for VPN policy.
+
+Open `MyVPN/MyVPN.xcodeproj` for Apple development. See the [implementation plan](MyVPN/Docs/PLAN.md), [device setup and acceptance checks](MyVPN/Docs/NEXT_STEPS.md), and [Xcode Cloud setup](MyVPN/Docs/XCODE_CLOUD.md). GitHub Actions tests and publishes the web service; Xcode Cloud handles the Apple project.
 
 ## Home Assistant installation
 

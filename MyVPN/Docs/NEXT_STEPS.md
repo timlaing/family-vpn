@@ -101,7 +101,7 @@ Xcode's Product → Test also runs the shared test suite for the selected suppor
 
 ## Python control dashboard
 
-The sibling `../VPNWeb` service adds authenticated APNs triggers and device-scoped status reports. Follow `../VPNWeb/README.md` for installation, private secrets, APNs provider configuration and HTTPS deployment. Enroll with the `/registrations` URL and enrollment bearer in the native administrator controls. The dashboard displays the last reported connection and policy result; APNs acceptance alone does not establish execution or connectivity.
+The repository-root web service adds authenticated APNs triggers and device-scoped status reports. Follow `../../README.md` for installation, private secrets, APNs provider configuration and HTTPS deployment. Enroll with the `/registrations` URL and enrollment bearer in the native administrator controls. The dashboard displays the last reported connection and policy result; APNs acceptance alone does not establish execution or connectivity.
 
 VPN-only REST access means disconnected devices retain their last report until reconnecting. Treat the report timestamp as part of the status; historical connected reports are not live connection proof. Reconnect and repeat registration if enrollment/token rotation failed while VPN was disconnected. The web repository includes a validated NPM location generator; supply the real Home Assistant private address and VPN source subnet or NAT gateway address before applying its configuration.
 

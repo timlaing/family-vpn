@@ -8,7 +8,7 @@
 
 This repository is an app/add-on repository: `repository.yaml` identifies it and `family_vpn/config.yaml` defines the app. No Home Assistant configuration has been changed by implementation.
 
-For local installation, copy the entire **family_vpn** folder to Home Assistant's local apps/add-ons directory (`/addons/family_vpn` on installations using that path), reload the app store and install **Family VPN** from Local apps. The folder includes its own Dockerfile and runtime dependencies. For repository installation, push this repository to a Git host, add its clone URL under the Home Assistant app store's repository menu, then install. The local repository currently has no Git remote; no repository URL is invented here.
+For local installation, copy the entire **family_vpn** folder to Home Assistant's local apps/add-ons directory (`/addons/family_vpn` on installations using that path), reload the app store and install **Family VPN** from Local apps. The folder includes its own Dockerfile and runtime dependencies. For repository installation, push this repository to a Git host, add its clone URL under the Home Assistant app store's repository menu, then install. The repository URL is `https://github.com/timlaing/family-vpn`.
 
 Set two separate random credentials of at least 32 characters in the app's **Configuration** tab:
 

@@ -1,6 +1,10 @@
-# Contributing to Family VPN Web
+# Contributing to Family VPN
 
-## Development
+## Apple apps
+
+Open `MyVPN/MyVPN.xcodeproj` and use the shared MyVPN scheme. Run its XCTest suite on macOS and iPhone/iPad simulators. See [native verification](MyVPN/Docs/TEST_REPORT.md) and [Xcode Cloud](MyVPN/Docs/XCODE_CLOUD.md). Tests must not install VPN settings or use real credentials. Keep native policy and the dashboard command protocol compatible.
+
+## Web development
 
 Use Python 3.12–3.14 on macOS or Linux. Clone this repository, then run:
 
