@@ -1,3 +1,11 @@
+import base64
+import hashlib
+import json
+from datetime import datetime, timedelta, timezone
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.x509.oid import NameOID
 import uuid
 import pytest
 from test_app import TestApp as AppFixture
@@ -38,3 +46,39 @@ def test_invalid_gateway(host):
 @pytest.mark.parametrize('host',['vpn.example.org','203.0.113.1','2001:db8::1'])
 def test_valid_gateway(host):
     assert VPNProvisioning.hostname(host) == host
+
+class TestVPNPush:
+    setup_method = AppFixture.setup_method
+    teardown_method = AppFixture.teardown_method
+    def test_snapshot_digest_authentication_and_supersession(self):
+        self.app.extensions['vpn_provisioning'].save('vpn.example.org','',['Home'])
+        headers = {'Authorization':'Bearer '+self.settings.enrollment_secret,'X-FamilyVPN-Command-Protocol':'1','X-FamilyVPN-VPN-Protocol':'2'}
+        registration = self.client.post('/registrations',headers=headers,json={'id':self.device,'token':'ab'*32}).json
+        commands = self.app.extensions['commands']
+        request_id = commands.queue(self.device,'reprovision_vpn')
+        envelope = commands.pending(self.device)[0]
+        body = json.loads(base64.b64decode(envelope['body']))
+        assert len(json.dumps(envelope)) < 4096
+        url = '/vpn-configuration?id='+self.device+'&request_id='+request_id
+        assert self.client.get(url).status_code == 401
+        auth = {'Authorization':'Bearer '+registration['status_token']}
+        snapshot = self.client.get(url,headers=auth)
+        assert hashlib.sha256(snapshot.data).hexdigest() == body['vpn_digest']
+        self.app.extensions['vpn_provisioning'].save('new.example.org','',[])
+        assert self.client.get(url,headers=auth).json['server'] == 'vpn.example.org'
+        commands.queue(self.device,'reprovision_vpn')
+        assert self.client.get(url,headers=auth).status_code == 404
+
+    def test_ca_registration_and_validation(self):
+        key = rsa.generate_private_key(public_exponent=65537,key_size=2048)
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME,'Synthetic test CA')])
+        now = datetime.now(timezone.utc)
+        certificate = x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key()).serial_number(x509.random_serial_number()).not_valid_before(now-timedelta(days=1)).not_valid_after(now+timedelta(days=1)).add_extension(x509.BasicConstraints(ca=True,path_length=None),critical=True).sign(key,hashes.SHA256())
+        pem = certificate.public_bytes(serialization.Encoding.PEM).decode()
+        provisioning = self.app.extensions['vpn_provisioning']
+        value = provisioning.save('vpn.example.org','',[],pem)
+        assert base64.b64decode(value['caCertificate']) == certificate.public_bytes(serialization.Encoding.DER)
+        with pytest.raises(ValueError): provisioning.save('vpn.example.org','',[],'invalid')
+        headers = {'Authorization':'Bearer '+self.settings.enrollment_secret,'X-FamilyVPN-VPN-Protocol':'1'}
+        assert self.client.post('/registrations',headers=headers,json={'id':self.device,'token':'ab'*32}).json['vpn']['caCertificate'] == value['caCertificate']
+        assert provisioning.save('vpn.example.org','',[])['caCertificate'] is None

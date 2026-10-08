@@ -202,7 +202,7 @@ import AppKit
                     if let previousUsername { try self.store.put("vpn-username", data: previousUsername) }
                     else { try self.store.delete("vpn-username") }
             }, rollbackFailure: "Installation rollback failed. Reopen the app and use administrator repair.")
-            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+            _ = try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge])
             self.updateStatus()
         }
     }
@@ -357,12 +357,20 @@ import AppKit
         do {
             try await serialized {
                 let command = try PushRegistrationService.trustedCommand(envelope)
-                guard self.policy.installed || command.action == .reprovisionAdmin else { return }
+                guard self.policy.installed || command.action == .reprovisionAdmin || command.action == .reprovisionVPN else { return }
                 var ledger = try PushRegistrationService.ledger()
                 guard ledger.accepts(command) else { success = true; return }
                 let old = self.policy
+                // Network failures remain pending: do not consume the sequence or acknowledge them.
+                let incomingVPN = command.action == .reprovisionVPN ? try await PushRegistrationService.vpnProvisioning(command) : nil
                 do {
-                    if command.action == .reprovisionAdmin {
+                    if let incomingVPN {
+                        let changedCA = incomingVPN.caCertificate != self.configuration?.caCertificate
+                        try self.store.put("vpn-provision", data: JSONEncoder().encode(incomingVPN))
+                        try self.reloadVPNProvisioning()
+                        if changedCA, incomingVPN.caCertificate != nil { await self.notifyCertificateUpdate() }
+                        // Receipt confirms stored provisioning. Recovery applies the profile once trust is approved.
+                    } else if command.action == .reprovisionAdmin {
                         guard let provision = command.administrator else { throw AppError.message("Administrator configuration missing.") }
                         try self.admin.provision(provision)
                         self.refreshEnrollmentState()
@@ -416,11 +424,25 @@ import AppKit
         // Reporting is optional; a network/service failure cannot turn local repair into failure.
         try? await PushRegistrationService.report(connection: connection, policyOK: policyOK)
     }
+    private func notifyCertificateUpdate() async {
+        let center = UNUserNotificationCenter.current()
+        _ = try? await center.requestAuthorization(options: [.alert, .sound, .badge])
+        let content = UNMutableNotificationContent()
+        content.title = "VPN certificate update"
+        content.body = "Open Family VPN to export the new CA profile and approve certificate trust in system Settings."
+        content.sound = .default
+        content.badge = 1
+        try? await center.add(UNNotificationRequest(identifier: "vpn-ca-update", content: content, trigger: nil))
+        try? await center.setBadgeCount(1)
+    }
     private func evaluate() async throws {
         if let suspension = policy.suspension, !suspension.isActive { var value = policy; value.suspension = nil; try persist(value) }
         try await load()
         guard VPNPolicyEngine.mayModify(hasProtocol: system.protocolConfiguration != nil, description: system.localizedDescription, owner: owner) else { throw AppError.message("Another Personal VPN conflicts with this policy.") }
         guard let accountData = try store.read("vpn-account"), let account = String(data: accountData, encoding: .utf8), let nameData = try store.read("vpn-username"), let username = String(data: nameData, encoding: .utf8) else { throw AppError.message("Saved VPN credentials are missing.") }
+        if let configuration { try RootCertificate.checkSystemTrust(configuration: configuration) }
+        try? await UNUserNotificationCenter.current().setBadgeCount(0)
+        UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["vpn-ca-update"])
         let proto = try expected(username: username, reference: store.reference(account))
         if policy.suspension?.isActive == true { system.connection.stopVPNTunnel() }
         if !matches(proto) {
@@ -470,7 +492,7 @@ import AppKit
         let center = UNUserNotificationCenter.current()
         center.removePendingNotificationRequests(withIdentifiers: ["suspension"])
         guard let expiry = policy.suspension?.expiry, expiry > Date() else { return }
-        guard (try? await center.requestAuthorization(options: [.alert, .sound])) == true else { return }
+        guard (try? await center.requestAuthorization(options: [.alert, .sound, .badge])) == true else { return }
         let content = UNMutableNotificationContent(); content.title = "VPN suspension expired"; content.body = "Open Family VPN to restore enforcement if it has not resumed."
         try? await center.add(UNNotificationRequest(identifier: "suspension", content: content, trigger: UNTimeIntervalNotificationTrigger(timeInterval: max(1, expiry.timeIntervalSinceNow), repeats: false)))
     }

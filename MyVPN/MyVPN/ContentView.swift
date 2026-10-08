@@ -58,16 +58,19 @@ struct ContentView: View {
                     Button("Register this installation") { run { try await vpn.enroll(endpoint: endpoint, secret: enrollmentSecret); enrollmentSecret = "" } }
                     Text("Registration requires device authentication and the dashboard enrollment secret. Only the configured registration network can enroll. Public reports use device credentials; pending commands require VPN connectivity. Enrollment authorizes signed refresh, suspend and enable requests.").font(.footnote)
                 }
+                if vpn.configuration?.caCertificate != nil, let url = RootCertificate.profileURL {
+                    Section("VPN certificate authority") {
+                        Text("A CA profile was provided by your dashboard. Export and install it through system Settings, then approve trust. The notification badge clears after a successful system trust check.")
+                        ShareLink("Export VPN CA profile", item: url)
+                        Button("Check certificate trust and apply provisioning") { run { _ = await vpn.recover() } }
+                    }
+                }
                 if !vpn.policy.installed {
                     Section("First-run setup") {
                         Text("Set the device administrator password in the dashboard, then register this device from the configured registration LAN. The app retrieves a password verifier over HTTPS.")
                         TextField("VPN username", text: $username)
                         SecureField("VPN password", text: $password)
                         Text("Initial trusted Wi-Fi: " + (vpn.policy.trustedSSIDs.isEmpty ? "None" : vpn.policy.trustedSSIDs.joined(separator: ", ")))
-                        if vpn.configuration?.rootCertificateResource != nil, let url = RootCertificate.profileURL {
-                            Text("This VPN uses a private certificate authority. Install the CA-only profile through system Settings before connecting. It contains no VPN configuration or credentials.")
-                            ShareLink("Export VPN root CA profile", item: url)
-                        }
                         Button("Install Personal VPN") { run { try await vpn.install(username: username, password: password) } }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!vpn.administratorReady).id("setupEnd")
                     }
                 } else {

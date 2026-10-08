@@ -29,3 +29,7 @@ Device bearer GET `/commands?id=device UUID` returns at most three signed pendin
 The native client retains up to 32 acknowledgement receipts and flushes two per recovery pass, including while disconnected. Recovery and APNs execution remain subject to iOS scheduling. Test real APNs and IKEv2 on physical hardware; simulator and synthetic proxy tests do not establish delivery or tunnel behavior.
 
 Administrator setup, migration and reprovisioning are documented in [ADMINISTRATION.md](ADMINISTRATION.md). Reprovision commands snapshot the verifier at queue time and require an updated administrator-capable registration. Their replay tracking and supersession are independent of VPN policy and refresh requests.
+
+## VPN, Wi-Fi and CA updates
+
+The `reprovision_vpn` command pushes a signed configuration snapshot reference. Updated devices retrieve and verify gateway, trusted Wi-Fi and optional CA settings over the VPN-only interface. CA updates create a notification and badge and require system trust approval. See [provisioning instructions](https://github.com/timlaing/family-vpn/blob/main/docs/PROVISIONING.md).

@@ -15,6 +15,19 @@ final class RemoteCommandTests: XCTestCase {
         let data = try JSONSerialization.data(withJSONObject: body)
         return RemoteCommandEnvelope(body: data.base64EncodedString(), signature: try key.signature(for: data).base64EncodedString())
     }
+    func testVPNProvisioningDigestAndIndependentReplayLedger() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let body: [String: Any] = ["request_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", "device": device, "epoch": epoch, "sequence": 7, "action": "reprovision_vpn", "issued_at": 1000, "expires_at": 1900, "vpn_digest": String(repeating: "a", count: 64)]
+        let data = try JSONSerialization.data(withJSONObject: body)
+        let signed = RemoteCommandEnvelope(body: data.base64EncodedString(), signature: try key.signature(for: data).base64EncodedString())
+        let command = try RemoteCommand.verify(signed, key: key.publicKey.rawRepresentation, device: device, epoch: epoch, now: now)
+        XCTAssertEqual(command.action, .reprovisionVPN)
+        var ledger = RemoteCommandLedger(highWater: 100)
+        XCTAssertTrue(ledger.accepts(command))
+        ledger.record(command, success: true)
+        XCTAssertFalse(ledger.accepts(command))
+        XCTAssertEqual(ledger.highWater, 100)
+    }
     func testPythonSignatureInteroperabilityAndPolicyPreservation() throws {
         let key = Data(base64Encoded: "8nJYdcpV128yFYsBHzN9wlFQOmCeIB8b6xz5KeLFg4g=")!
         let envelope = RemoteCommandEnvelope(body: "eyJhY3Rpb24iOiJzdXNwZW5kIiwiZGV2aWNlIjoiYmJiYmJiYmItYmJiYi1iYmJiLWJiYmItYmJiYmJiYmJiYmJiIiwiZXBvY2giOiJjY2NjY2NjYy1jY2NjLWNjY2MtY2NjYy1jY2NjY2NjY2NjY2MiLCJleHBpcmVzX2F0IjoxOTAwLCJpc3N1ZWRfYXQiOjEwMDAsInJlcXVlc3RfaWQiOiJhYWFhYWFhYS1hYWFhLWFhYWEtYWFhYS1hYWFhYWFhYWFhYWEiLCJzZXF1ZW5jZSI6Nywic3VzcGVuZF91bnRpbCI6MTkwMH0=", signature: "y/AaqxUMPuXNnCEDlk93q2fV8tk6maHkmPzHFk3s4ncFdcirJfqI/P9qyKgPsKKjq0uZ4MJgTHEPivJ1dmEiDA==")

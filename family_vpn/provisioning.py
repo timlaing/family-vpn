@@ -1,4 +1,7 @@
 """Validated deployment settings delivered over authenticated LAN enrollment."""
+import base64
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization
 import ipaddress
 import json
 import re
@@ -20,12 +23,22 @@ class VPNProvisioning:
             if value.endswith('.invalid') or not all(re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?', label) for label in value.split('.')):
                 raise ValueError('Use a hostname or IP address without a URL scheme or port')
         return value
-    def save(self, server, remote_identifier, ssids):
+    def save(self, server, remote_identifier, ssids, ca_pem=""):
+        ca = None
+        if ca_pem:
+            try:
+                if len(ca_pem.encode()) > 16384: raise ValueError()
+                certificate = x509.load_pem_x509_certificate(ca_pem.encode())
+                if not certificate.extensions.get_extension_for_class(x509.BasicConstraints).value.ca: raise ValueError()
+                ca = base64.b64encode(certificate.public_bytes(serialization.Encoding.DER)).decode()
+            except (ValueError, x509.ExtensionNotFound):
+                raise ValueError("Supply a PEM CA certificate, without a private key")
+            if "PRIVATE KEY" in ca_pem or ca_pem.count("BEGIN CERTIFICATE") != 1: raise ValueError("Supply one CA certificate only")
         server = self.hostname(server)
         remote_identifier = self.hostname(remote_identifier or server)
         if not isinstance(ssids, list) or len(ssids) > 32 or any(not isinstance(v, str) or v != v.strip() or not v or len(v.encode()) > 32 for v in ssids) or len(set(ssids)) != len(ssids):
             raise ValueError('Use at most 32 unique SSIDs, each at most 32 UTF-8 bytes')
-        payload = dict(server=server, remoteIdentifier=remote_identifier, trustedSSIDs=ssids, revision=str(uuid.uuid4()))
+        payload = dict(server=server, remoteIdentifier=remote_identifier, trustedSSIDs=ssids, revision=str(uuid.uuid4()), caCertificate=ca)
         with self.database.connect() as db:
             db.execute('INSERT INTO vpn_configuration VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload', (json.dumps(payload),))
         return payload

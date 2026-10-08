@@ -96,7 +96,7 @@ class Database:
 
     def public_devices(self):
         with self.connect() as db:
-            return [dict(row) for row in db.execute("SELECT id,registered,seen,connection,policy_ok,pushed,push_result,token IS NOT NULL AS registered_token,command_epoch IS NOT NULL AS command_capable,tunnel_seen,administrator_capable FROM devices ORDER BY registered")]
+            return [dict(row) for row in db.execute("SELECT id,registered,seen,connection,policy_ok,pushed,push_result,token IS NOT NULL AS registered_token,command_epoch IS NOT NULL AS command_capable,tunnel_seen,administrator_capable,vpn_capable FROM devices ORDER BY registered")]
 
 
 class APNsSender:
@@ -130,7 +130,7 @@ class APNsSender:
             collapse = "policy-check"
             if command:
                 action = json.loads(base64.b64decode(command["body"]))["action"]
-                collapse = {"refresh_status":"remote-refresh", "reprovision_admin":"remote-admin"}.get(action,"remote-control")
+                collapse = {"refresh_status":"remote-refresh", "reprovision_admin":"remote-admin", "reprovision_vpn":"remote-vpn"}.get(action,"remote-control")
             headers = {"authorization": "bearer " + jwt, "apns-topic": self.settings.apns_topic,
                        "apns-push-type": "background", "apns-priority": "5", "apns-collapse-id": collapse,
                        "apns-expiration": str(int(time.time()) + 3600)}
@@ -248,7 +248,8 @@ def create_app(settings=None, sender=None):
 
     @app.before_request
     def security():
-        if request.content_length is not None and request.content_length > app.config["MAX_CONTENT_LENGTH"]: abort(413)
+        if request.path == "/vpn-provisioning": request.max_content_length = 32768
+        if request.content_length is not None and request.content_length > (request.max_content_length or app.config["MAX_CONTENT_LENGTH"]): abort(413)
         if settings.demo and request.method != "GET": abort(403)
         if request.path in {"/status", "/command-results"}: limit_public_report()
         if request.environ.get("vpnweb.ingress"):
@@ -304,7 +305,7 @@ def create_app(settings=None, sender=None):
         if not session.get("admin"): abort(401)
         csrf()
         ssids = request.form.get("trusted_ssids", "").splitlines()
-        try: vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids)
+        try: vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, request.form.get("ca_pem", ""))
         except ValueError as exc: return str(exc), 400
         return redirect(url_for("dashboard"))
 
@@ -330,15 +331,15 @@ def create_app(settings=None, sender=None):
         provision = administrator.enrollment() if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" else None
         if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" and provision is None:
             return jsonify(error="Set the device administrator password in the dashboard before enrollment"),409
-        vpn = vpn_provisioning.enrollment() if request.headers.get("X-FamilyVPN-VPN-Protocol") == "1" else None
-        if request.headers.get("X-FamilyVPN-VPN-Protocol") == "1" and vpn is None:
+        vpn = vpn_provisioning.enrollment() if request.headers.get("X-FamilyVPN-VPN-Protocol") in {"1", "2"} else None
+        if request.headers.get("X-FamilyVPN-VPN-Protocol") in {"1", "2"} and vpn is None:
             return jsonify(error="Configure the VPN gateway and trusted Wi-Fi in the dashboard before enrollment"),409
         status_token = secrets.token_urlsafe(32)
         with database.connect() as db:
             db.execute("INSERT INTO devices(id,token,status_hash,registered) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET token=COALESCE(excluded.token,devices.token),status_hash=excluded.status_hash,registered=excluded.registered",
                        (device, token, digest(status_token), time.time()))
             epoch = str(uuid.uuid4()) if request.headers.get("X-FamilyVPN-Command-Protocol") == "1" else None
-            db.execute("UPDATE devices SET command_epoch=?,administrator_capable=? WHERE id=?", (epoch,int(provision is not None),device))
+            db.execute("UPDATE devices SET command_epoch=?,administrator_capable=?,vpn_capable=? WHERE id=?", (epoch,int(provision is not None),int(request.headers.get("X-FamilyVPN-VPN-Protocol") == "2"),device))
             db.execute("UPDATE commands SET state='superseded' WHERE device=? AND state='pending'",(device,))
             database.event(db, device, "registration", "registered")
         return jsonify(status_token=status_token, **({"command_key": commands.public_key, "command_epoch": epoch} if epoch else {}), **({"administrator":provision} if provision else {}), **({"vpn":vpn} if vpn else {})), 201
@@ -362,6 +363,19 @@ def create_app(settings=None, sender=None):
         with database.connect() as db:
             row=db.execute("SELECT status_hash FROM devices WHERE id=?",(device,)).fetchone()
             if row is None or not bearer() or not equal(digest(bearer()),row["status_hash"]): abort(401)
+
+    @app.get("/vpn-configuration")
+    def device_vpn_configuration():
+        try:
+            if set(request.args) != {"id", "request_id"}: raise ValueError()
+            device = identifier(request.args["id"])
+            request_id = identifier(request.args["request_id"])
+        except (ValueError, KeyError): abort(400)
+        scoped(device)
+        with database.connect() as db:
+            row = db.execute("SELECT c.vpn_json FROM commands c JOIN devices d ON c.device=d.id WHERE c.device=? AND c.request_id=? AND c.epoch=d.command_epoch AND c.action='reprovision_vpn' AND c.state='pending' AND c.expires_at>?", (device, request_id, int(time.time()))).fetchone()
+        if row is None: abort(404)
+        return app.response_class(row['vpn_json'], mimetype='application/json')
 
     @app.get("/commands")
     def pending_commands():

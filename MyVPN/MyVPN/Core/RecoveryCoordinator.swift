@@ -1,4 +1,5 @@
 import Foundation
+import UserNotifications
 import Network
 #if os(iOS)
 import UIKit
@@ -37,6 +38,7 @@ import BackgroundTasks
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         guard ScreenshotMode.page == nil, !ScreenshotMode.isUnitTestHost else { return true }
+        UNUserNotificationCenter.current().delegate = VPNNotificationDelegate.shared
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "uk.co.laingcorp.myvpn.refresh", using: nil) { task in
             Task { @MainActor in
                 let completion = CompletionOnce { task.setTaskCompleted(success: $0) }
@@ -80,6 +82,7 @@ import AppKit
 final class DesktopAppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard ScreenshotMode.page == nil, !ScreenshotMode.isUnitTestHost else { return }
+        UNUserNotificationCenter.current().delegate = VPNNotificationDelegate.shared
         if (try? CredentialStore().read("watchdog-endpoint")) != nil {
             NSApplication.shared.registerForRemoteNotifications()
         }
@@ -106,3 +109,10 @@ final class DesktopAppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 #endif
+
+final class VPNNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = VPNNotificationDelegate()
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound, .badge])
+    }
+}

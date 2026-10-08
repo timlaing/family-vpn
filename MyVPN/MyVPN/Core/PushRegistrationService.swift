@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegate {
     func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse, newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
@@ -51,7 +52,7 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         request.setValue("Bearer " + secret, forHTTPHeaderField: "Authorization")
         request.setValue("1", forHTTPHeaderField: "X-FamilyVPN-Command-Protocol")
         request.setValue("1", forHTTPHeaderField: "X-FamilyVPN-Administrator-Protocol")
-        request.setValue("1", forHTTPHeaderField: "X-FamilyVPN-VPN-Protocol")
+        request.setValue("2", forHTTPHeaderField: "X-FamilyVPN-VPN-Protocol")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let tokenString = token.map { $0.map { String(format: "%02x", $0) }.joined() }
         request.httpBody = try JSONSerialization.data(withJSONObject: ["id": identifier, "token": tokenString.map { $0 as Any } ?? NSNull()])
@@ -60,7 +61,7 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         request.timeoutInterval = 10
         let (data, response) = try await session.data(for: request)
         guard let response = response as? HTTPURLResponse, (200..<300).contains(response.statusCode) else { throw AppError.message("Watchdog registration failed.") }
-        guard response.statusCode == 201, data.count <= 8192 else { throw AppError.message("The dashboard must support administrator provisioning.") }
+        guard response.statusCode == 201, data.count <= 32768 else { throw AppError.message("The dashboard must support administrator provisioning.") }
         let registration = try JSONDecoder().decode(RegistrationReply.self, from: data)
         guard (32...256).contains(registration.statusToken.utf8.count), registration.statusToken.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }) else { throw AppError.message("Invalid status registration response.") }
         guard let provision = registration.administrator else { throw AppError.message("Set the administrator password in the dashboard before registering.") }
@@ -123,13 +124,23 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         guard let response = response as? HTTPURLResponse else { throw AppError.message("Remote service unavailable.") }
         return (data, response)
     }
+    static func vpnProvisioning(_ command: RemoteCommand) async throws -> VPNConfiguration {
+        guard var request = try commandRequest(path: "vpn-configuration"), let idData = try store.read("watchdog-id"), let id = String(data: idData, encoding: .utf8) else { throw AppError.message("VPN provisioning unavailable.") }
+        var url = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+        url.queryItems = [URLQueryItem(name: "id", value: id), URLQueryItem(name: "request_id", value: command.requestID)]
+        request.url = url.url
+        let (data, response) = try await commandData(request)
+        guard response.statusCode == 200, data.count <= 32768,
+              SHA256.hash(data: data).map({ String(format: "%02x", $0) }).joined() == command.vpnDigest else { throw AppError.message("VPN provisioning integrity check failed.") }
+        return try JSONDecoder().decode(VPNProvision.self, from: data).configuration()
+    }
     static func pendingCommands() async throws -> [RemoteCommandEnvelope] {
         guard var request = try commandRequest(path: "commands"), let idData = try store.read("watchdog-id"), let id = String(data: idData, encoding: .utf8) else { return [] }
         var url = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
         url.queryItems = [URLQueryItem(name: "id", value: id)]
         request.url = url.url
         let (data, response) = try await commandData(request)
-        guard response.statusCode == 200, data.count <= 8192 else { throw AppError.message("Pending commands unavailable.") }
+        guard response.statusCode == 200, data.count <= 32768 else { throw AppError.message("Pending commands unavailable.") }
         struct Reply: Decodable { let commands: [RemoteCommandEnvelope] }
         return Array(try JSONDecoder().decode(Reply.self, from: data).commands.prefix(3))
     }

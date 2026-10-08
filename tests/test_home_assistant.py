@@ -82,3 +82,12 @@ class TestHomeAssistant:
         assert self.app.extensions['administrator'].configured()
         assert (self.client.post('/administrator-password', base_url='http://localhost:8081', data=form).status_code) == (404)
         assert (self.ingress('/administrator-password', method='post', data={**form, 'csrf': 'wrong'}).status_code) == (403)
+
+    def test_vpn_provisioning_listener_isolation(self):
+        response = self.ingress()
+        csrf = re.search(rb'name="csrf" value="([^"]+)"', response.data).group(1).decode()
+        form = {'csrf':csrf,'server':'vpn.example.org','trusted_ssids':'Home'}
+        assert self.ingress('/vpn-provisioning', method='post', data=form).status_code == 302
+        assert self.client.post('/vpn-provisioning', base_url='http://localhost:8081', data=form).status_code == 404
+        assert self.ingress('/vpn-configuration').status_code == 404
+        assert self.client.get('/vpn-configuration', base_url='http://localhost:8081').status_code == 400

@@ -1,4 +1,5 @@
 """Durable, device-scoped Ed25519 commands. Never trust APNs delivery as execution."""
+import hashlib
 import base64
 import json
 import os
@@ -6,10 +7,11 @@ import time
 import uuid
 from pathlib import Path
 from .administrator import AdministratorProvisioning
+from .provisioning import VPNProvisioning
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
-ACTIONS = {'refresh_status', 'suspend', 'enable', 'reprovision_admin'}
+ACTIONS = {'refresh_status', 'suspend', 'enable', 'reprovision_admin', 'reprovision_vpn'}
 
 def encode(value): return base64.b64encode(value).decode()
 
@@ -28,6 +30,7 @@ class Commands:
         self.public_key = encode(self.key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
         with database.connect() as db:
             columns = {row['name'] for row in db.execute('PRAGMA table_info(devices)')}
+            if 'vpn_capable' not in columns: db.execute('ALTER TABLE devices ADD COLUMN vpn_capable INTEGER NOT NULL DEFAULT 0')
             if 'administrator_capable' not in columns: db.execute('ALTER TABLE devices ADD COLUMN administrator_capable INTEGER NOT NULL DEFAULT 0')
             if 'tunnel_seen' not in columns: db.execute('ALTER TABLE devices ADD COLUMN tunnel_seen REAL')
             if 'command_epoch' not in columns: db.execute('ALTER TABLE devices ADD COLUMN command_epoch TEXT')
@@ -38,6 +41,7 @@ class Commands:
                 state TEXT NOT NULL, last_attempt REAL, delivery TEXT, acknowledged REAL);
                 CREATE INDEX IF NOT EXISTS commands_pending ON commands(device,state,sequence);''')
             command_columns = {row['name'] for row in db.execute('PRAGMA table_info(commands)')}
+            if 'vpn_json' not in command_columns: db.execute('ALTER TABLE commands ADD COLUMN vpn_json TEXT')
             if 'administrator_json' not in command_columns: db.execute('ALTER TABLE commands ADD COLUMN administrator_json TEXT')
     def expire(self, db):
         db.execute("UPDATE commands SET state='expired' WHERE state='pending' AND expires_at<=?",(int(time.time()),))
@@ -49,27 +53,35 @@ class Commands:
         request_id=str(uuid.uuid4())
         with self.database.connect() as db:
             self.expire(db)
-            row=db.execute('SELECT command_epoch,administrator_capable FROM devices WHERE id=?',(device,)).fetchone()
+            row=db.execute('SELECT command_epoch,administrator_capable,vpn_capable FROM devices WHERE id=?',(device,)).fetchone()
             if row is None: raise LookupError('Unknown installation')
             if not row['command_epoch']: raise RuntimeError('Update and re-enroll this installation')
             provision = None
+            vpn = None
+            if action == "reprovision_vpn":
+                if not row["vpn_capable"]: raise RuntimeError("Update and re-enroll this installation for VPN updates")
+                vpn = VPNProvisioning(self.database).enrollment()
+                if vpn is None: raise RuntimeError("Configure VPN provisioning first")
+                db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='reprovision_vpn' AND state='pending'", (device,))
             if action=='reprovision_admin':
                 if not row['administrator_capable']: raise RuntimeError('Update and re-enroll this installation')
                 # Snapshot the exact dashboard verifier at queue time.
                 provision = self.administrator.enrollment()
                 if provision is None: raise RuntimeError('Set the administrator password before reprovisioning')
                 db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='reprovision_admin' AND state='pending'",(device,))
+            elif action=='reprovision_vpn': pass
             elif action=='refresh_status':
                 db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='refresh_status' AND state='pending'",(device,))
             else:
                 db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action IN ('suspend','enable') AND state='pending'",(device,))
-            db.execute('INSERT INTO commands(request_id,device,epoch,action,issued_at,expires_at,suspend_until,state,administrator_json) VALUES(?,?,?,?,?,?,?,?,?)',
-                (request_id,device,row['command_epoch'],action,now,expiry,until,'pending',json.dumps(provision,separators=(',',':')) if provision else None))
+            db.execute('INSERT INTO commands(request_id,device,epoch,action,issued_at,expires_at,suspend_until,state,administrator_json,vpn_json) VALUES(?,?,?,?,?,?,?,?,?,?)',
+                (request_id,device,row['command_epoch'],action,now,expiry,until,'pending',json.dumps(provision,separators=(',',':')) if provision else None,json.dumps(vpn,separators=(',',':'),sort_keys=True) if vpn else None))
             db.execute("DELETE FROM commands WHERE device=? AND state!='pending' AND sequence NOT IN (SELECT sequence FROM commands WHERE device=? ORDER BY sequence DESC LIMIT 200)",(device,device))
             self.database.event(db,device,'command',action)
         return request_id
     def envelope(self, row):
         body={field:row[field] for field in ('request_id','device','epoch','sequence','action','issued_at','expires_at','suspend_until')}
+        if row["vpn_json"]: body["vpn_digest"]=hashlib.sha256(row["vpn_json"].encode()).hexdigest()
         if row["administrator_json"]: body["administrator"]=json.loads(row["administrator_json"])
         raw=json.dumps(body,separators=(',',':'),sort_keys=True).encode()
         return {'body':encode(raw),'signature':encode(self.key.sign(raw))}

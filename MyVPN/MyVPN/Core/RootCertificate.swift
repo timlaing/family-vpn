@@ -2,11 +2,17 @@ import Foundation
 import Security
 
 enum RootCertificate {
-    static var profileURL: URL? { Bundle.main.url(forResource: "VPNRootCA", withExtension: "mobileconfig") }
+    static var profileURL: URL? {
+        guard let configuration = try? VPNConfiguration.load(), let encoded = configuration.caCertificate, let data = Data(base64Encoded: encoded) else { return nil }
+        let identifier = "org.familyvpn.ca." + (configuration.provisionRevision ?? UUID().uuidString)
+        let profile: [String: Any] = ["PayloadType": "Configuration", "PayloadVersion": 1, "PayloadIdentifier": identifier, "PayloadUUID": UUID().uuidString, "PayloadDisplayName": "Family VPN Certificate Authority", "PayloadContent": [["PayloadType": "com.apple.security.root", "PayloadVersion": 1, "PayloadIdentifier": identifier + ".certificate", "PayloadUUID": UUID().uuidString, "PayloadDisplayName": "VPN Certificate Authority", "PayloadContent": data]]]
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("FamilyVPN-CA.mobileconfig")
+        guard let bytes = try? PropertyListSerialization.data(fromPropertyList: profile, format: .xml, options: 0), (try? bytes.write(to: url, options: .atomic)) != nil else { return nil }
+        return url
+    }
     static func checkSystemTrust(configuration: VPNConfiguration) throws {
-        guard let resource = configuration.rootCertificateResource else { return }
-        guard let url = Bundle.main.url(forResource: resource, withExtension: "cer"),
-              let certificate = SecCertificateCreateWithData(nil, try Data(contentsOf: url) as CFData) else { throw AppError.message("Bundled root CA is missing or invalid.") }
+        guard let encoded = configuration.caCertificate else { return }
+        guard let data = Data(base64Encoded: encoded), let certificate = SecCertificateCreateWithData(nil, data as CFData) else { throw AppError.message("Provisioned CA is invalid.") }
         var trust: SecTrust?
         guard SecTrustCreateWithCertificates(certificate, SecPolicyCreateBasicX509(), &trust) == errSecSuccess, let trust else { throw AppError.message("Cannot check VPN certificate trust.") }
         SecTrustSetNetworkFetchAllowed(trust, false)

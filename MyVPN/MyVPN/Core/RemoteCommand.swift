@@ -7,7 +7,7 @@ struct RemoteCommandEnvelope: Codable {
 }
 
 struct RemoteCommand: Decodable {
-    enum Action: String, Decodable { case refreshStatus = "refresh_status", suspend, enable, reprovisionAdmin = "reprovision_admin" }
+    enum Action: String, Decodable { case refreshStatus = "refresh_status", suspend, enable, reprovisionAdmin = "reprovision_admin", reprovisionVPN = "reprovision_vpn" }
     let requestID: String
     let device: String
     let epoch: String
@@ -17,9 +17,10 @@ struct RemoteCommand: Decodable {
     let expiresAt: Int64
     let suspendUntil: Int64?
     let administrator: AdministratorProvision?
+    let vpnDigest: String?
     enum CodingKeys: String, CodingKey {
         case requestID = "request_id", device, epoch, sequence, action
-        case administrator, issuedAt = "issued_at", expiresAt = "expires_at", suspendUntil = "suspend_until"
+        case vpnDigest = "vpn_digest", administrator, issuedAt = "issued_at", expiresAt = "expires_at", suspendUntil = "suspend_until"
     }
     static func verify(_ envelope: RemoteCommandEnvelope, key: Data, device: String, epoch: String, now: Date = Date()) throws -> RemoteCommand {
         guard envelope.body.utf8.count <= 2048, envelope.signature.utf8.count <= 128,
@@ -46,12 +47,15 @@ struct RemoteCommand: Decodable {
             guard let administrator = command.administrator else { throw AppError.message("Administrator provisioning is missing.") }
             try administrator.validate()
         } else if command.administrator != nil { throw AppError.message("Unexpected administrator provisioning data.") }
+        if command.action == .reprovisionVPN {
+            guard let digest = command.vpnDigest, digest.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil else { throw AppError.message("Invalid VPN provisioning digest.") }
+        } else if command.vpnDigest != nil { throw AppError.message("Unexpected VPN provisioning digest.") }
         return command
     }
     func applying(to policy: LocalPolicy) throws -> LocalPolicy {
         var next = policy
         switch action {
-        case .refreshStatus, .reprovisionAdmin: break
+        case .refreshStatus, .reprovisionAdmin, .reprovisionVPN: break
         case .enable: next.suspension = nil
         case .suspend:
             next.suspension = SuspensionPolicy(created: Date(timeIntervalSince1970: Double(issuedAt)), expiry: suspendUntil.map { Date(timeIntervalSince1970: Double($0)) })
@@ -70,13 +74,15 @@ struct RemoteCommandLedger: Codable {
     var highWater: Int64 = 0
     var refreshHighWater: Int64 = 0
     var administratorHighWater: Int64?
+    var vpnHighWater: Int64?
     var receipts: [RemoteCommandReceipt] = []
     func accepts(_ command: RemoteCommand) -> Bool {
-        let previous = command.action == .reprovisionAdmin ? (administratorHighWater ?? 0) : (command.action == .refreshStatus ? refreshHighWater : highWater)
+        let previous = command.action == .reprovisionVPN ? (vpnHighWater ?? 0) : command.action == .reprovisionAdmin ? (administratorHighWater ?? 0) : (command.action == .refreshStatus ? refreshHighWater : highWater)
         return command.sequence > previous
     }
     mutating func record(_ command: RemoteCommand, success: Bool) {
-        if command.action == .reprovisionAdmin { administratorHighWater = max(administratorHighWater ?? 0, command.sequence) }
+        if command.action == .reprovisionVPN { vpnHighWater = max(vpnHighWater ?? 0, command.sequence) }
+        else if command.action == .reprovisionAdmin { administratorHighWater = max(administratorHighWater ?? 0, command.sequence) }
         else if command.action == .refreshStatus { refreshHighWater = max(refreshHighWater, command.sequence) }
         else { highWater = max(highWater, command.sequence) }
         receipts.append(RemoteCommandReceipt(requestID: command.requestID, result: success ? "executed" : "failed"))

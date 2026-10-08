@@ -1,8 +1,10 @@
 import Foundation
 import Network
+import Security
 
 struct VPNConfiguration: Codable {
     var provisionRevision: String?
+    var caCertificate: String?
     let authenticationMethod: String
     let useExtendedAuthentication: Bool
     let deadPeerDetectionRate: Int
@@ -89,6 +91,10 @@ struct VPNProvision: Decodable {
     let remoteIdentifier: String
     let trustedSSIDs: [String]
     let revision: String
+    let caCertificate: String?
+    init(server: String, remoteIdentifier: String, trustedSSIDs: [String], revision: String, caCertificate: String? = nil) {
+        self.server = server; self.remoteIdentifier = remoteIdentifier; self.trustedSSIDs = trustedSSIDs; self.revision = revision; self.caCertificate = caCertificate
+    }
     func configuration() throws -> VPNConfiguration {
         func validHost(_ host: String) -> Bool {
             guard !host.isEmpty, host.utf8.count <= 253, !host.hasSuffix(".invalid") else { return false }
@@ -103,6 +109,10 @@ struct VPNProvision: Decodable {
         config.localIdentifier = ""; config.certificateIssuerCommonName = ""
         config.defaultTrustedSSIDs = trustedSSIDs; config.rootCertificateResource = nil
         config.provisionRevision = revision
+        if let caCertificate {
+            guard let data = Data(base64Encoded: caCertificate), data.count <= 12288, SecCertificateCreateWithData(nil, data as CFData) != nil else { throw AppError.message("Invalid provisioned CA certificate.") }
+        }
+        config.caCertificate = caCertificate
         try config.validate()
         return config
     }
