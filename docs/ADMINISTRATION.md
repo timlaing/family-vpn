@@ -6,7 +6,7 @@ Version 0.3.0 moves device administrator password creation and changes to the da
 
 1. Install the 0.3.0 service and updated native app. Back up the private service database and command signing key before updating.
 2. Open the Home Assistant Ingress dashboard and set/confirm a password of at least 12 characters. The maximum is 1024 UTF-8 bytes; request bodies remain limited to 2 KiB.
-3. On the device, open Dashboard registration, enter the HTTPS `/family-vpn/registrations` endpoint and enrollment secret, and authorize with device authentication. The proxy accepts registration exclusively from 192.168.150.0/24.
+3. On the device, open Dashboard registration, enter the HTTPS `/family-vpn/registrations` endpoint and enrollment secret, and authorize with device authentication. The proxy accepts registration exclusively from 192.168.10.0/24.
 4. Registration retrieves the salted PBKDF2-SHA256 verifier (600,000 iterations, 32-byte salt/output), its revision and command trust. No plaintext administrator password is returned. First installation remains disabled until provisioned administrator configuration is available.
 5. Install the VPN with its separate username/password. Use the dashboard-managed administrator password when unlocking local administrator controls.
 
@@ -27,8 +27,12 @@ An executed acknowledgement means the local verifier update succeeded. Backgroun
 ## Access boundaries
 
 - Dashboard password setup: Home Assistant Ingress administrator access and CSRF, or authenticated standalone dashboard session and CSRF. It is unavailable on the add-on REST listener.
-- Registration: 192.168.150.0/24 plus enrollment bearer authentication.
+- Registration: 192.168.10.0/24 plus enrollment bearer authentication.
 - Status and command acknowledgements: public HTTPS with device-scoped authentication and rate limits.
-- Pending commands and administrator REST APIs: VPN subnets 192.168.201.0/24 and 192.168.202.0/24 plus their respective bearer credentials.
+- Pending commands and administrator REST APIs: VPN subnets 10.20.30.0/24 and 10.20.40.0/24 plus their respective bearer credentials.
 
 The service stores only the password verifier in its private SQLite database; it never echoes the password or verifier in dashboard HTML, logs or admin device/history APIs. Keep database backups protected because they include verifier material. No live Home Assistant/NPM configuration is changed by installing repository code; apply and verify the generated proxy locations and firewall restrictions separately.
+
+## Gateway and Wi-Fi provisioning
+
+Configure the VPN gateway, certificate identity and trusted Wi-Fi names in the dashboard before device registration. Re-register devices on the configured registration LAN after changes. The app stores deployment settings in Keychain; it no longer provides a developer gateway or editable local trusted Wi-Fi list. Subnet examples are illustrative and must be replaced with your own network ranges. See [provisioning](https://github.com/timlaing/family-vpn/blob/main/docs/PROVISIONING.md).

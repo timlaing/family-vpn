@@ -43,7 +43,7 @@ struct VPNHelpView: View {
         NavigationStack {
             Form {
                 Section("Getting started") {
-                    Text("Install and approve the exported VPN root CA profile in system Settings, set the device administrator password in the dashboard, register the app from 192.168.150.0/24, and enter your VPN account credentials in the app.")
+                    Text("Configure the VPN gateway, trusted Wi-Fi and device administrator password in your dashboard, register from your configured registration network, and enter your VPN account credentials in the app. Install your own certificate authority in system Settings if your gateway requires it.")
                 }
                 Section("Automatic protection") {
                     Text("The VPN connects on untrusted networks and bypasses administrator-approved Wi-Fi. The connection screen reports the system VPN status and latest policy check.")

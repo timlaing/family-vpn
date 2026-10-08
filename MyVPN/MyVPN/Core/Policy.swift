@@ -1,19 +1,21 @@
 import Foundation
+import Network
 
 struct VPNConfiguration: Codable {
+    var provisionRevision: String?
     let authenticationMethod: String
     let useExtendedAuthentication: Bool
     let deadPeerDetectionRate: Int
     let disableRedirect: Bool
     let enableRevocationCheck: Bool
     let useConfigurationAttributeInternalIPSubnet: Bool
-    let defaultTrustedSSIDs: [String]
-    let rootCertificateResource: String?
-    let server: String
-    let remoteIdentifier: String
-    let localIdentifier: String
+    var defaultTrustedSSIDs: [String]
+    var rootCertificateResource: String?
+    var server: String
+    var remoteIdentifier: String
+    var localIdentifier: String
     let certificateCommonName: String
-    let certificateIssuerCommonName: String
+    var certificateIssuerCommonName: String
     let disconnectOnSleep: Bool
     let disableMOBIKE: Bool
     let enablePFS: Bool
@@ -40,6 +42,7 @@ struct VPNConfiguration: Codable {
     }
     static func load() throws -> Self {
         guard let url = Bundle.main.url(forResource: "VPNConfiguration", withExtension: "json") else { throw AppError.message("Bundled VPN configuration is missing.") }
+        if let cached = try CredentialStore().read("vpn-provision") { return try JSONDecoder().decode(Self.self, from: cached) }
         return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
     }
 }
@@ -64,6 +67,7 @@ struct SuspensionPolicy: Codable, Equatable {
     }
 }
 struct LocalPolicy: Codable, Equatable {
+    var provisionRevision: String?
     var trustedSSIDs: [String] = []
     var suspension: SuspensionPolicy?
     var installed = false
@@ -77,5 +81,29 @@ struct LocalPolicy: Codable, Equatable {
     func validate() throws {
         guard try Self.normalize(trustedSSIDs) == trustedSSIDs else { throw AppError.message("Invalid stored trusted networks.") }
         try suspension?.validate()
+    }
+}
+
+struct VPNProvision: Decodable {
+    let server: String
+    let remoteIdentifier: String
+    let trustedSSIDs: [String]
+    let revision: String
+    func configuration() throws -> VPNConfiguration {
+        func validHost(_ host: String) -> Bool {
+            guard !host.isEmpty, host.utf8.count <= 253, !host.hasSuffix(".invalid") else { return false }
+            return IPv6Address(host) != nil || host.split(separator: ".", omittingEmptySubsequences: false).allSatisfy { label in
+                label.range(of: "^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$", options: .regularExpression) != nil
+            }
+        }
+        guard validHost(server), validHost(remoteIdentifier), UUID(uuidString: revision) != nil,
+              trustedSSIDs.count <= 32, try LocalPolicy.normalize(trustedSSIDs) == trustedSSIDs else { throw AppError.message("Invalid dashboard VPN provisioning.") }
+        var config = try VPNConfiguration.load()
+        config.server = server; config.remoteIdentifier = remoteIdentifier
+        config.localIdentifier = ""; config.certificateIssuerCommonName = ""
+        config.defaultTrustedSSIDs = trustedSSIDs; config.rootCertificateResource = nil
+        config.provisionRevision = revision
+        try config.validate()
+        return config
     }
 }

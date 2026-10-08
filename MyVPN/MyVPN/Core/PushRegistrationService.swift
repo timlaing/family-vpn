@@ -15,14 +15,14 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         // A changed deployment must never receive the old server's device credential.
         let previousEndpoint = try store.read("watchdog-endpoint")
         if previousEndpoint != Data(endpoint.utf8) {
-            for name in ["watchdog-status-secret", "watchdog-command-key", "watchdog-command-epoch", "watchdog-command-ledger", "watchdog-registered-token"] { try store.delete(name) }
+            for name in ["watchdog-status-secret", "watchdog-command-key", "watchdog-command-epoch", "watchdog-command-ledger", "watchdog-registered-token", "vpn-provision"] { try store.delete(name) }
         }
         try store.put("watchdog-endpoint", data: Data(endpoint.utf8))
         try store.put("watchdog-secret", data: Data(secret.utf8))
         if try store.read("watchdog-id") == nil { try store.put("watchdog-id", data: Data(UUID().uuidString.lowercased().utf8)) }
     }
     static func enroll(endpoint: String, secret: String) async throws {
-        let accounts = ["watchdog-endpoint", "watchdog-secret", "watchdog-id", "watchdog-status-secret", "watchdog-command-key", "watchdog-command-epoch", "watchdog-command-ledger", "watchdog-registered-token", "administrator"]
+        let accounts = ["watchdog-endpoint", "watchdog-secret", "watchdog-id", "watchdog-status-secret", "watchdog-command-key", "watchdog-command-epoch", "watchdog-command-ledger", "watchdog-registered-token", "administrator", "vpn-provision"]
         var previous: [String: Data] = [:]
         for account in accounts { if let value = try store.read(account) { previous[account] = value } }
         do { try configure(endpoint: endpoint, secret: secret); try await register() }
@@ -51,6 +51,7 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         request.setValue("Bearer " + secret, forHTTPHeaderField: "Authorization")
         request.setValue("1", forHTTPHeaderField: "X-FamilyVPN-Command-Protocol")
         request.setValue("1", forHTTPHeaderField: "X-FamilyVPN-Administrator-Protocol")
+        request.setValue("1", forHTTPHeaderField: "X-FamilyVPN-VPN-Protocol")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         let tokenString = token.map { $0.map { String(format: "%02x", $0) }.joined() }
         request.httpBody = try JSONSerialization.data(withJSONObject: ["id": identifier, "token": tokenString.map { $0 as Any } ?? NSNull()])
@@ -64,6 +65,8 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         guard (32...256).contains(registration.statusToken.utf8.count), registration.statusToken.utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }) else { throw AppError.message("Invalid status registration response.") }
         guard let provision = registration.administrator else { throw AppError.message("Set the administrator password in the dashboard before registering.") }
         try provision.validate()
+        guard let vpn = registration.vpn else { throw AppError.message("Configure VPN provisioning in the dashboard and register again.") }
+        let config = try vpn.configuration()
         guard let publicKey = registration.commandKey, let key = Data(base64Encoded: publicKey), key.count == 32,
            let epoch = registration.commandEpoch, UUID(uuidString: epoch)?.uuidString.lowercased() == epoch else { throw AppError.message("Invalid dashboard command enrollment.") }
         guard try store.read("watchdog-endpoint") == endpointData,
@@ -76,14 +79,16 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         try store.put("watchdog-command-key", data: key)
         try store.put("watchdog-status-secret", data: Data(registration.statusToken.utf8))
         try AdminAuthenticator().provision(provision)
+        try store.put("vpn-provision", data: JSONEncoder().encode(config))
         if let token { try store.put("watchdog-registered-token", data: token) }
     }
     private struct RegistrationReply: Decodable {
+        let vpn: VPNProvision?
         let statusToken: String
         let commandKey: String?
         let commandEpoch: String?
         let administrator: AdministratorProvision?
-        enum CodingKeys: String, CodingKey { case administrator, statusToken = "status_token", commandKey = "command_key", commandEpoch = "command_epoch" }
+        enum CodingKeys: String, CodingKey { case vpn, administrator, statusToken = "status_token", commandKey = "command_key", commandEpoch = "command_epoch" }
     }
     static func trustedCommand(_ envelope: RemoteCommandEnvelope) throws -> RemoteCommand {
         guard let key = try store.read("watchdog-command-key"),

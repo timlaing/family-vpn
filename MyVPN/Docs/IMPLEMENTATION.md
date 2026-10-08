@@ -1,6 +1,6 @@
 > Administrator password setup is dashboard-owned; see [ADMINISTRATION.md](ADMINISTRATION.md) for migration and reprovisioning.
 
-> Remote commands and public reporting boundaries are documented in [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md). Re-enroll the updated iPhone/iPad app from 192.168.150.0/24 to authorize signed commands.
+> Remote commands and public reporting boundaries are documented in [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md). Re-enroll the updated iPhone/iPad app from 192.168.10.0/24 to authorize signed commands.
 
 # Implementation and deployment
 

@@ -86,6 +86,7 @@ import AppKit
                 try current.validate()
                 self.policy = current
             }
+            try self.reloadVPNProvisioning()
             self.loaded = self.configuration != nil
             try await body()
         }
@@ -249,6 +250,7 @@ import AppKit
         try await DeviceAuthentication.authorize()
         try await serialized {
             try await PushRegistrationService.enroll(endpoint: endpoint, secret: secret)
+            try self.reloadVPNProvisioning()
             self.administratorReady = try self.admin.hasProvisionedRecord()
             #if os(iOS)
             UIApplication.shared.registerForRemoteNotifications()
@@ -257,8 +259,19 @@ import AppKit
             #endif
         }
     }
+    private func reloadVPNProvisioning() throws {
+        let latest = try VPNConfiguration.load()
+        if latest.provisionRevision != policy.provisionRevision {
+            var updated = policy
+            updated.trustedSSIDs = latest.defaultTrustedSSIDs
+            updated.provisionRevision = latest.provisionRevision
+            try persist(updated)
+        }
+        configuration = latest
+    }
     func refreshEnrollmentState() {
         administratorReady = (try? admin.hasProvisionedRecord()) == true
+        Task { await recover() }
     }
     func authenticateAdmin(_ password: String) async throws {
         try await serialized { try self.admin.verify(password) }

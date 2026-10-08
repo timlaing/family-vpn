@@ -1,6 +1,6 @@
 > Device administrator setup and signed reprovisioning: [ADMINISTRATION.md](docs/ADMINISTRATION.md).
 
-> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.150.0/24; remaining REST routes stay VPN-only. See [remote command and proxy configuration](docs/REMOTE_COMMANDS.md).
+> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.10.0/24; remaining REST routes stay VPN-only. See [remote command and proxy configuration](docs/REMOTE_COMMANDS.md).
 
 # Security policy
 

@@ -18,6 +18,7 @@ from pathlib import Path
 
 import httpx
 from .commands import Commands, ACTIONS
+from .provisioning import VPNProvisioning
 from .administrator import AdministratorProvisioning
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 
@@ -213,6 +214,8 @@ def create_app(settings=None, sender=None):
     database = Database(settings.database)
     commands = Commands(database)
     administrator = AdministratorProvisioning(database)
+    vpn_provisioning = VPNProvisioning(database)
+    app.extensions["vpn_provisioning"] = vpn_provisioning
     dispatcher = Dispatcher(database, sender or APNsSender(settings), settings, commands)
     app.extensions.update(database=database, dispatcher=dispatcher, settings=settings, commands=commands, administrator=administrator)
     login_failures = {}
@@ -294,7 +297,16 @@ def create_app(settings=None, sender=None):
             events = [dict(row) for row in db.execute("SELECT at,device,kind,result FROM events ORDER BY seq DESC LIMIT 30")]
         return render_template("dashboard.html", devices=database.public_devices(), events=events, demo=settings.demo,
                                configured=settings.apns_ready, environment=settings.apns_environment,
-                               interval=settings.interval // 60, automatic=settings.automatic, running=dispatcher.running, commands=commands.public(), administrator_configured=administrator.configured())
+                               interval=settings.interval // 60, automatic=settings.automatic, running=dispatcher.running, commands=commands.public(), administrator_configured=administrator.configured(), vpn_provision=vpn_provisioning.enrollment())
+
+    @app.post("/vpn-provisioning")
+    def configure_vpn_provisioning():
+        if not session.get("admin"): abort(401)
+        csrf()
+        ssids = request.form.get("trusted_ssids", "").splitlines()
+        try: vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids)
+        except ValueError as exc: return str(exc), 400
+        return redirect(url_for("dashboard"))
 
     @app.post("/administrator-password")
     def administrator_password():
@@ -318,6 +330,9 @@ def create_app(settings=None, sender=None):
         provision = administrator.enrollment() if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" else None
         if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" and provision is None:
             return jsonify(error="Set the device administrator password in the dashboard before enrollment"),409
+        vpn = vpn_provisioning.enrollment() if request.headers.get("X-FamilyVPN-VPN-Protocol") == "1" else None
+        if request.headers.get("X-FamilyVPN-VPN-Protocol") == "1" and vpn is None:
+            return jsonify(error="Configure the VPN gateway and trusted Wi-Fi in the dashboard before enrollment"),409
         status_token = secrets.token_urlsafe(32)
         with database.connect() as db:
             db.execute("INSERT INTO devices(id,token,status_hash,registered) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET token=COALESCE(excluded.token,devices.token),status_hash=excluded.status_hash,registered=excluded.registered",
@@ -326,7 +341,7 @@ def create_app(settings=None, sender=None):
             db.execute("UPDATE devices SET command_epoch=?,administrator_capable=? WHERE id=?", (epoch,int(provision is not None),device))
             db.execute("UPDATE commands SET state='superseded' WHERE device=? AND state='pending'",(device,))
             database.event(db, device, "registration", "registered")
-        return jsonify(status_token=status_token, **({"command_key": commands.public_key, "command_epoch": epoch} if epoch else {}), **({"administrator":provision} if provision else {})), 201
+        return jsonify(status_token=status_token, **({"command_key": commands.public_key, "command_epoch": epoch} if epoch else {}), **({"administrator":provision} if provision else {}), **({"vpn":vpn} if vpn else {})), 201
 
     @app.post("/status")
     def status():

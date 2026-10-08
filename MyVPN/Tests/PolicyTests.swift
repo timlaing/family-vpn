@@ -58,8 +58,20 @@ final class PolicyTests: XCTestCase {
         return try VPNConfiguration.load()
         #endif
     }
+    func testDashboardProvisioningValidation() throws {
+        let configuration = try VPNProvision(server: "vpn.example.org", remoteIdentifier: "vpn.example.org", trustedSSIDs: ["Home"], revision: UUID().uuidString).configuration()
+        XCTAssertEqual(configuration.server, "vpn.example.org")
+        XCTAssertEqual(configuration.defaultTrustedSSIDs, ["Home"])
+        XCTAssertNil(configuration.rootCertificateResource)
+        for host in ["https://vpn.example.org", "a..org", "gateway.invalid", "vpn.example.org:443"] {
+            XCTAssertThrowsError(try VPNProvision(server: host, remoteIdentifier: host, trustedSSIDs: [], revision: UUID().uuidString).configuration())
+        }
+    }
     func testImportedProfileProtocolSettings() throws {
-        let configuration = try bundledConfiguration()
+        var configuration = try bundledConfiguration()
+        XCTAssertThrowsError(try configuration.validate())
+        configuration.server = "vpn.example.org"
+        configuration.remoteIdentifier = "vpn.example.org"
         try configuration.validate()
         let proto = try configuration.makeProtocol(username: "test-only", reference: Data([1, 2, 3]))
         XCTAssertEqual(proto.authenticationMethod, .certificate)
@@ -70,7 +82,7 @@ final class PolicyTests: XCTestCase {
         XCTAssertFalse(proto.disableRedirect)
         XCTAssertFalse(proto.enableRevocationCheck)
         XCTAssertTrue(proto.enablePFS)
-        XCTAssertEqual(proto.serverCertificateIssuerCommonName, "vpn")
+        XCTAssertNil(proto.serverCertificateIssuerCommonName)
         XCTAssertNil(proto.serverCertificateCommonName)
         XCTAssertNil(proto.proxySettings)
         XCTAssertEqual(proto.ikeSecurityAssociationParameters.encryptionAlgorithm, .algorithmAES256)
@@ -81,8 +93,8 @@ final class PolicyTests: XCTestCase {
         XCTAssertEqual(proto.childSecurityAssociationParameters.lifetimeMinutes, 120)
         XCTAssertNil(configuration.mtu)
         XCTAssertEqual(proto.mtu, NEVPNProtocolIKEv2().mtu)
-        XCTAssertEqual(configuration.defaultTrustedSSIDs, ["Laing's Wi-Fi Network", "Laing's Wi-Fi Network 5GHz"])
-        XCTAssertEqual(configuration.rootCertificateResource, "VPNRootCA")
+        XCTAssertEqual(configuration.defaultTrustedSSIDs, [])
+        XCTAssertNil(configuration.rootCertificateResource)
     }
     func testPlaceholderCannotInstall() throws {
         var values = try JSONSerialization.jsonObject(with: JSONEncoder().encode(bundledConfiguration())) as! [String: Any]

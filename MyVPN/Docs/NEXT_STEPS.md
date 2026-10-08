@@ -1,4 +1,4 @@
-> Remote commands and public reporting boundaries are documented in [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md). Set the device administrator password in the dashboard, then register updated iOS/macOS apps from 192.168.150.0/24. Use signed reprovision requests after later password changes.
+> Remote commands and public reporting boundaries are documented in [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md). Set the device administrator password in the dashboard, then register updated iOS/macOS apps from 192.168.10.0/24. Use signed reprovision requests after later password changes.
 
 # Next steps — Family VPN
 
@@ -24,7 +24,7 @@ Start with one iPhone. Repeat the acceptance checks on an iPad and a signed Mac 
 2. On iPhone/iPad, review the installed profile under Settings → General → VPN & Device Management. If required for the manually installed root, enable its trust under Settings → General → About → Certificate Trust Settings. Review the `vpn` certificate and verify it is the bundled certificate before approving it. [Apple's certificate-trust instructions](https://support.apple.com/en-gb/102390).
 3. On Mac, approve the CA/profile and required trust through system administration. The app's root-trust gate and the real gateway handshake must both pass.
 4. Avoid installing the original **full** VPN-EAP profile alongside this app-owned configuration: a profile-owned VPN cannot be edited by the app. If one is already installed, review and resolve that conflict yourself before the test. Removing an existing profile may also remove its CA, so check root trust afterwards.
-5. Set and confirm the device administrator password in the dashboard, register the app from 192.168.150.0/24, then enter the VPN test username/password, review trusted SSIDs and approve **Install Personal VPN** when Apple prompts.
+5. Set and confirm the device administrator password in the dashboard, register the app from 192.168.10.0/24, then enter the VPN test username/password, review trusted SSIDs and approve **Install Personal VPN** when Apple prompts.
 6. Confirm Family VPN appears in system VPN settings. On an untrusted network or cellular, verify actual connection and traffic through your VPN server. A verified policy check alone is not proof of a working tunnel.
 
 ## 3. Run the physical acceptance checks
@@ -79,7 +79,7 @@ Use Xcode Organizer to submit the exported Mac build for notarization and staple
 
 ## 5. Dashboard enrollment and remote command acceptance
 
-Install the sibling VPNWeb 0.3.0 Home Assistant add-on and configure its dashboard administrator password before initial native VPN setup. See ADMINISTRATION.md and REMOTE_COMMANDS.md. Registration is limited to 192.168.150.0/24; status and acknowledgements are public authenticated POST routes; pending-command retrieval and admin APIs remain VPN-only. Apply and test NPM ACLs and direct-port firewall restrictions.
+Install the sibling VPNWeb 0.3.0 Home Assistant add-on and configure its dashboard administrator password before initial native VPN setup. See ADMINISTRATION.md and REMOTE_COMMANDS.md. Registration is limited to 192.168.10.0/24; status and acknowledgements are public authenticated POST routes; pending-command retrieval and admin APIs remain VPN-only. Apply and test NPM ACLs and direct-port firewall restrictions.
 
 Use sandbox APNs for development builds and production APNs for distribution. Register each updated device from the native main page on the registration LAN. Test refresh, suspend, enable and administrator reprovision on a physical iPhone/iPad, including delayed delivery, expiry, force quit, changed tokens and offline acknowledgements. Change the password in the dashboard and confirm an executed reprovision acknowledgement before relying on the changed local unlock password. macOS can register before receiving its APNs token; signed APNs commands can reach the running app/background helper while disconnected, with VPN-connected polling as fallback. Delivery timing is best effort.
 

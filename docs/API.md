@@ -1,10 +1,10 @@
 > Device administrator setup and signed reprovisioning: [ADMINISTRATION.md](ADMINISTRATION.md).
 
-> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.150.0/24; remaining REST routes stay VPN-only. See the repository `docs/REMOTE_COMMANDS.md` for complete setup instructions.
+> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.10.0/24; remaining REST routes stay VPN-only. See the repository `docs/REMOTE_COMMANDS.md` for complete setup instructions.
 
 # HTTP API
 
-All real-device endpoints require HTTPS. Registration is restricted to 192.168.150.0/24. Status and acknowledgements are authenticated public POST routes; remaining REST routes require the VPN subnets. If using a deployment prefix, registration and status must share the same prefix and origin. JSON bodies are limited to 2048 bytes; extra fields are rejected. Installation IDs are canonical lowercase UUIDs. Bearer credentials are case-sensitive. Do not place credentials in URL parameters.
+All real-device endpoints require HTTPS. Registration is restricted to 192.168.10.0/24. Status and acknowledgements are authenticated public POST routes; remaining REST routes require the VPN subnets. If using a deployment prefix, registration and status must share the same prefix and origin. JSON bodies are limited to 2048 bytes; extra fields are rejected. Installation IDs are canonical lowercase UUIDs. Bearer credentials are case-sensitive. Do not place credentials in URL parameters.
 
 | Route | Authentication | Success |
 | --- | --- | --- |
@@ -56,3 +56,7 @@ Result codes: `accepted`, `invalid_token`, `retry_later`, `provider_error`, `net
 | 503 | APNs provider configuration absent |
 
 Validation failures may precede authentication on `/status`; error bodies are not a stable API contract. Treat status codes as the contract and never assume all errors are JSON. `/health` is process liveness, not end-to-end readiness.
+
+## VPN provisioning
+
+Registration clients send `X-FamilyVPN-VPN-Protocol: 1`. Successful responses include `vpn` with `server`, `remoteIdentifier`, `trustedSSIDs` and UUID `revision`. The dashboard must have valid gateway settings first; otherwise registration returns 409 without rotating credentials. Configuration is managed through the authenticated, CSRF-protected dashboard. See [PROVISIONING.md](PROVISIONING.md).

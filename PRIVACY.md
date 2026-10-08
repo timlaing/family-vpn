@@ -14,7 +14,7 @@ Device authentication uses Apple's authentication facilities. The app does not r
 
 Registration sends an installation identifier and an Apple push-notification token when available. Status messages contain the installation identifier, VPN connection state and whether the local policy check succeeded. Command acknowledgements identify the command and its execution result. The dashboard records receipt times, command requests, suspension durations and bounded operational history. It stores push tokens, administrator verification data and hashed device reporting credentials.
 
-The dashboard reporting protocol does not send VPN usernames or passwords, trusted Wi-Fi names, browsing history, visited URLs or biometric information. The network service and reverse proxy may see source IP addresses and maintain their own access logs; those logs depend on the operator's configuration.
+The dashboard stores administrator-configured VPN gateway and trusted Wi-Fi names and supplies them to devices during registration. Device status reports do not send VPN usernames or passwords, trusted Wi-Fi names, browsing history, visited URLs or biometric information. The network service and reverse proxy may see source IP addresses and maintain their own access logs; those logs depend on the operator's configuration.
 
 ## Why this information is processed
 

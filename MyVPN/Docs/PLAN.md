@@ -78,7 +78,7 @@ After an administrator changes the trusted list, rebuild the rules, save them to
 
 ## 5. Local Administration
 
-Require creation and confirmation of the device administrator password in the dashboard. Before installing the VPN, register from 192.168.150.0/24 to retrieve its verifier. Manage password changes centrally and deliver them through registration or signed reprovision commands.
+Require creation and confirmation of the device administrator password in the dashboard. Before installing the VPN, register from 192.168.10.0/24 to retrieve its verifier. Manage password changes centrally and deliver them through registration or signed reprovision commands.
 
 - Store a salted, computationally expensive verifier rather than plaintext.
 - Use constant-time verifier comparison.

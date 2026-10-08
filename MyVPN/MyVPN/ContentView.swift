@@ -56,15 +56,15 @@ struct ContentView: View {
                     TextField("HTTPS registration endpoint", text: $endpoint)
                     SecureField("Enrollment secret", text: $enrollmentSecret)
                     Button("Register this installation") { run { try await vpn.enroll(endpoint: endpoint, secret: enrollmentSecret); enrollmentSecret = "" } }
-                    Text("Registration requires device authentication and the dashboard enrollment secret. Only 192.168.150.0/24 can enroll. Public reports use device credentials; pending commands require VPN connectivity. Enrollment authorizes signed refresh, suspend and enable requests.").font(.footnote)
+                    Text("Registration requires device authentication and the dashboard enrollment secret. Only the configured registration network can enroll. Public reports use device credentials; pending commands require VPN connectivity. Enrollment authorizes signed refresh, suspend and enable requests.").font(.footnote)
                 }
                 if !vpn.policy.installed {
                     Section("First-run setup") {
-                        Text("Set the device administrator password in the dashboard, then register this device from the registration LAN (192.168.150.0/24). The app retrieves a password verifier over HTTPS.")
+                        Text("Set the device administrator password in the dashboard, then register this device from the configured registration LAN. The app retrieves a password verifier over HTTPS.")
                         TextField("VPN username", text: $username)
                         SecureField("VPN password", text: $password)
                         Text("Initial trusted Wi-Fi: " + (vpn.policy.trustedSSIDs.isEmpty ? "None" : vpn.policy.trustedSSIDs.joined(separator: ", ")))
-                        if let url = RootCertificate.profileURL {
+                        if vpn.configuration?.rootCertificateResource != nil, let url = RootCertificate.profileURL {
                             Text("This VPN uses a private certificate authority. Install the CA-only profile through system Settings before connecting. It contains no VPN configuration or credentials.")
                             ShareLink("Export VPN root CA profile", item: url)
                         }
@@ -130,10 +130,9 @@ struct ContentView: View {
                 } else {
                 if !["admin-security", "admin-security-bottom"].contains(vpn.screenshotPage ?? "") {
                 Section("Trusted Wi-Fi") {
-                    Text("Enter one exact, case-sensitive SSID per line. An access point can imitate a trusted SSID.")
-                    TextEditor(text: $trusted).font(.body.monospaced()).frame(height: 100)
-                        .padding(8).background(.quaternary.opacity(0.3), in: RoundedRectangle(cornerRadius: 10))
-                    Button("Save trusted networks") { run { let values = try LocalPolicy.normalize(trusted.split(separator: "\n", omittingEmptySubsequences: false).map(String.init).filter { !$0.isEmpty }); try await vpn.administer(password: administrator) { $0.trustedSSIDs = values } } }
+                    Text("Managed by your dashboard. Re-register on the registration network to retrieve gateway and Wi-Fi changes. An access point can imitate a trusted SSID.")
+                    ForEach(vpn.policy.trustedSSIDs, id: \.self) { Text($0) }
+                    if vpn.policy.trustedSSIDs.isEmpty { Text("No trusted networks configured.") }
                 }
                 Section("Suspend enforcement") {
                     ForEach([15, 60, 480], id: \.self) { minutes in

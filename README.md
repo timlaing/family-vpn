@@ -1,6 +1,6 @@
 > Device administrator setup and signed reprovisioning: [ADMINISTRATION.md](docs/ADMINISTRATION.md).
 
-> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.150.0/24; remaining REST routes stay VPN-only. See [remote command and proxy configuration](docs/REMOTE_COMMANDS.md).
+> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.10.0/24; remaining REST routes stay VPN-only. See [remote command and proxy configuration](docs/REMOTE_COMMANDS.md).
 
 # Family VPN
 
@@ -10,7 +10,7 @@ Open `MyVPN/MyVPN.xcodeproj` for Apple development. See the [implementation plan
 
 ## Home Assistant installation
 
-This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashboard and APNs settings use Ingress on port 8099; a separate bearer-authenticated REST listener on port 8081 sits behind your Nginx Proxy Manager custom location. Only authenticated POST status and command acknowledgements are publicly reachable; registration requires 192.168.150.0/24 and remaining REST routes require VPN source addresses. Follow [Home Assistant and NPM setup](docs/HOME_ASSISTANT.md). The root entry points retain standalone preview compatibility.
+This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashboard and APNs settings use Ingress on port 8099; a separate bearer-authenticated REST listener on port 8081 sits behind your Nginx Proxy Manager custom location. Only authenticated POST status and command acknowledgements are publicly reachable; registration requires 192.168.10.0/24 and remaining REST routes require VPN source addresses. Follow [Home Assistant and NPM setup](docs/HOME_ASSISTANT.md). The root entry points retain standalone preview compatibility.
 
 ## Documentation
 
@@ -104,3 +104,7 @@ Tests use temporary SQLite files, synthetic tokens/provider responses and a fake
 ## Licence
 
 Copyright 2026 Tim Laing. Released under the [MIT licence](LICENSE). Third-party dependencies retain their own licences.
+
+## Gateway and Wi-Fi provisioning
+
+Configure the VPN gateway, certificate identity and trusted Wi-Fi names in the dashboard before device registration. Re-register devices on the configured registration LAN after changes. The app stores deployment settings in Keychain; it no longer provides a developer gateway or editable local trusted Wi-Fi list. Subnet examples are illustrative and must be replaced with your own network ranges. See [provisioning](https://github.com/timlaing/family-vpn/blob/main/docs/PROVISIONING.md).

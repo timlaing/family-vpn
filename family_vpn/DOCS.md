@@ -1,6 +1,6 @@
 > Device administrator setup and signed reprovisioning: [ADMINISTRATION.md](ADMINISTRATION.md).
 
-> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.150.0/24; remaining REST routes stay VPN-only. See [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md) for complete setup instructions.
+> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.10.0/24; remaining REST routes stay VPN-only. See [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md) for complete setup instructions.
 
 # Home Assistant app and Nginx Proxy Manager
 
@@ -83,7 +83,7 @@ After one manual APNs request, verify a new report from a physical device. Synth
 
 ## Public reporting and protected REST access
 
-Expose only authenticated POST status and command acknowledgements publicly. Restrict enrollment to 192.168.150.0/24. Restrict pending-command retrieval and administrator REST APIs to the VPN source subnets. Keep the dashboard and configuration in Home Assistant Ingress. Firewall direct port 8081 access and preserve bearer headers at NPM.
+Expose only authenticated POST status and command acknowledgements publicly. Restrict enrollment to 192.168.10.0/24. Restrict pending-command retrieval and administrator REST APIs to the VPN source subnets. Keep the dashboard and configuration in Home Assistant Ingress. Firewall direct port 8081 access and preserve bearer headers at NPM.
 
 [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md) provides the complete location generator, command API, key backup requirements and physical-device acceptance checks. Use its `--public-reports` configuration for this deployment. A public connected report is a device assertion; the separate last VPN-only contact relies on the protected route and correct proxy/firewall configuration.
 
