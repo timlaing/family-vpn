@@ -1,0 +1,4 @@
+Generated with the built-in image_gen tool. Master asset: MyVPN/Assets.xcassets/AppIcon.appiconset/AppIcon-1024.png. macOS size variants are downscaled from the master with sips.
+
+Final prompt:
+Use case: logo-brand. Asset type: production Apple app icon for Family VPN. Create a single square 1024x1024 full-bleed icon, opaque edge-to-edge deep navy background with a restrained teal gradient. Center a bold elegant shield, white left half and mint right half, with subtle three-node network connections enclosed in the shield. Clean precise flat vector-like geometry with restrained depth, no fine detail, strong silhouette legible at 16 pixels. Generous 20% padding. Match a native navy/mint VPN utility. No text, letters, mockup, border, watermark, rounded outer corners, or shadows outside the square. Exactly one icon.

@@ -1,0 +1,12 @@
+**
+!Dockerfile
+!requirements.lock
+!family_vpn/
+!family_vpn/**
+**/__pycache__
+**/*.p8
+**/*.pem
+**/.env
+**/*.sqlite*
+
+**/*.key

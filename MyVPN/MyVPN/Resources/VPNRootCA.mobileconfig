@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>PayloadContent</key>
+	<array>
+		<dict>
+			<key>PayloadContent</key>
+			<data>
+			MIIDxjCCAq6gAwIBAgIUD8BVp1m5Y8iREMEOSEbV0bzkdGYwDQYJ
+			KoZIhvcNAQELBQAwcjELMAkGA1UEBhMCR0IxGTAXBgoJkiaJk/Is
+			ZAEZFglsYWluZ2NvcnAxEjAQBgoJkiaJk/IsZAEZFgJjbzESMBAG
+			CgmSJomT8ixkARkWAnVrMRIwEAYDVQQKDAlMYWluZ2NvcnAxDDAK
+			BgNVBAMMA3ZwbjAeFw0yNTEwMTkxOTU1NDVaFw0zNTEwMTcxOTU1
+			NDVaMHIxCzAJBgNVBAYTAkdCMRkwFwYKCZImiZPyLGQBGRYJbGFp
+			bmdjb3JwMRIwEAYKCZImiZPyLGQBGRYCY28xEjAQBgoJkiaJk/Is
+			ZAEZFgJ1azESMBAGA1UECgwJTGFpbmdjb3JwMQwwCgYDVQQDDAN2
+			cG4wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDCJo9L
+			r45F9rgDJv2DjrAmo460h5v90jQXS5KGebeVEVVd+kW+kYXEOuBn
+			GlA9AHScdemwg4Mmbm1x++vccWZEVBSUxOhhOEqP1TbCCMIOniB4
+			VLhhbg94/H3N9L6W2O9mxPuuiMp5ngZU3t9P+xeOhTuf6rufm1cj
+			OGoerGoSmV5nj4uNIJsvFacUY2SVEGIE/wyvMDsl/cCb/o7A/Iax
+			2rZt+q/9le0qRgAenVMbLN2h7CSnCm09Ml66x9GBQ9g1m0dbJFDh
+			E6DyeF2eGFFRDgfV5i7raCc3wHI4X5D8Dm4ZXQwR+QLrgQKGgiHj
+			OCepOugCjU1kd2pBDsXnM4mdAgMBAAGjVDBSMDEGA1UdEQQqMCiC
+			E3Zwbi5sYWluZ2NvcnAuY28udWuCESoubGFpbmdjb3JwLmNvLnVr
+			MB0GA1UdDgQWBBSSl8UIWfyJ6543Tgwm1DDhl1AmzTANBgkqhkiG
+			9w0BAQsFAAOCAQEAUTJuM9S/331wM38HTocryFxHDcUS7RbEJBJT
+			4qFn4nfoCFdmQscaT2ZEtKgWaOCtfm2zFCq7D+8d/Kwjg/ssI3wy
+			i9gPhYYMwTH0VlqbQd4Ik3chyqL9cCFaSDPEKV3QINCznDYzX1S8
+			YgUCa0HFf857Pl9He31mGcUiPIgY5umLGJXZsANQchqOJTl1OdOT
+			NJO0V0bBhAn6vqbYJ98svlfBPPKtTyBPuwvAtiyMPFWbApfMhN5m
+			JECYPtUnHV528P/2rCB/hO9kw4QYlHs+TqlOo4I6aXxlxzWLf5Fe
+			KCpB8cwnbI1Ue+ThXCiBfo7gnMOk8gl+lzkS+oo+DrFVqw==
+			</data>
+			<key>PayloadDisplayName</key>
+			<string>Family VPN Root CA</string>
+			<key>PayloadIdentifier</key>
+			<string>uk.co.laingcorp.myvpn.root.certificate</string>
+			<key>PayloadType</key>
+			<string>com.apple.security.root</string>
+			<key>PayloadUUID</key>
+			<string>d8ee5371-8e5b-59a6-9d77-a7ac5ab8745a</string>
+			<key>PayloadVersion</key>
+			<integer>1</integer>
+		</dict>
+	</array>
+	<key>PayloadDescription</key>
+	<string>Public root CA for the Family VPN server. Contains no VPN configuration or credentials.</string>
+	<key>PayloadDisplayName</key>
+	<string>Family VPN Certificate Trust</string>
+	<key>PayloadIdentifier</key>
+	<string>uk.co.laingcorp.myvpn.root</string>
+	<key>PayloadType</key>
+	<string>Configuration</string>
+	<key>PayloadUUID</key>
+	<string>e67dc075-5324-5f2d-8ae9-8b61d1002048</string>
+	<key>PayloadVersion</key>
+	<integer>1</integer>
+</dict>
+</plist>

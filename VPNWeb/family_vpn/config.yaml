@@ -1,0 +1,42 @@
+name: Family VPN
+version: "0.3.0"
+slug: family_vpn
+description: Signed VPN commands, administrator provisioning and status with an Ingress dashboard
+arch: [amd64, aarch64]
+startup: application
+boot: auto
+init: false
+stage: experimental
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:shield-lock
+panel_title: Family VPN
+panel_admin: true
+ports:
+  8081/tcp: 8081
+ports_description:
+  8081/tcp: Bearer-authenticated REST API for Nginx Proxy Manager (no dashboard)
+map:
+  - type: share
+    read_only: true
+backup: cold
+options:
+  admin_bearer: ""
+  registration_bearer: ""
+  apns_key_file: /share/family-vpn/apns.p8
+  apns_key_id: ""
+  apns_team_id: ""
+  apns_topic: uk.co.laingcorp.myvpn
+  apns_environment: sandbox
+  interval: 2700
+  automatic: false
+schema:
+  admin_bearer: password
+  registration_bearer: password
+  apns_key_file: str
+  apns_key_id: str
+  apns_team_id: str
+  apns_topic: str
+  apns_environment: list(sandbox|production)
+  interval: int(1800,3600)
+  automatic: bool

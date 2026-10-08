@@ -1,0 +1,7 @@
+__pycache__
+*.p8
+*.pem
+.env
+*.sqlite*
+
+*.key

@@ -1,0 +1,35 @@
+{
+  "server": "vpn.laingcorp.co.uk",
+  "remoteIdentifier": "vpn.laingcorp.co.uk",
+  "localIdentifier": "eap@laingcorp.co.uk",
+  "authenticationMethod": "Certificate",
+  "useExtendedAuthentication": true,
+  "certificateCommonName": "",
+  "certificateIssuerCommonName": "vpn",
+  "disconnectOnSleep": false,
+  "disableMOBIKE": false,
+  "disableRedirect": false,
+  "enableRevocationCheck": false,
+  "useConfigurationAttributeInternalIPSubnet": true,
+  "deadPeerDetectionRate": 3,
+  "enablePFS": true,
+  "includeAllNetworks": false,
+  "mtu": null,
+  "defaultTrustedSSIDs": [
+    "Laing's Wi-Fi Network",
+    "Laing's Wi-Fi Network 5GHz"
+  ],
+  "rootCertificateResource": "VPNRootCA",
+  "ike": {
+    "encryption": 4,
+    "integrity": 3,
+    "diffieHellman": 14,
+    "lifetimeMinutes": 1440
+  },
+  "child": {
+    "encryption": 6,
+    "integrity": 5,
+    "diffieHellman": 14,
+    "lifetimeMinutes": 120
+  }
+}

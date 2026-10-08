@@ -1,0 +1,9 @@
+Build/
+DerivedData/
+.build/
+.DS_Store
+xcuserdata/
+
+__pycache__/
+*.sqlite
+.venv/
