@@ -8,7 +8,7 @@
 
 Family VPN combines native iOS/iPadOS/macOS apps in `MyVPN/` with a Python/Flask dashboard and Home Assistant add-on in `family_vpn/`. The dashboard provisions administrator access, sends signed VPN commands and receives authenticated status updates. The native app remains authoritative for VPN policy.
 
-Open `MyVPN/MyVPN.xcodeproj` for Apple development. See the [implementation plan](MyVPN/Docs/PLAN.md), [device setup and acceptance checks](MyVPN/Docs/NEXT_STEPS.md), and [Xcode Cloud setup](MyVPN/Docs/XCODE_CLOUD.md). GitHub Actions tests and publishes the web service; Xcode Cloud handles the Apple project.
+See [Apple device setup and use](docs/APPLE_APPS.md) to register the app, approve certificate trust, install the VPN and use administrator controls.
 
 ## Home Assistant installation
 
@@ -23,8 +23,8 @@ This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashb
 - [VPN endpoint setup](docs/VPN_ENDPOINT_SETUP.md): [MikroTik RouterOS](docs/MIKROTIK_IKEV2.md), [strongSwan](docs/STRONGSWAN_IKEV2.md) and [certificate setup](docs/VPN_CERTIFICATES.md) and [dashboard provisioning](docs/PROVISIONING.md).
 
 - [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
-- [API contract](docs/API.md), [architecture](docs/ARCHITECTURE.md) and [deployment/releases](docs/DEPLOYMENT.md).
-- [Changelog](CHANGELOG.md), [MIT licence](LICENSE) and [repository automation](.github/REPOSITORY_AUTOMATION.md).
+- [API contract](docs/API.md) and [deployment](docs/DEPLOYMENT.md).
+- [Changelog](CHANGELOG.md) and [MIT licence](LICENSE).
 
 Requires Python 3.12–3.14 on macOS/Linux, or Docker for Linux containers. CI tests all three Python versions and the production container. Version tags publish tested images to GHCR; deployment instructions are in the release guide.
 

@@ -13,3 +13,6 @@ __pycache__/
 
 # Local VPN and certificate provisioning profiles
 *.mobileconfig
+
+# Private development plans, roadmaps and verification notes
+.private-docs/
