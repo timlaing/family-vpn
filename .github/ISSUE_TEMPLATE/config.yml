@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/timlaing/family-vpn/blob/main/SECURITY.md
+    about: Report vulnerabilities privately; never include credentials in public issues.
+  - name: Setup and troubleshooting
+    url: https://github.com/timlaing/family-vpn/blob/main/docs/HOME_ASSISTANT.md
+    about: Home Assistant installation, dashboard provisioning and reverse-proxy setup.

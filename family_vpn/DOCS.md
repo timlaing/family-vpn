@@ -103,3 +103,9 @@ The proxy smoke test now also simulates an allowed and denied source on an isola
 ## VPN endpoint setup
 
 See the [endpoint setup guide](https://github.com/timlaing/family-vpn/blob/main/docs/VPN_ENDPOINT_SETUP.md), with MikroTik RouterOS and strongSwan settings based on the inspected IKEv2/EAP deployment. Configure your gateway and authentication backend before enrolling devices.
+
+## Repository installation
+
+[![Add Family VPN to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftimlaing%2Ffamily-vpn)
+
+Add `https://github.com/timlaing/family-vpn` through the Home Assistant app store repository menu, install Family VPN (AMD64 or ARM64), configure bearer credentials and APNs, and open the Ingress dashboard. Supervisor builds the self-contained app locally. See the [complete installation guide](https://github.com/timlaing/family-vpn/blob/main/docs/HOME_ASSISTANT.md) for prerequisites, source builds, updates and proxy routing.

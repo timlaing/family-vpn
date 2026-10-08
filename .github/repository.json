@@ -1,0 +1,30 @@
+{
+  "settings": {
+    "description": "Self-hosted IKEv2 VPN apps for iOS, iPadOS and macOS, with a Home Assistant dashboard for signed APNs commands, provisioning and status.",
+    "homepage": "https://github.com/timlaing/family-vpn/blob/main/docs/HOME_ASSISTANT.md",
+    "has_issues": true,
+    "has_discussions": true,
+    "has_wiki": false,
+    "allow_merge_commit": false,
+    "allow_squash_merge": true,
+    "allow_rebase_merge": true,
+    "delete_branch_on_merge": true
+  },
+  "topics": [
+    "vpn",
+    "ikev2",
+    "ios",
+    "ipados",
+    "macos",
+    "swift",
+    "swiftui",
+    "home-assistant",
+    "home-assistant-addon",
+    "apns",
+    "python",
+    "flask",
+    "mikrotik",
+    "strongswan",
+    "self-hosted"
+  ]
+}

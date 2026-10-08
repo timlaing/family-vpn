@@ -61,14 +61,14 @@ Use your HTTPS proxy for external access. Docker publishes loopback only. Do not
 
 CI runs on main pushes, pull requests and manual invocation. It installs locked dependencies, runs the service tests on Python 3.12/3.13/3.14, checks compilation and builds/smoke-tests the container. No APNs credentials are available to tests. GitHub Actions are pinned to commits; Dependabot checks actions and the Docker base weekly. Python lock updates require the clean-environment procedure in CONTRIBUTING.md.
 
-To release, update CHANGELOG.md with a version and date, merge passing changes, then create and push a signed `vMAJOR.MINOR.PATCH` or prerelease tag using your own signing key. The tag workflow reruns CI, builds and smoke-tests the image, then publishes:
+To release, update CHANGELOG.md with a version and date, merge passing changes, then create and push a signed `vMAJOR.MINOR.PATCH` or prerelease tag using your own signing key. The tag workflow reruns CI and repository/Home Assistant lint, builds and smoke-tests the image, then publishes:
 
 - `ghcr.io/<owner>/<repository>:vMAJOR.MINOR.PATCH`
 - `ghcr.io/<owner>/<repository>:sha-<full-commit-sha>`
 
-It uses GITHUB_TOKEN with packages write permission only in the publishing job. Configure a GitHub remote and push the repository first; none is currently configured locally. Enable Actions and package publication in repository/organization settings. Packages are subject to your GitHub visibility/access settings. Private registry consumers need read access; do not reuse the APNs key for registry authentication.
+It uses GITHUB_TOKEN with packages write permission only in the publishing job. The repository is https://github.com/timlaing/family-vpn. Enable Actions and package publication in repository/organization settings. Packages are subject to your GitHub visibility/access settings. Private registry consumers need read access; do not reuse the APNs key for registry authentication.
 
-No mutable `latest` tag is published. Save the pushed image digest from the workflow and deploy that digest for reproducibility. Tag publication is continuous delivery of an image, not automatic installation on a live host. No SSH credentials or server target have been configured, and these workflows have not yet run on GitHub.
+No mutable `latest` tag is published. Save the pushed image digest from the workflow and deploy that digest for reproducibility. Tag publication is continuous delivery of an image, not automatic installation on a live host. No SSH credentials or server target have been configured, and image publication is initiated only by a version tag.
 
 ## Verification and rollback
 
@@ -78,7 +78,7 @@ Before an upgrade, stop the service and take a private backup of the SQLite data
 
 Deploy the tested image digest with the same data volume and check `/health`, authenticated dashboard and one device report. To roll back, stop the service and start the previous digest with compatible data. Review future schema migration notes before rollback; 0.3.0 uses additive device/command columns and a new administrator configuration table; restore a compatible backup if rolling back across schema versions. Database replacement requires device re-enrollment. Rotating SESSION_SECRET signs users out; enrollment credential changes require updating clients. Revoke APNs credentials at Apple if exposed.
 
-Home Assistant installs currently build the self-contained `family_vpn/` context locally through Supervisor. The GHCR tag workflow publishes tested architecture-specific add-on images as well as a standalone image. No `image` URL is hardcoded in config.yaml until a repository/registry path is established; CI verifies the tagged version matches the app manifest.
+Home Assistant installs currently build the self-contained `family_vpn/` context locally through Supervisor. The GHCR tag workflow publishes tested architecture-specific add-on images as well as a standalone image. The manifest intentionally keeps source builds until a tested release image is selected; CI verifies the tagged version matches the app manifest.
 
 The architecture-specific app image names are `ghcr.io/<owner>/<repository>-family-vpn-amd64:0.3.0` and `...-family-vpn-aarch64:0.3.0` for tag v0.3.0. Native ARM runner availability depends on your GitHub plan/repository settings; local Supervisor builds remain available. The standalone image uses the original repository image name and v-prefixed tag.
 

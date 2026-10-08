@@ -6,9 +6,19 @@
 
 ## Install
 
-This repository is an app/add-on repository: `repository.yaml` identifies it and `family_vpn/config.yaml` defines the app. No Home Assistant configuration has been changed by implementation.
+[![Add Family VPN to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftimlaing%2Ffamily-vpn)
 
-For local installation, copy the entire **family_vpn** folder to Home Assistant's local apps/add-ons directory (`/addons/family_vpn` on installations using that path), reload the app store and install **Family VPN** from Local apps. The folder includes its own Dockerfile and runtime dependencies. For repository installation, push this repository to a Git host, add its clone URL under the Home Assistant app store's repository menu, then install. The repository URL is `https://github.com/timlaing/family-vpn`.
+Home Assistant OS or another installation with **Supervisor** is required; Home Assistant Container/Core alone cannot install Supervisor apps. Supported architectures are AMD64 and ARM64/aarch64.
+
+1. Use the button above, or open Home Assistant's app store (called the add-on store on older versions), select **⋮ → Repositories**, and add `https://github.com/timlaing/family-vpn`.
+2. Refresh the store, find **Family VPN apps → Family VPN**, open it and choose **Install**. The `experimental` stage may require advanced mode in your Home Assistant user profile.
+3. Configure the two bearer credentials and APNs options below before starting it. Keep protection mode enabled; no host access or privileged capabilities are needed.
+4. Choose **Start**, inspect the app log, then **Open Web UI** for the Ingress dashboard. Enable the sidebar panel if desired.
+5. Configure gateway, trusted Wi-Fi, optional CA and administrator password. Complete [native provisioning](PROVISIONING.md) and [VPN endpoint setup](VPN_ENDPOINT_SETUP.md), then set up the protected REST proxy below.
+
+`repository.yaml` identifies the repository and `family_vpn/config.yaml` defines the app. Supervisor currently builds the self-contained `family_vpn/` Docker context locally; a prebuilt image is not selected in the manifest. The tagged publication workflow also produces architecture-specific GHCR images for explicit deployments. Home Assistant installation does not require a GitHub token for this public repository. No live Home Assistant configuration is changed by these instructions.
+
+For local development, copy the complete **family_vpn** folder to `/addons/family_vpn` on installations using that directory, reload the store and install it under Local apps. For updates, back up the app's private data and signing key, refresh the store and apply an offered version update. The manifest version must increase for Supervisor to offer a new app version; code-only pushes at the same version do not constitute an update release.
 
 Set two separate random credentials of at least 32 characters in the app's **Configuration** tab:
 
@@ -29,7 +39,7 @@ The sidebar entry is marked administrator-only. Ingress trusts Home Assistant's 
 
 ## External REST interface
 
-Port **8081** exposes `/registrations`, `/status`, `/commands`, `/command-results`, `/api/devices`, `/api/push`, `/api/commands` and `/health`. All operational REST routes use bearer authentication; `/health` is generic liveness. Dashboard, login, static assets and configuration are rejected on this port. The container serves plain HTTP here; terminate trusted TLS at Nginx Proxy Manager.
+Port **8081** exposes `/registrations`, `/status`, `/commands`, `/command-results`, `/vpn-configuration`, `/api/devices`, `/api/push`, `/api/commands` and `/health`. All operational REST routes use bearer authentication; `/health` is generic liveness. Dashboard, login, static assets and configuration are rejected on this port. The container serves plain HTTP here; terminate trusted TLS at Nginx Proxy Manager.
 
 Select the host mapping under the app's **Network** settings (8081 by default). Keep this host port accessible only from the reverse proxy/trusted network; do not forward it directly from your router. If NPM runs in a separate container, `127.0.0.1` means that container, so use the Home Assistant host's reachable LAN address and the selected mapped port. If NPM shares the Supervisor network, a tested app DNS name can be used instead, but do not guess the repository-prefixed container name.
 
@@ -67,6 +77,9 @@ Avoid a second Basic Auth/access-list authentication layer that overwrites Autho
 | --- | --- |
 | `/family-vpn/registrations` | `/registrations` |
 | `/family-vpn/status` | `/status` |
+| `/family-vpn/command-results` | `/command-results` |
+| `/family-vpn/commands` | `/commands` |
+| `/family-vpn/vpn-configuration` | `/vpn-configuration` |
 | `/family-vpn/api/devices` | `/api/devices` |
 | `/family-vpn/api/push` | `/api/push` |
 | `/family-vpn/health` | `/health` |
@@ -83,7 +96,7 @@ After one manual APNs request, verify a new report from a physical device. Synth
 
 ## Public reporting and protected REST access
 
-Expose only authenticated POST status and command acknowledgements publicly. Restrict enrollment to 192.168.10.0/24. Restrict pending-command retrieval and administrator REST APIs to the VPN source subnets. Keep the dashboard and configuration in Home Assistant Ingress. Firewall direct port 8081 access and preserve bearer headers at NPM.
+Expose only authenticated POST status and command acknowledgements publicly. Restrict enrollment to your configured registration LAN (192.168.10.0/24 is an example). Restrict pending-command and provisioning-snapshot retrieval and administrator REST APIs to the VPN source subnets. Keep the dashboard and configuration in Home Assistant Ingress. Firewall direct port 8081 access and preserve bearer headers at NPM.
 
 The repository `docs/REMOTE_COMMANDS.md` provides the complete location generator, command API, key backup requirements and physical-device acceptance checks. Use its `--public-reports` configuration for this deployment. A public connected report is a device assertion; the separate last VPN-only contact relies on the protected route and correct proxy/firewall configuration.
 

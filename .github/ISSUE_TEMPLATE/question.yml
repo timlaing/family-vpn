@@ -1,0 +1,25 @@
+name: Support question
+description: Support question for the Family VPN
+labels: [question, needs-triage]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Description
+      description: Explain the problem or use case and expected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Versions and installation
+      description: Include native app and Home Assistant app versions and how they are installed.
+    validations:
+      required: false
+  - type: textarea
+    id: evidence
+    attributes:
+      label: What you have tried
+      description: Describe the question, troubleshooting steps and relevant results. Redact passwords, APNs tokens, installation IDs and personal network details.
+    validations:
+      required: false

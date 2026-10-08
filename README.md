@@ -4,13 +4,19 @@
 
 # Family VPN
 
+[![CI](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml) [![Home Assistant lint](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Family VPN combines native iOS/iPadOS/macOS apps in `MyVPN/` with a Python/Flask dashboard and Home Assistant add-on in `family_vpn/`. The dashboard provisions administrator access, sends signed VPN commands and receives authenticated status updates. The native app remains authoritative for VPN policy.
 
 Open `MyVPN/MyVPN.xcodeproj` for Apple development. See the [implementation plan](MyVPN/Docs/PLAN.md), [device setup and acceptance checks](MyVPN/Docs/NEXT_STEPS.md), and [Xcode Cloud setup](MyVPN/Docs/XCODE_CLOUD.md). GitHub Actions tests and publishes the web service; Xcode Cloud handles the Apple project.
 
 ## Home Assistant installation
 
-This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashboard and APNs settings use Ingress on port 8099; a separate bearer-authenticated REST listener on port 8081 sits behind your Nginx Proxy Manager custom location. Only authenticated POST status and command acknowledgements are publicly reachable; registration requires 192.168.10.0/24 and remaining REST routes require VPN source addresses. Follow [Home Assistant and NPM setup](docs/HOME_ASSISTANT.md). The root entry points retain standalone preview compatibility.
+[![Add Family VPN to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftimlaing%2Ffamily-vpn)
+
+Supports **AMD64** and **ARM64/aarch64** on Home Assistant installations with Supervisor. Add the repository, install **Family VPN**, configure the two bearer secrets and APNs credentials, then open its Ingress dashboard.
+
+This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashboard and APNs settings use Ingress on port 8099; a separate bearer-authenticated REST listener on port 8081 sits behind your Nginx Proxy Manager custom location. Only authenticated POST status and command acknowledgements are publicly reachable; registration requires your configured registration LAN and remaining REST routes require VPN source addresses. Follow [Home Assistant and NPM setup](docs/HOME_ASSISTANT.md). The root entry points retain standalone preview compatibility.
 
 ## Documentation
 
@@ -18,7 +24,7 @@ This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashb
 
 - [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
 - [API contract](docs/API.md), [architecture](docs/ARCHITECTURE.md) and [deployment/releases](docs/DEPLOYMENT.md).
-- [Changelog](CHANGELOG.md) and [MIT licence](LICENSE).
+- [Changelog](CHANGELOG.md), [MIT licence](LICENSE) and [repository automation](.github/REPOSITORY_AUTOMATION.md).
 
 Requires Python 3.12–3.14 on macOS/Linux, or Docker for Linux containers. CI tests all three Python versions and the production container. Version tags publish tested images to GHCR; deployment instructions are in the release guide.
 

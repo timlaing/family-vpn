@@ -1,17 +1,14 @@
 name: Family VPN
+url: https://github.com/timlaing/family-vpn/tree/main/family_vpn
 version: "0.3.0"
 slug: family_vpn
 description: Signed VPN commands, administrator provisioning and status with an Ingress dashboard
 arch: [amd64, aarch64]
-startup: application
-boot: auto
 init: false
 stage: experimental
 ingress: true
-ingress_port: 8099
 panel_icon: mdi:shield-lock
 panel_title: Family VPN
-panel_admin: true
 ports:
   8081/tcp: 8081
 ports_description:
