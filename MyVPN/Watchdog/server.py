@@ -91,6 +91,7 @@ def watchdog():
 
 class RegistrationHandler(BaseHTTPRequestHandler):
     def log_message(self, *args):
+        # Suppress HTTP request logging to avoid retaining device identifiers.
         pass
     def do_POST(self):
         if self.path != "/registrations":
@@ -104,7 +105,7 @@ class RegistrationHandler(BaseHTTPRequestHandler):
             identifier, token = validate_registration(json.loads(self.rfile.read(size)))
             with database() as connection:
                 connection.execute("INSERT INTO installations VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET token=excluded.token", (identifier, token))
-        except (ValueError, TypeError, AttributeError, json.JSONDecodeError):
+        except (ValueError, TypeError, AttributeError):
             self.send_error(400); return
         self.send_response(204); self.end_headers()
 

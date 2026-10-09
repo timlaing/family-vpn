@@ -121,7 +121,7 @@ final class AsyncOperationTests: XCTestCase {
             XCTFail()
         } catch { XCTAssertEqual(error.localizedDescription, "Administrator repair required") }
         var rollbackCalled = false
-        try await PreferenceTransaction.run(operation: {}, rollback: { rollbackCalled = true }, rollbackFailure: "Unexpected")
+        try await PreferenceTransaction.run(operation: { /* Successful no-op verifies rollback is not invoked. */ }, rollback: { rollbackCalled = true }, rollbackFailure: "Unexpected")
         XCTAssertFalse(rollbackCalled)
     }
     func testExpirationAndWorkerCanCompleteOnlyOnce() {

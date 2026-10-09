@@ -9,14 +9,17 @@ from pathlib import Path
 SECRETS = {"AuthName", "AuthPassword", "SharedSecret", "Password", "PayloadCertificateUUID", "VPNSubType"}
 SUPPORTED = {"RemoteAddress", "RemoteIdentifier", "LocalIdentifier", "AuthenticationMethod", "ExtendedAuthEnabled", "ServerCertificateCommonName", "ServerCertificateIssuerCommonName", "IKESecurityAssociationParameters", "ChildSecurityAssociationParameters", "DisconnectOnSleep", "DisableMOBIKE", "DisableRedirect", "EnableCertificateRevocationCheck", "UseConfigurationAttributeInternalIPSubnet", "DeadPeerDetectionRate", "EnablePFS", "IncludeAllNetworks", "MTU"}
 ENCRYPTION = {"AES-128": 3, "AES-256": 4, "AES-128-GCM": 5, "AES-256-GCM": 6, "ChaCha20Poly1305": 7}
+ROOT_PAYLOAD = "com.apple.security.root"
 INTEGRITY = {"SHA2-256": 3, "SHA2-384": 4, "SHA2-512": 5}
 
 def read_profile(path):
+    # This is a local import tool: the operator explicitly chooses the input file.
+    # It is never invoked with web request data or privileged service credentials.
     data = path.read_bytes()
     try: return plistlib.loads(data)
     except plistlib.InvalidFileException:
         # Verify CMS content signature. Signer trust is not asserted by -noverify.
-        result = subprocess.run(["openssl", "cms", "-verify", "-inform", "DER", "-in", str(path), "-noverify"], capture_output=True, check=True)
+        result = subprocess.run(["openssl", "cms", "-verify", "-inform", "DER", "-noverify"], input=data, capture_output=True, check=True)
         return plistlib.loads(result.stdout)
 
 def inspect_sanitized(value):
@@ -26,11 +29,24 @@ def inspect_sanitized(value):
     elif isinstance(value, list):
         for child in value: inspect_sanitized(child)
 
+def trusted_ssids(rules):
+    trusted = []
+    for rule in rules:
+        if rule.get("Action") == "Disconnect" and rule.get("InterfaceTypeMatch") == "WiFi" and set(rule) <= {"Action", "InterfaceTypeMatch", "SSIDMatch"}:
+            trusted.extend(rule.get("SSIDMatch", []))
+        elif rule.get("Action") == "Connect" and set(rule) <= {"Action", "InterfaceTypeMatch"} and rule.get("InterfaceTypeMatch") in (None, "WiFi"):
+            # The generated policy always supplies the catch-all connect rule.
+            continue
+        else: raise ValueError("Unsupported On Demand policy")
+    trusted = [value.strip() for value in trusted]
+    if len(set(trusted)) != len(trusted) or any(not value or len(value.encode()) > 32 for value in trusted): raise ValueError("Invalid trusted SSIDs")
+    return trusted
+
 def import_configuration(profile):
     inspect_sanitized(profile)
     contents = profile.get("PayloadContent", [])
-    roots = [p for p in contents if p.get("PayloadType") == "com.apple.security.root"]
-    if len(roots) > 1 or any(p.get("PayloadType", "").startswith("com.apple.security.") and p.get("PayloadType") != "com.apple.security.root" for p in contents):
+    roots = [p for p in contents if p.get("PayloadType") == ROOT_PAYLOAD]
+    if len(roots) > 1 or any(p.get("PayloadType", "").startswith("com.apple.security.") and p.get("PayloadType") != ROOT_PAYLOAD for p in contents):
         raise ValueError("Only one public root CA payload is supported")
     payloads = [p for p in contents if p.get("PayloadType") == "com.apple.vpn.managed"]
     if len(payloads) != 1 or payloads[0].get("VPNType") != "IKEv2": raise ValueError("Expected one IKEv2 VPN payload")
@@ -42,15 +58,7 @@ def import_configuration(profile):
     settings = payload["IKEv2"]
     if set(settings) - SUPPORTED: raise ValueError("Unsupported IKEv2 settings")
     if settings.get("AuthenticationMethod") not in ("None", "Certificate") or settings.get("ExtendedAuthEnabled") != 1: raise ValueError("Only EAP username/password with server certificate validation is supported")
-    trusted = []
-    for rule in payload.get("OnDemandRules", []):
-        if rule.get("Action") == "Disconnect" and rule.get("InterfaceTypeMatch") == "WiFi" and set(rule) <= {"Action", "InterfaceTypeMatch", "SSIDMatch"}:
-            trusted.extend(rule.get("SSIDMatch", []))
-        elif rule.get("Action") == "Connect" and set(rule) <= {"Action", "InterfaceTypeMatch"} and rule.get("InterfaceTypeMatch") in (None, "WiFi"):
-            pass
-        else: raise ValueError("Unsupported On Demand policy")
-    trusted = [value.strip() for value in trusted]
-    if len(set(trusted)) != len(trusted) or any(not value or len(value.encode()) > 32 for value in trusted): raise ValueError("Invalid trusted SSIDs")
+    trusted = trusted_ssids(payload.get("OnDemandRules", []))
     def association(value):
         if set(value) - {"EncryptionAlgorithm", "IntegrityAlgorithm", "DiffieHellmanGroup", "LifeTimeInMinutes"}: raise ValueError("Unsupported security association setting")
         return {"encryption": ENCRYPTION[value["EncryptionAlgorithm"]], "integrity": INTEGRITY[value["IntegrityAlgorithm"]], "diffieHellman": value["DiffieHellmanGroup"], "lifetimeMinutes": value["LifeTimeInMinutes"]}
@@ -64,18 +72,31 @@ def import_configuration(profile):
             "defaultTrustedSSIDs": trusted, "rootCertificateResource": "VPNRootCA" if roots else None,
             "ike": association(settings["IKESecurityAssociationParameters"]), "child": association(settings["ChildSecurityAssociationParameters"])}
 
+def confined_artifact(value, directory):
+    destination = value.resolve()
+    if not destination.is_relative_to(directory.resolve()):
+        raise ValueError("Generated artifacts must stay inside MyVPN/Resources")
+    return destination
+
+def output_path(value):
+    directory = Path(__file__).resolve().parent.parent / "MyVPN" / "Resources"
+    destination = confined_artifact(value, directory)
+    if destination.suffix != ".json":
+        raise ValueError("Output must be a JSON file inside MyVPN/Resources")
+    return destination
+
 def export_root(profile, directory):
-    roots = [p for p in profile.get("PayloadContent", []) if p.get("PayloadType") == "com.apple.security.root"]
+    roots = [p for p in profile.get("PayloadContent", []) if p.get("PayloadType") == ROOT_PAYLOAD]
     if not roots: return
     data = roots[0]["PayloadContent"]
     if not isinstance(data, bytes): raise ValueError("Invalid certificate payload")
     # Validate certificate and normalize PEM/DER. No private keys are exported.
     result = subprocess.run(["openssl", "x509", "-inform", "PEM" if data.startswith(b"-----BEGIN CERTIFICATE") else "DER", "-outform", "DER"], input=data, capture_output=True, check=True)
     certificate = result.stdout
-    (directory / "VPNRootCA.cer").write_bytes(certificate)
-    root = {"PayloadType": "com.apple.security.root", "PayloadVersion": 1, "PayloadIdentifier": "uk.co.laingcorp.myvpn.root.certificate", "PayloadUUID": str(uuid.uuid5(uuid.NAMESPACE_DNS, "uk.co.laingcorp.myvpn.root.certificate")), "PayloadDisplayName": "Family VPN Root CA", "PayloadContent": certificate}
+    confined_artifact(directory / "VPNRootCA.cer", directory).write_bytes(certificate)
+    root = {"PayloadType": ROOT_PAYLOAD, "PayloadVersion": 1, "PayloadIdentifier": "uk.co.laingcorp.myvpn.root.certificate", "PayloadUUID": str(uuid.uuid5(uuid.NAMESPACE_DNS, "uk.co.laingcorp.myvpn.root.certificate")), "PayloadDisplayName": "Family VPN Root CA", "PayloadContent": certificate}
     profile = {"PayloadType": "Configuration", "PayloadVersion": 1, "PayloadIdentifier": "uk.co.laingcorp.myvpn.root", "PayloadUUID": str(uuid.uuid5(uuid.NAMESPACE_DNS, "uk.co.laingcorp.myvpn.root")), "PayloadDisplayName": "Family VPN Certificate Trust", "PayloadDescription": "Public root CA for the Family VPN server. Contains no VPN configuration or credentials.", "PayloadContent": [root]}
-    (directory / "VPNRootCA.mobileconfig").write_bytes(plistlib.dumps(profile))
+    confined_artifact(directory / "VPNRootCA.mobileconfig", directory).write_bytes(plistlib.dumps(profile))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
@@ -83,9 +104,10 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, default=Path("MyVPN/Resources/VPNConfiguration.json"))
     args = parser.parse_args()
     try:
+        args.output = output_path(args.output)
         profile = read_profile(args.profile)
         configuration = import_configuration(profile)
         export_root(profile, args.output.parent)
         args.output.write_text(json.dumps(configuration, indent=2) + "\n")
-    except (ValueError, KeyError, TypeError, plistlib.InvalidFileException, subprocess.CalledProcessError):
+    except (ValueError, KeyError, TypeError, subprocess.CalledProcessError):
         parser.exit(1, "Import rejected: profile contains unsupported settings, credentials, or invalid content.\n")

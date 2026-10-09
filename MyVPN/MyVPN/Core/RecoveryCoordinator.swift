@@ -36,33 +36,34 @@ import BackgroundTasks
 }
 #if os(iOS)
 final class AppDelegate: NSObject, UIApplicationDelegate {
-    func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+    func application(_ application: UIApplication, didFinishLaunchingWithOptions _: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
         guard ScreenshotMode.page == nil, !ScreenshotMode.isUnitTestHost else { return true }
         UNUserNotificationCenter.current().delegate = VPNNotificationDelegate.shared
         BGTaskScheduler.shared.register(forTaskWithIdentifier: "uk.co.laingcorp.myvpn.refresh", using: nil) { task in
-            Task { @MainActor in
-                let completion = CompletionOnce { task.setTaskCompleted(success: $0) }
-                let work = Task { await RecoveryCoordinator.shared.vpn?.recover() }
-                task.expirationHandler = { work.cancel(); completion.finish(success: false) }
-                let success = await work.value ?? false
-                RecoveryCoordinator.shared.scheduleRefresh()
-                completion.finish(success: success && !work.isCancelled)
-            }
+            Task { await Self.refresh(task) }
         }
         if (try? CredentialStore().read("watchdog-endpoint")) != nil { application.registerForRemoteNotifications() }
         return true
     }
-    func application(_ application: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    @MainActor private static func refresh(_ task: BGTask) async {
+        let completion = CompletionOnce { task.setTaskCompleted(success: $0) }
+        let work = Task { await RecoveryCoordinator.shared.vpn?.recover() }
+        task.expirationHandler = { work.cancel(); completion.finish(success: false) }
+        let success = await work.value ?? false
+        RecoveryCoordinator.shared.scheduleRefresh()
+        completion.finish(success: success && !work.isCancelled)
+    }
+    func application(_ _: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Task { @MainActor in
             do { try await PushRegistrationService.receivedAPNsToken(deviceToken); RecoveryCoordinator.shared.vpn?.refreshEnrollmentState() }
             catch { RecoveryCoordinator.shared.vpn?.error = "Watchdog registration failed; local recovery remains available." }
         }
     }
-    func application(_ application: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    func application(_ _: UIApplication, didFailToRegisterForRemoteNotificationsWithError _: Error) {
         Task { @MainActor in RecoveryCoordinator.shared.vpn?.error = "APNs registration unavailable." }
     }
-    func applicationProtectedDataDidBecomeAvailable(_ application: UIApplication) { Task { @MainActor in await RecoveryCoordinator.shared.vpn?.recover() } }
-    func application(_ application: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+    func applicationProtectedDataDidBecomeAvailable(_ _: UIApplication) { Task { @MainActor in await RecoveryCoordinator.shared.vpn?.recover() } }
+    func application(_ _: UIApplication, didReceiveRemoteNotification userInfo: [AnyHashable: Any], fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         Task { @MainActor in
             guard let vpn = RecoveryCoordinator.shared.vpn else { completionHandler(.noData); return }
             let success: Bool
@@ -80,14 +81,14 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 import AppKit
 
 final class DesktopAppDelegate: NSObject, NSApplicationDelegate {
-    func applicationDidFinishLaunching(_ notification: Notification) {
+    func applicationDidFinishLaunching(_ _: Notification) {
         guard ScreenshotMode.page == nil, !ScreenshotMode.isUnitTestHost else { return }
         UNUserNotificationCenter.current().delegate = VPNNotificationDelegate.shared
         if (try? CredentialStore().read("watchdog-endpoint")) != nil {
             NSApplication.shared.registerForRemoteNotifications()
         }
     }
-    func application(_ application: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+    func application(_ _: NSApplication, didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
         Task { @MainActor in
             do {
                 try await PushRegistrationService.receivedAPNsToken(deviceToken)
@@ -95,10 +96,10 @@ final class DesktopAppDelegate: NSObject, NSApplicationDelegate {
             } catch { RecoveryCoordinator.shared.vpn?.error = "Watchdog registration failed; register again on the enrollment network." }
         }
     }
-    func application(_ application: NSApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    func application(_ _: NSApplication, didFailToRegisterForRemoteNotificationsWithError _: Error) {
         Task { @MainActor in RecoveryCoordinator.shared.vpn?.error = "APNs registration unavailable." }
     }
-    func application(_ application: NSApplication, didReceiveRemoteNotification userInfo: [String: Any]) {
+    func application(_ _: NSApplication, didReceiveRemoteNotification userInfo: [String: Any]) {
         Task { @MainActor in
             guard let vpn = RecoveryCoordinator.shared.vpn else { return }
             if let value = userInfo["command"], let data = try? JSONSerialization.data(withJSONObject: value),
@@ -112,7 +113,7 @@ final class DesktopAppDelegate: NSObject, NSApplicationDelegate {
 
 final class VPNNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     static let shared = VPNNotificationDelegate()
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+    func userNotificationCenter(_ _: UNUserNotificationCenter, willPresent _: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
         completionHandler([.banner, .sound, .badge])
     }
 }

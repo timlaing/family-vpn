@@ -1,5 +1,14 @@
 import SwiftUI
 
+private func suspensionLabel(_ minutes: Int) -> String {
+    switch minutes {
+    case 15: return "15 minutes"
+    case 60: return "1 hour"
+    default: return "8 hours"
+    }
+}
+
+
 struct ContentView: View {
     @EnvironmentObject var vpn: VPNManager
     @State private var username = ""
@@ -139,7 +148,7 @@ struct ContentView: View {
                 }
                 Section("Suspend enforcement") {
                     ForEach([15, 60, 480], id: \.self) { minutes in
-                        Button(minutes == 15 ? "15 minutes" : minutes == 60 ? "1 hour" : "8 hours") { suspend(until: Date().addingTimeInterval(Double(minutes) * 60)) }
+                        Button(suspensionLabel(minutes)) { suspend(until: Date().addingTimeInterval(Double(minutes) * 60)) }
                     }
                     if let tomorrow = try? SuspensionPolicy.tomorrow() {
                         Button("Until tomorrow at \(tomorrow.formatted())") { suspend(until: tomorrow) }
@@ -163,7 +172,7 @@ struct ContentView: View {
                     Text("Manage the password in the dashboard. Send a reprovision request from the dashboard, or register again from the main page, to retrieve a changed administrator configuration.")
                 }
                 Section {
-                    Button("Validate and repair") { run { try await vpn.administer(password: administrator) { _ in } } }
+                    Button("Validate and repair") { run { try await vpn.administer(password: administrator) { _ in /* Repair the existing policy without changing it. */ } } }
                     Button("Remove VPN configuration", role: .destructive) { confirmRemoval = true }
                     Button("Done") { adminOpen = false; administrator = "" }.id("securityEnd")
                 }

@@ -12,7 +12,9 @@ struct VPNCommands: Commands {
     @Environment(\.openWindow) private var openWindow
     private var unavailable: Bool { vpn.busy || vpn.screenshotPage != nil }
     var body: some Commands {
-        CommandGroup(replacing: .newItem) {}
+        CommandGroup(replacing: .newItem) {
+            // A single VPN configuration has no New Document action.
+        }
         CommandMenu("VPN") {
             Button("Show Connection") { openWindow(id: "main") }
                 .keyboardShortcut("1")

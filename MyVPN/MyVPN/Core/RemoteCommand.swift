@@ -77,7 +77,13 @@ struct RemoteCommandLedger: Codable {
     var vpnHighWater: Int64?
     var receipts: [RemoteCommandReceipt] = []
     func accepts(_ command: RemoteCommand) -> Bool {
-        let previous = command.action == .reprovisionVPN ? (vpnHighWater ?? 0) : command.action == .reprovisionAdmin ? (administratorHighWater ?? 0) : (command.action == .refreshStatus ? refreshHighWater : highWater)
+        let previous: Int64
+        switch command.action {
+        case .reprovisionVPN: previous = vpnHighWater ?? 0
+        case .reprovisionAdmin: previous = administratorHighWater ?? 0
+        case .refreshStatus: previous = refreshHighWater
+        case .suspend, .enable: previous = highWater
+        }
         return command.sequence > previous
     }
     mutating func record(_ command: RemoteCommand, success: Bool) {

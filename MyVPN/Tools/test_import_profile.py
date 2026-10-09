@@ -31,3 +31,18 @@ class TestImport:
         for key in ("AuthPassword", "CustomSetting"):
             profile = self.profile(); profile["PayloadContent"][0]["IKEv2"][key] = "redacted-test"
             with pytest.raises(ValueError): import_configuration(profile)
+
+
+def test_artifact_paths_reject_parent_traversal_and_symlinks(tmp_path):
+    from import_profile import confined_artifact
+    resources = tmp_path / "resources"
+    resources.mkdir()
+    outside = tmp_path / "outside.cer"
+    outside.write_bytes(b"unchanged")
+    (resources / "VPNRootCA.cer").symlink_to(outside)
+    with pytest.raises(ValueError):
+        confined_artifact(resources / "../outside.cer", resources)
+    with pytest.raises(ValueError):
+        confined_artifact(resources / "VPNRootCA.cer", resources)
+    assert outside.read_bytes() == b"unchanged"
+    assert confined_artifact(resources / "safe.json", resources) == resources / "safe.json"
