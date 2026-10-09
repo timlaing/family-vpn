@@ -218,5 +218,23 @@ class TestProvider:
             for path in ("/registrations", "/status", "/push", "/api/push"):
                 assert (client.post(path, json={}).status_code) == (403)
             app.extensions["dispatcher"].close()
-        with pytest.raises(ValueError): Settings().validate()
-        with pytest.raises(ValueError): Settings(demo=True, interval=5).validate()
+        settings = Settings()
+        with pytest.raises(ValueError): settings.validate()
+        settings = Settings(demo=True, interval=5)
+        with pytest.raises(ValueError): settings.validate()
+
+
+@pytest.mark.parametrize("path", ["/logout", "/vpn-provisioning", "/administrator-password", "/command", "/push"])
+def test_browser_mutations_reject_missing_and_wrong_csrf(tmp_path, path):
+    app = create_app(Settings(database=str(tmp_path / "csrf.sqlite"), demo=False,
+                              admin_secret="a"*32, enrollment_secret="e"*32,
+                              session_secret="s"*32, automatic=False, secure_cookie=False))
+    try:
+        client = app.test_client()
+        with client.session_transaction() as state:
+            state.update(admin=True, csrf="correct-session-token")
+        assert client.post(path, data={}).status_code == 403
+        assert client.post(path, data={"csrf":"forged"}).status_code == 403
+        assert client.post(path, data={"csrf":"forged"}, environ_overrides={"vpnweb.ingress":True}).status_code == 403
+    finally:
+        app.extensions["dispatcher"].close()

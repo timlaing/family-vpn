@@ -3,6 +3,11 @@ import re
 from flask import request
 from flask.sessions import SecureCookieSessionInterface
 
+INGRESS_FLAG = "vpnweb.ingress"
+# Fixed Supervisor ingress gateway identity; trusting a configurable client header
+# here would allow callers on the external listener to impersonate Supervisor.
+SUPERVISOR_GATEWAY = "172.30.32.2"
+
 class IngressMiddleware:
     def __init__(self, application): self.application = application
     def __call__(self, environ, start_response):
@@ -11,7 +16,7 @@ class IngressMiddleware:
         path = environ.get("PATH_INFO", "/")
         if port == "8099":
             prefix = environ.get("HTTP_X_INGRESS_PATH", "")
-            if environ.get("REMOTE_ADDR") != "172.30.32.2" or not re.fullmatch(r"/api/hassio_ingress/[A-Za-z0-9_-]+/?", prefix):
+            if environ.get("REMOTE_ADDR") != SUPERVISOR_GATEWAY or not re.fullmatch(r"/api/hassio_ingress/[A-Za-z0-9_-]+/?", prefix):
                 return self.reject(start_response, "403 Forbidden")
             if path.startswith(prefix.rstrip("/") + "/"):
                 path = path[len(prefix.rstrip("/")):]
@@ -20,11 +25,11 @@ class IngressMiddleware:
             if path not in {"/", "/administrator-password", "/vpn-provisioning", "/command", "/push", "/configuration", "/health"} and not path.startswith("/static/"):
                 return self.reject(start_response, "404 Not Found")
             environ["SCRIPT_NAME"] = prefix.rstrip("/")
-            environ["vpnweb.ingress"] = True
+            environ[INGRESS_FLAG] = True
         elif port == "8081":
             if path not in {"/health", "/registrations", "/status", "/api/devices", "/api/push", "/api/commands", "/commands", "/command-results", "/vpn-configuration"}:
                 return self.reject(start_response, "404 Not Found")
-            environ.pop("vpnweb.ingress", None)
+            environ.pop(INGRESS_FLAG, None)
             environ["SCRIPT_NAME"] = ""
         else: return self.reject(start_response, "403 Forbidden")
         return self.application(environ, start_response)
@@ -35,9 +40,9 @@ class IngressMiddleware:
 
 class IngressSessionInterface(SecureCookieSessionInterface):
     def get_cookie_path(self, app):
-        if request.environ.get("vpnweb.ingress"): return request.script_root + "/"
+        if request.environ.get(INGRESS_FLAG): return request.script_root + "/"
         return super().get_cookie_path(app)
     def get_cookie_secure(self, app):
-        if request.environ.get("vpnweb.ingress"):
+        if request.environ.get(INGRESS_FLAG):
             return request.environ.get("HTTP_X_FORWARDED_PROTO") == "https"
         return super().get_cookie_secure(app)

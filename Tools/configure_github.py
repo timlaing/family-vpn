@@ -2,6 +2,7 @@
 """Apply tracked repository metadata and labels without deleting custom labels."""
 import argparse
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -9,9 +10,11 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def api(path, method='GET', value=None):
-    command = ['gh', 'api', path, '--method', method]
+    if not re.fullmatch(r'repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+(?:/topics)?', path) or method not in {'GET', 'PATCH', 'PUT'}:
+        raise ValueError('Invalid repository API endpoint or method')
+    command = ['gh', 'api', '--method', method, '--', path]
     if value is not None:
-        command += ['--input', '-']
+        command[2:2] = ['--input', '-']
     result = subprocess.run(command, input=json.dumps(value) if value is not None else None,
                             capture_output=True, text=True, check=True)
     return json.loads(result.stdout) if result.stdout.strip() else None
@@ -22,6 +25,8 @@ def main():
     parser.add_argument('--repo', default='timlaing/family-vpn')
     parser.add_argument('--apply', action='store_true', help='Apply settings and verify readback')
     args = parser.parse_args()
+    if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*', args.repo):
+        parser.error('Use a GitHub owner/repository identifier')
     configuration = json.loads((ROOT/'.github/repository.json').read_text())
     labels = json.loads((ROOT/'.github/labels.json').read_text())
     if not args.apply:

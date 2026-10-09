@@ -38,7 +38,7 @@ class VPNProvisioning:
         remote_identifier = self.hostname(remote_identifier or server)
         if not isinstance(ssids, list) or len(ssids) > 32 or any(not isinstance(v, str) or v != v.strip() or not v or len(v.encode()) > 32 for v in ssids) or len(set(ssids)) != len(ssids):
             raise ValueError('Use at most 32 unique SSIDs, each at most 32 UTF-8 bytes')
-        payload = dict(server=server, remoteIdentifier=remote_identifier, trustedSSIDs=ssids, revision=str(uuid.uuid4()), caCertificate=ca)
+        payload = {"server": server, "remoteIdentifier": remote_identifier, "trustedSSIDs": ssids, "revision": str(uuid.uuid4()), "caCertificate": ca}
         with self.database.connect() as db:
             db.execute('INSERT INTO vpn_configuration VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload', (json.dumps(payload),))
         return payload

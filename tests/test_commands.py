@@ -1,6 +1,7 @@
 import base64
 import json
 import time
+from cryptography.exceptions import InvalidSignature
 import pytest
 from unittest.mock import patch
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
@@ -46,7 +47,8 @@ class TestCommand:
         assert (body['request_id']) == (response.json['request_id'])
         assert ('status_token') not in (body)
         assert ('token') not in (body)
-        with pytest.raises(Exception): key.verify(base64.b64decode(envelope['signature']),raw+b' ')
+        signature = base64.b64decode(envelope['signature'])
+        with pytest.raises(InvalidSignature): key.verify(signature, raw+b' ')
         row=self.commands.public()[0]
         assert (row['state']) == ('pending')
         assert (row['delivery']) == ('accepted')

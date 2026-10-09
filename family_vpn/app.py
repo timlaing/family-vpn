@@ -23,6 +23,7 @@ from .administrator import AdministratorProvisioning
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 
 CONNECTIONS = {"connected", "connecting", "reasserting", "disconnecting", "disconnected", "invalid"}
+INGRESS_FLAG = "vpnweb.ingress"
 TOKEN = re.compile(r"^(?:[0-9a-f]{2})+$")
 
 @dataclass
@@ -204,6 +205,341 @@ def digest(value): return hashlib.sha256(value.encode()).hexdigest()
 def equal(a, b): return hmac.compare_digest(a.encode(), b.encode())
 
 
+class DashboardViews:
+    """Per-app routes and security state, isolated from other app instances."""
+
+    def __init__(self, app):
+        self.app = app
+        for name in ("settings", "database", "commands", "administrator", "vpn_provisioning", "dispatcher"):
+            setattr(self, name, app.extensions[name])
+        self.login_failures = {}
+        self.login_lock = threading.Lock()
+        self.report_lock = threading.Lock()
+        self.report_buckets = {}
+        app.before_request(self.security)
+        app.after_request(self.headers)
+        app.add_url_rule('/login', endpoint='login', view_func=self.login, methods=['GET', 'POST'])
+        app.add_url_rule('/logout', endpoint='logout', view_func=self.logout, methods=['POST'])
+        app.add_url_rule('/', endpoint='dashboard', view_func=self.dashboard, methods=['GET'])
+        app.add_url_rule('/vpn-provisioning', endpoint='configure_vpn_provisioning', view_func=self.configure_vpn_provisioning, methods=['POST'])
+        app.add_url_rule('/administrator-password', endpoint='administrator_password', view_func=self.administrator_password, methods=['POST'])
+        app.add_url_rule('/registrations', endpoint='register', view_func=self.register, methods=['POST'])
+        app.add_url_rule('/status', endpoint='status', view_func=self.status, methods=['POST'])
+        app.add_url_rule('/vpn-configuration', endpoint='device_vpn_configuration', view_func=self.device_vpn_configuration, methods=['GET'])
+        app.add_url_rule('/commands', endpoint='pending_commands', view_func=self.pending_commands, methods=['GET'])
+        app.add_url_rule('/command-results', endpoint='command_results', view_func=self.command_results, methods=['POST'])
+        app.add_url_rule('/api/commands', endpoint='create_command', view_func=self.create_command, methods=['POST'])
+        app.add_url_rule('/api/commands', endpoint='command_history', view_func=self.command_history, methods=['GET'])
+        app.add_url_rule('/command', endpoint='command_form', view_func=self.command_form, methods=['POST'])
+        app.add_url_rule('/api/devices', endpoint='devices', view_func=self.devices, methods=['GET'])
+        app.add_url_rule('/api/push', endpoint='push', view_func=self.push, methods=['POST'])
+        app.add_url_rule('/push', endpoint='push_form', view_func=self.push_form, methods=['POST'])
+        app.add_url_rule('/configuration', endpoint='configuration', view_func=self.configuration, methods=['GET', 'POST'])
+        app.add_url_rule('/health', endpoint='health', view_func=self.health, methods=['GET'])
+        app.add_template_filter(self.when, 'when')
+
+    def limit_public_report(self):
+        now = time.monotonic()
+        keys = [("ip:" + (request.remote_addr or "unknown"),120), ("credential:" + digest(request.headers.get("Authorization", "")),20)]
+        with self.report_lock:
+            expired = [key for key, bucket in self.report_buckets.items() if bucket[0] <= now]
+            for key in expired:
+                del self.report_buckets[key]
+            for key, maximum in keys:
+                if key not in self.report_buckets:
+                    if len(self.report_buckets) >= 2000: abort(429)
+                    self.report_buckets[key] = [now+60,0]
+                if self.report_buckets[key][1] >= maximum: abort(429)
+            for key, _ in keys: self.report_buckets[key][1] += 1
+
+
+    def bearer(self):
+        value = request.headers.get("Authorization", "")
+        return value[7:] if value.startswith("Bearer ") else ""
+
+
+    def admin(self):
+        return (not self.settings.demo and bool(self.bearer()) and equal(self.bearer(), self.settings.admin_secret)) or (not request.environ.get("vpnweb.home_assistant") and session.get("admin") is True)
+
+
+    def csrf(self):
+        if not equal(request.form.get("csrf", ""), session.get("csrf", "missing")): abort(403)
+
+
+    def security(self):
+        # Every browser mutation requires a session token. REST mutations instead
+        # require explicit bearer credentials and never accept session authentication.
+        if request.method not in {"GET", "HEAD", "OPTIONS"} and (
+            session.get("admin") or request.environ.get(INGRESS_FLAG) or request.endpoint in {"login", "logout"}
+        ) and request.endpoint in {
+            "login", "logout", "configure_vpn_provisioning", "administrator_password",
+            "command_form", "push_form", "configuration",
+        }:
+            self.csrf()
+        if request.path == "/vpn-provisioning": request.max_content_length = 32768
+        if request.content_length is not None and request.content_length > (request.max_content_length or self.app.config["MAX_CONTENT_LENGTH"]): abort(413)
+        if self.settings.demo and request.method != "GET": abort(403)
+        if request.path in {"/status", "/command-results"}: self.limit_public_report()
+        if request.environ.get(INGRESS_FLAG):
+            session["admin"] = True
+        if "csrf" not in session: session["csrf"] = secrets.token_urlsafe(32)
+
+
+    def headers(self, response):
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        if not request.environ.get(INGRESS_FLAG): response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; frame-ancestors 'none'; form-action 'self'"
+        if request.environ.get(INGRESS_FLAG):
+            response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; frame-ancestors 'self'; form-action 'self'"
+        return response
+
+
+    def login(self):
+        failed = False
+        if request.method == "POST":
+            self.csrf()
+            address = request.remote_addr or "unknown"
+            now = time.monotonic()
+            with self.login_lock:
+                attempts = [at for at in self.login_failures.get(address, []) if now - at < 60]
+                if len(attempts) >= 5: abort(429)
+                valid = equal(request.form.get("password", ""), self.settings.admin_secret)
+                if valid: self.login_failures.pop(address, None)
+                else:
+                    if len(self.login_failures) >= 1000: self.login_failures.clear()
+                    self.login_failures[address] = attempts + [now]
+            if valid:
+                session.clear(); session.update(admin=True, csrf=secrets.token_urlsafe(32))
+                return redirect(url_for("dashboard"))
+            failed = True
+        return render_template("login.html", failed=failed)
+
+
+    def logout(self):
+        self.csrf(); session.clear(); return redirect(url_for("login"))
+
+
+    def dashboard(self):
+        if not self.settings.demo and not session.get("admin"): return redirect(url_for("login"))
+        with self.database.connect() as db:
+            events = [dict(row) for row in db.execute("SELECT at,device,kind,result FROM events ORDER BY seq DESC LIMIT 30")]
+        return render_template("dashboard.html", devices=self.database.public_devices(), events=events, demo=self.settings.demo,
+                               configured=self.settings.apns_ready, environment=self.settings.apns_environment,
+                               interval=self.settings.interval // 60, automatic=self.settings.automatic, running=self.dispatcher.running, commands=self.commands.public(), administrator_configured=self.administrator.configured(), vpn_provision=self.vpn_provisioning.enrollment())
+
+
+    def configure_vpn_provisioning(self):
+        if not session.get("admin"): abort(401)
+        self.csrf()
+        ssids = request.form.get("trusted_ssids", "").splitlines()
+        try: self.vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, request.form.get("ca_pem", ""))
+        except ValueError as exc: return str(exc), 400
+        return redirect(url_for("dashboard"))
+
+
+    def administrator_password(self):
+        if not session.get("admin"): abort(401)
+        self.csrf()
+        try: self.administrator.set_password(request.form.get("password"),request.form.get("confirmation"))
+        except ValueError: return "Use matching administrator passwords of at least 12 characters (maximum 1024 UTF-8 bytes).",400
+        return redirect(url_for("dashboard"))
+
+
+    def registration_payload(self):
+        value = request.get_json(silent=True)
+        try:
+            if not isinstance(value, dict) or set(value) != {"id", "token"}: raise ValueError()
+            device = identifier(value["id"])
+            token = value["token"]
+            administrator_only = token is None and request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1"
+            if not administrator_only and (not isinstance(token, str) or not TOKEN.fullmatch(token)): raise ValueError()
+        except (ValueError, TypeError, KeyError): abort(400)
+        return device, token
+
+    def register(self):
+        if not equal(self.bearer(), self.settings.enrollment_secret): abort(401)
+        device, token = self.registration_payload()
+        provision = self.administrator.enrollment() if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" else None
+        if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" and provision is None:
+            return jsonify(error="Set the device administrator password in the dashboard before enrollment"),409
+        vpn = self.vpn_provisioning.enrollment() if request.headers.get("X-FamilyVPN-VPN-Protocol") in {"1", "2"} else None
+        if request.headers.get("X-FamilyVPN-VPN-Protocol") in {"1", "2"} and vpn is None:
+            return jsonify(error="Configure the VPN gateway and trusted Wi-Fi in the dashboard before enrollment"),409
+        status_token = secrets.token_urlsafe(32)
+        with self.database.connect() as db:
+            db.execute("INSERT INTO devices(id,token,status_hash,registered) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET token=COALESCE(excluded.token,devices.token),status_hash=excluded.status_hash,registered=excluded.registered",
+                       (device, token, digest(status_token), time.time()))
+            epoch = str(uuid.uuid4()) if request.headers.get("X-FamilyVPN-Command-Protocol") == "1" else None
+            db.execute("UPDATE devices SET command_epoch=?,administrator_capable=?,vpn_capable=? WHERE id=?", (epoch,int(provision is not None),int(request.headers.get("X-FamilyVPN-VPN-Protocol") == "2"),device))
+            db.execute("UPDATE commands SET state='superseded' WHERE device=? AND state='pending'",(device,))
+            self.database.event(db, device, "registration", "registered")
+        return jsonify(status_token=status_token, **({"command_key": self.commands.public_key, "command_epoch": epoch} if epoch else {}), **({"administrator":provision} if provision else {}), **({"vpn":vpn} if vpn else {})), 201
+
+
+    def status(self):
+        value = request.get_json(silent=True)
+        try:
+            if not isinstance(value, dict) or set(value) != {"id", "connection", "policy_ok"}: raise ValueError()
+            device = identifier(value["id"])
+            if value["connection"] not in CONNECTIONS or type(value["policy_ok"]) is not bool: raise ValueError()
+        except (ValueError, TypeError, KeyError): abort(400)
+        with self.database.connect() as db:
+            row = db.execute("SELECT status_hash FROM devices WHERE id=?", (device,)).fetchone()
+            if row is None or not self.bearer() or not equal(digest(self.bearer()), row["status_hash"]): abort(401)
+            db.execute("UPDATE devices SET seen=?,connection=?,policy_ok=? WHERE id=?", (time.time(), value["connection"], value["policy_ok"], device))
+            self.database.event(db, device, "status", "policy_ok" if value["policy_ok"] else "policy_failed")
+        return "", 204
+
+
+    def scoped(self, device):
+        with self.database.connect() as db:
+            row=db.execute("SELECT status_hash FROM devices WHERE id=?",(device,)).fetchone()
+            if row is None or not self.bearer() or not equal(digest(self.bearer()),row["status_hash"]): abort(401)
+
+
+    def device_vpn_configuration(self):
+        try:
+            if set(request.args) != {"id", "request_id"}: raise ValueError()
+            device = identifier(request.args["id"])
+            request_id = identifier(request.args["request_id"])
+        except (ValueError, KeyError): abort(400)
+        self.scoped(device)
+        with self.database.connect() as db:
+            row = db.execute("SELECT c.vpn_json FROM commands c JOIN devices d ON c.device=d.id WHERE c.device=? AND c.request_id=? AND c.epoch=d.command_epoch AND c.action='reprovision_vpn' AND c.state='pending' AND c.expires_at>?", (device, request_id, int(time.time()))).fetchone()
+        if row is None: abort(404)
+        return self.app.response_class(row['vpn_json'], mimetype='application/json')
+
+
+    def pending_commands(self):
+        try:
+            if set(request.args) != {"id"}: raise ValueError()
+            device=identifier(request.args["id"])
+        except (ValueError,KeyError): abort(400)
+        self.scoped(device)
+        with self.database.connect() as db: db.execute("UPDATE devices SET tunnel_seen=? WHERE id=?",(time.time(),device))
+        return jsonify(commands=self.commands.pending(device))
+
+
+    def command_results(self):
+        value=request.get_json(silent=True)
+        try:
+            if not isinstance(value,dict) or set(value)!={"id","request_id","result"}: raise ValueError()
+            device=identifier(value["id"]); request_id=identifier(value["request_id"])
+            if value["result"] not in {"executed","failed"}: raise ValueError()
+        except (ValueError,KeyError,TypeError): abort(400)
+        self.scoped(device)
+        try: self.commands.acknowledge(device,request_id,value["result"])
+        except LookupError: abort(404)
+        except RuntimeError: abort(409)
+        return "",204
+
+
+    def queue_command(self, device, action, duration):
+        if not self.settings.apns_ready: return jsonify(error="APNs is not configured"),503
+        try: request_id=self.commands.queue(device,action,duration)
+        except ValueError: abort(400)
+        except LookupError: abort(404)
+        except RuntimeError: return jsonify(error="Update and re-enroll this installation"),409
+        self.dispatcher.trigger(device,commands_only=True)
+        return jsonify(result="pending",request_id=request_id),202
+
+
+    def create_command(self):
+        if not self.bearer() or not equal(self.bearer(),self.settings.admin_secret): abort(401)
+        value=request.get_json(silent=True)
+        try:
+            if not isinstance(value,dict) or not {"id","action"} <= set(value) or set(value)-{"id","action","duration_seconds"}: raise ValueError()
+            device=identifier(value["id"])
+            action=value["action"]
+            if not isinstance(action,str) or action not in ACTIONS: raise ValueError()
+            duration=value.get("duration_seconds")
+            if action=="suspend" and "duration_seconds" not in value: duration=3600
+        except (ValueError,KeyError,TypeError): abort(400)
+        return self.queue_command(device,action,duration)
+
+
+    def command_history(self):
+        if not self.admin(): abort(401)
+        return jsonify(commands=self.commands.public())
+
+
+    def command_form(self):
+        if not session.get("admin"): abort(401)
+        self.csrf()
+        try:
+            device=identifier(request.form.get("id"))
+            action=request.form.get("action")
+            raw=request.form.get("duration_seconds","3600")
+            duration = None
+            if action == "suspend" and raw != "manual":
+                duration = int(raw)
+        except (ValueError,TypeError): abort(400)
+        response=self.queue_command(device,action,duration)
+        if response[1]!=202: return response
+        return redirect(url_for("dashboard"))
+
+
+    def devices(self):
+        if not self.admin(): abort(401)
+        return jsonify(devices=self.database.public_devices())
+
+
+    def push(self):
+        if not self.bearer() or not equal(self.bearer(), self.settings.admin_secret): abort(401)
+        value = request.get_json(silent=True)
+        try:
+            if not isinstance(value, dict) or set(value) - {"id"}: raise ValueError()
+            device = identifier(value["id"]) if "id" in value else None
+        except (ValueError, KeyError, TypeError): abort(400)
+        return self.queue_push(device)
+
+
+    def queue_push(self, device):
+        if not self.settings.apns_ready: return jsonify(error="APNs is not configured"), 503
+        if device and not any(row["id"] == device for row in self.database.public_devices()): abort(404)
+        if not self.dispatcher.trigger(device): return jsonify(error="A check is already running"), 409
+        return jsonify(result="queued"), 202
+
+
+    def push_form(self):
+        if not session.get("admin"): abort(401)
+        self.csrf()
+        device = request.form.get("id") or None
+        try:
+            if device: identifier(device)
+        except ValueError: abort(400)
+        response = self.queue_push(device)
+        if response[1] != 202: return response
+        return redirect(url_for("dashboard"))
+
+
+    def configuration(self):
+        manager = self.app.extensions.get("addon_configuration")
+        if manager is None or not request.environ.get(INGRESS_FLAG): abort(404)
+        error = None
+        if request.method == "POST":
+            self.csrf()
+            try:
+                with self.dispatcher.lock:
+                    if self.dispatcher.running: abort(409)
+                    manager.update(request.form, self.settings)
+                    if isinstance(self.dispatcher.sender, APNsSender): self.dispatcher.sender.jwt = None
+                return redirect(url_for("configuration"))
+            except ValueError:
+                error = "Use a valid environment, 30–60 minute interval and a key path under /share or /data."
+        return render_template("configuration.html", settings=self.settings, error=error)
+
+
+    def health(self): return jsonify(status="ok")
+
+
+    def when(self, value):
+        if value is None: return "Not received"
+        from datetime import datetime, timezone
+        return datetime.fromtimestamp(value, timezone.utc).strftime("%d %b %H:%M UTC")
+
+
 def create_app(settings=None, sender=None):
     settings = settings or Settings.from_environment()
     settings.validate()
@@ -218,290 +554,7 @@ def create_app(settings=None, sender=None):
     app.extensions["vpn_provisioning"] = vpn_provisioning
     dispatcher = Dispatcher(database, sender or APNsSender(settings), settings, commands)
     app.extensions.update(database=database, dispatcher=dispatcher, settings=settings, commands=commands, administrator=administrator)
-    login_failures = {}
-    login_lock = threading.Lock()
-    report_lock = threading.Lock()
-    report_buckets = {}
-
-    def limit_public_report():
-        now = time.monotonic()
-        keys = [("ip:" + (request.remote_addr or "unknown"),120), ("credential:" + digest(request.headers.get("Authorization", "")),20)]
-        with report_lock:
-            for key in list(report_buckets):
-                if report_buckets[key][0] <= now: del report_buckets[key]
-            for key, maximum in keys:
-                if key not in report_buckets:
-                    if len(report_buckets) >= 2000: abort(429)
-                    report_buckets[key] = [now+60,0]
-                if report_buckets[key][1] >= maximum: abort(429)
-            for key, _ in keys: report_buckets[key][1] += 1
-
-    def bearer():
-        value = request.headers.get("Authorization", "")
-        return value[7:] if value.startswith("Bearer ") else ""
-
-    def admin():
-        return (not settings.demo and bool(bearer()) and equal(bearer(), settings.admin_secret)) or (not request.environ.get("vpnweb.home_assistant") and session.get("admin") is True)
-
-    def csrf():
-        if not equal(request.form.get("csrf", ""), session.get("csrf", "missing")): abort(403)
-
-    @app.before_request
-    def security():
-        if request.path == "/vpn-provisioning": request.max_content_length = 32768
-        if request.content_length is not None and request.content_length > (request.max_content_length or app.config["MAX_CONTENT_LENGTH"]): abort(413)
-        if settings.demo and request.method != "GET": abort(403)
-        if request.path in {"/status", "/command-results"}: limit_public_report()
-        if request.environ.get("vpnweb.ingress"):
-            session["admin"] = True
-        if "csrf" not in session: session["csrf"] = secrets.token_urlsafe(32)
-
-    @app.after_request
-    def headers(response):
-        response.headers["Cache-Control"] = "no-store"
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        if not request.environ.get("vpnweb.ingress"): response.headers["X-Frame-Options"] = "DENY"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; frame-ancestors 'none'; form-action 'self'"
-        if request.environ.get("vpnweb.ingress"):
-            response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; frame-ancestors 'self'; form-action 'self'"
-        return response
-
-    @app.route("/login", methods=["GET", "POST"])
-    def login():
-        failed = False
-        if request.method == "POST":
-            csrf()
-            address = request.remote_addr or "unknown"
-            now = time.monotonic()
-            with login_lock:
-                attempts = [at for at in login_failures.get(address, []) if now - at < 60]
-                if len(attempts) >= 5: abort(429)
-                valid = equal(request.form.get("password", ""), settings.admin_secret)
-                if valid: login_failures.pop(address, None)
-                else:
-                    if len(login_failures) >= 1000: login_failures.clear()
-                    login_failures[address] = attempts + [now]
-            if valid:
-                session.clear(); session.update(admin=True, csrf=secrets.token_urlsafe(32))
-                return redirect(url_for("dashboard"))
-            failed = True
-        return render_template("login.html", failed=failed)
-
-    @app.post("/logout")
-    def logout():
-        csrf(); session.clear(); return redirect(url_for("login"))
-
-    @app.get("/")
-    def dashboard():
-        if not settings.demo and not session.get("admin"): return redirect(url_for("login"))
-        with database.connect() as db:
-            events = [dict(row) for row in db.execute("SELECT at,device,kind,result FROM events ORDER BY seq DESC LIMIT 30")]
-        return render_template("dashboard.html", devices=database.public_devices(), events=events, demo=settings.demo,
-                               configured=settings.apns_ready, environment=settings.apns_environment,
-                               interval=settings.interval // 60, automatic=settings.automatic, running=dispatcher.running, commands=commands.public(), administrator_configured=administrator.configured(), vpn_provision=vpn_provisioning.enrollment())
-
-    @app.post("/vpn-provisioning")
-    def configure_vpn_provisioning():
-        if not session.get("admin"): abort(401)
-        csrf()
-        ssids = request.form.get("trusted_ssids", "").splitlines()
-        try: vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, request.form.get("ca_pem", ""))
-        except ValueError as exc: return str(exc), 400
-        return redirect(url_for("dashboard"))
-
-    @app.post("/administrator-password")
-    def administrator_password():
-        if not session.get("admin"): abort(401)
-        csrf()
-        try: administrator.set_password(request.form.get("password"),request.form.get("confirmation"))
-        except ValueError: return "Use matching administrator passwords of at least 12 characters (maximum 1024 UTF-8 bytes).",400
-        return redirect(url_for("dashboard"))
-
-    @app.post("/registrations")
-    def register():
-        if not equal(bearer(), settings.enrollment_secret): abort(401)
-        value = request.get_json(silent=True)
-        try:
-            if not isinstance(value, dict) or set(value) != {"id", "token"}: raise ValueError()
-            device = identifier(value["id"])
-            token = value["token"]
-            if token is None and request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1": pass
-            elif not isinstance(token, str) or not TOKEN.fullmatch(token): raise ValueError()
-        except (ValueError, TypeError, KeyError): abort(400)
-        provision = administrator.enrollment() if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" else None
-        if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" and provision is None:
-            return jsonify(error="Set the device administrator password in the dashboard before enrollment"),409
-        vpn = vpn_provisioning.enrollment() if request.headers.get("X-FamilyVPN-VPN-Protocol") in {"1", "2"} else None
-        if request.headers.get("X-FamilyVPN-VPN-Protocol") in {"1", "2"} and vpn is None:
-            return jsonify(error="Configure the VPN gateway and trusted Wi-Fi in the dashboard before enrollment"),409
-        status_token = secrets.token_urlsafe(32)
-        with database.connect() as db:
-            db.execute("INSERT INTO devices(id,token,status_hash,registered) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET token=COALESCE(excluded.token,devices.token),status_hash=excluded.status_hash,registered=excluded.registered",
-                       (device, token, digest(status_token), time.time()))
-            epoch = str(uuid.uuid4()) if request.headers.get("X-FamilyVPN-Command-Protocol") == "1" else None
-            db.execute("UPDATE devices SET command_epoch=?,administrator_capable=?,vpn_capable=? WHERE id=?", (epoch,int(provision is not None),int(request.headers.get("X-FamilyVPN-VPN-Protocol") == "2"),device))
-            db.execute("UPDATE commands SET state='superseded' WHERE device=? AND state='pending'",(device,))
-            database.event(db, device, "registration", "registered")
-        return jsonify(status_token=status_token, **({"command_key": commands.public_key, "command_epoch": epoch} if epoch else {}), **({"administrator":provision} if provision else {}), **({"vpn":vpn} if vpn else {})), 201
-
-    @app.post("/status")
-    def status():
-        value = request.get_json(silent=True)
-        try:
-            if not isinstance(value, dict) or set(value) != {"id", "connection", "policy_ok"}: raise ValueError()
-            device = identifier(value["id"])
-            if value["connection"] not in CONNECTIONS or type(value["policy_ok"]) is not bool: raise ValueError()
-        except (ValueError, TypeError, KeyError): abort(400)
-        with database.connect() as db:
-            row = db.execute("SELECT status_hash FROM devices WHERE id=?", (device,)).fetchone()
-            if row is None or not bearer() or not equal(digest(bearer()), row["status_hash"]): abort(401)
-            db.execute("UPDATE devices SET seen=?,connection=?,policy_ok=? WHERE id=?", (time.time(), value["connection"], value["policy_ok"], device))
-            database.event(db, device, "status", "policy_ok" if value["policy_ok"] else "policy_failed")
-        return "", 204
-
-    def scoped(device):
-        with database.connect() as db:
-            row=db.execute("SELECT status_hash FROM devices WHERE id=?",(device,)).fetchone()
-            if row is None or not bearer() or not equal(digest(bearer()),row["status_hash"]): abort(401)
-
-    @app.get("/vpn-configuration")
-    def device_vpn_configuration():
-        try:
-            if set(request.args) != {"id", "request_id"}: raise ValueError()
-            device = identifier(request.args["id"])
-            request_id = identifier(request.args["request_id"])
-        except (ValueError, KeyError): abort(400)
-        scoped(device)
-        with database.connect() as db:
-            row = db.execute("SELECT c.vpn_json FROM commands c JOIN devices d ON c.device=d.id WHERE c.device=? AND c.request_id=? AND c.epoch=d.command_epoch AND c.action='reprovision_vpn' AND c.state='pending' AND c.expires_at>?", (device, request_id, int(time.time()))).fetchone()
-        if row is None: abort(404)
-        return app.response_class(row['vpn_json'], mimetype='application/json')
-
-    @app.get("/commands")
-    def pending_commands():
-        try:
-            if set(request.args) != {"id"}: raise ValueError()
-            device=identifier(request.args["id"])
-        except (ValueError,KeyError): abort(400)
-        scoped(device)
-        with database.connect() as db: db.execute("UPDATE devices SET tunnel_seen=? WHERE id=?",(time.time(),device))
-        return jsonify(commands=commands.pending(device))
-
-    @app.post("/command-results")
-    def command_results():
-        value=request.get_json(silent=True)
-        try:
-            if not isinstance(value,dict) or set(value)!={"id","request_id","result"}: raise ValueError()
-            device=identifier(value["id"]); request_id=identifier(value["request_id"])
-            if value["result"] not in {"executed","failed"}: raise ValueError()
-        except (ValueError,KeyError,TypeError): abort(400)
-        scoped(device)
-        try: commands.acknowledge(device,request_id,value["result"])
-        except LookupError: abort(404)
-        except RuntimeError: abort(409)
-        return "",204
-
-    def queue_command(device, action, duration):
-        if not settings.apns_ready: return jsonify(error="APNs is not configured"),503
-        try: request_id=commands.queue(device,action,duration)
-        except ValueError: abort(400)
-        except LookupError: abort(404)
-        except RuntimeError: return jsonify(error="Update and re-enroll this installation"),409
-        dispatcher.trigger(device,commands_only=True)
-        return jsonify(result="pending",request_id=request_id),202
-
-    @app.post("/api/commands")
-    def create_command():
-        if not bearer() or not equal(bearer(),settings.admin_secret): abort(401)
-        value=request.get_json(silent=True)
-        try:
-            if not isinstance(value,dict) or not {"id","action"} <= set(value) or set(value)-{"id","action","duration_seconds"}: raise ValueError()
-            device=identifier(value["id"])
-            action=value["action"]
-            if not isinstance(action,str) or action not in ACTIONS: raise ValueError()
-            duration=value.get("duration_seconds")
-            if action=="suspend" and "duration_seconds" not in value: duration=3600
-        except (ValueError,KeyError,TypeError): abort(400)
-        return queue_command(device,action,duration)
-
-    @app.get("/api/commands")
-    def command_history():
-        if not admin(): abort(401)
-        return jsonify(commands=commands.public())
-
-    @app.post("/command")
-    def command_form():
-        if not session.get("admin"): abort(401)
-        csrf()
-        try:
-            device=identifier(request.form.get("id"))
-            action=request.form.get("action")
-            raw=request.form.get("duration_seconds","3600")
-            duration=(None if raw=="manual" else int(raw)) if action=="suspend" else None
-        except (ValueError,TypeError): abort(400)
-        response=queue_command(device,action,duration)
-        if response[1]!=202: return response
-        return redirect(url_for("dashboard"))
-
-    @app.get("/api/devices")
-    def devices():
-        if not admin(): abort(401)
-        return jsonify(devices=database.public_devices())
-
-    @app.post("/api/push")
-    def push():
-        if not bearer() or not equal(bearer(), settings.admin_secret): abort(401)
-        value = request.get_json(silent=True)
-        try:
-            if not isinstance(value, dict) or set(value) - {"id"}: raise ValueError()
-            device = identifier(value["id"]) if "id" in value else None
-        except (ValueError, KeyError, TypeError): abort(400)
-        return queue_push(device)
-
-    def queue_push(device):
-        if not settings.apns_ready: return jsonify(error="APNs is not configured"), 503
-        if device and not any(row["id"] == device for row in database.public_devices()): abort(404)
-        if not dispatcher.trigger(device): return jsonify(error="A check is already running"), 409
-        return jsonify(result="queued"), 202
-
-    @app.post("/push")
-    def push_form():
-        if not session.get("admin"): abort(401)
-        csrf()
-        device = request.form.get("id") or None
-        try:
-            if device: identifier(device)
-        except ValueError: abort(400)
-        response = queue_push(device)
-        if response[1] != 202: return response
-        return redirect(url_for("dashboard"))
-
-    @app.route("/configuration", methods=["GET", "POST"])
-    def configuration():
-        manager = app.extensions.get("addon_configuration")
-        if manager is None or not request.environ.get("vpnweb.ingress"): abort(404)
-        error = None
-        if request.method == "POST":
-            csrf()
-            try:
-                with dispatcher.lock:
-                    if dispatcher.running: abort(409)
-                    manager.update(request.form, settings)
-                    if isinstance(dispatcher.sender, APNsSender): dispatcher.sender.jwt = None
-                return redirect(url_for("configuration"))
-            except ValueError:
-                error = "Use a valid environment, 30–60 minute interval and a key path under /share or /data."
-        return render_template("configuration.html", settings=settings, error=error)
-
-    @app.get("/health")
-    def health(): return jsonify(status="ok")
-
-    @app.template_filter("when")
-    def when(value):
-        if value is None: return "Not received"
-        from datetime import datetime, timezone
-        return datetime.fromtimestamp(value, timezone.utc).strftime("%d %b %H:%M UTC")
-
+    DashboardViews(app)
     if not settings.demo:
         threading.Thread(target=dispatcher.schedule, daemon=True, name="watchdog").start()
     return app

@@ -24,7 +24,9 @@ class Commands:
             with path.open('xb') as output:
                 os.chmod(path, 0o600)
                 output.write(Ed25519PrivateKey.generate().private_bytes(serialization.Encoding.Raw, serialization.PrivateFormat.Raw, serialization.NoEncryption()))
-        except FileExistsError: pass
+        except FileExistsError:
+            # Reuse the existing signing identity across restarts.
+            pass
         os.chmod(path, 0o600)
         self.key = Ed25519PrivateKey.from_private_bytes(path.read_bytes())
         self.public_key = encode(self.key.public_key().public_bytes(serialization.Encoding.Raw, serialization.PublicFormat.Raw))
@@ -49,36 +51,39 @@ class Commands:
         if action not in ACTIONS or (action!='suspend' and duration is not None): raise ValueError('Invalid command')
         if duration is not None and (type(duration) is not int or not 900<=duration<=86400): raise ValueError('Use 15 minutes to 24 hours')
         now=int(time.time()); until=now+duration if duration is not None else None
-        expiry=min(now+86400,until) if until else now+(3600 if action=='refresh_status' else 86400)
+        lifetime = 3600 if action == 'refresh_status' else 86400
+        expiry = min(now + 86400, until) if until else now + lifetime
         request_id=str(uuid.uuid4())
         with self.database.connect() as db:
             self.expire(db)
             row=db.execute('SELECT command_epoch,administrator_capable,vpn_capable FROM devices WHERE id=?',(device,)).fetchone()
             if row is None: raise LookupError('Unknown installation')
             if not row['command_epoch']: raise RuntimeError('Update and re-enroll this installation')
-            provision = None
-            vpn = None
-            if action == "reprovision_vpn":
-                if not row["vpn_capable"]: raise RuntimeError("Update and re-enroll this installation for VPN updates")
-                vpn = VPNProvisioning(self.database).enrollment()
-                if vpn is None: raise RuntimeError("Configure VPN provisioning first")
-                db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='reprovision_vpn' AND state='pending'", (device,))
-            if action=='reprovision_admin':
-                if not row['administrator_capable']: raise RuntimeError('Update and re-enroll this installation')
-                # Snapshot the exact dashboard verifier at queue time.
-                provision = self.administrator.enrollment()
-                if provision is None: raise RuntimeError('Set the administrator password before reprovisioning')
-                db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='reprovision_admin' AND state='pending'",(device,))
-            elif action=='reprovision_vpn': pass
-            elif action=='refresh_status':
-                db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='refresh_status' AND state='pending'",(device,))
-            else:
-                db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action IN ('suspend','enable') AND state='pending'",(device,))
+            provision, vpn = self.command_snapshot(db, row, device, action)
             db.execute('INSERT INTO commands(request_id,device,epoch,action,issued_at,expires_at,suspend_until,state,administrator_json,vpn_json) VALUES(?,?,?,?,?,?,?,?,?,?)',
                 (request_id,device,row['command_epoch'],action,now,expiry,until,'pending',json.dumps(provision,separators=(',',':')) if provision else None,json.dumps(vpn,separators=(',',':'),sort_keys=True) if vpn else None))
             db.execute("DELETE FROM commands WHERE device=? AND state!='pending' AND sequence NOT IN (SELECT sequence FROM commands WHERE device=? ORDER BY sequence DESC LIMIT 200)",(device,device))
             self.database.event(db,device,'command',action)
         return request_id
+    def command_snapshot(self, db, row, device, action):
+        provision = None
+        vpn = None
+        if action == "reprovision_vpn":
+            if not row["vpn_capable"]: raise RuntimeError("Update and re-enroll this installation for VPN updates")
+            vpn = VPNProvisioning(self.database).enrollment()
+            if vpn is None: raise RuntimeError("Configure VPN provisioning first")
+            db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='reprovision_vpn' AND state='pending'", (device,))
+        if action=='reprovision_admin':
+            if not row['administrator_capable']: raise RuntimeError('Update and re-enroll this installation')
+            # Snapshot the exact dashboard verifier at queue time.
+            provision = self.administrator.enrollment()
+            if provision is None: raise RuntimeError('Set the administrator password before reprovisioning')
+            db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='reprovision_admin' AND state='pending'",(device,))
+        if action=='refresh_status':
+            db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action='refresh_status' AND state='pending'",(device,))
+        elif action in {'suspend', 'enable'}:
+            db.execute("UPDATE commands SET state='superseded' WHERE device=? AND action IN ('suspend','enable') AND state='pending'",(device,))
+        return provision, vpn
     def envelope(self, row):
         body={field:row[field] for field in ('request_id','device','epoch','sequence','action','issued_at','expires_at','suspend_until')}
         if row["vpn_json"]: body["vpn_digest"]=hashlib.sha256(row["vpn_json"].encode()).hexdigest()

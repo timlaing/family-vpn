@@ -5,6 +5,13 @@ import ipaddress
 import re
 
 
+def validated_networks(values, purpose):
+    networks = [ipaddress.ip_network(value, strict=False) for value in values]
+    if not networks or any(value.prefixlen == 0 or value.is_multicast or value.is_unspecified for value in networks):
+        raise ValueError(f'Supply explicit {purpose} source networks; default routes are forbidden')
+    return networks
+
+
 def generate(upstream, port, prefix, networks, public_reports=False, registration_networks=None):
     address = ipaddress.ip_address(upstream)
     if not address.is_private or address.is_unspecified or address.is_loopback or address.is_multicast:
@@ -13,9 +20,7 @@ def generate(upstream, port, prefix, networks, public_reports=False, registratio
         raise ValueError('Use a valid mapped REST port')
     if not re.fullmatch(r'/(?:[A-Za-z0-9_-]+/)+', prefix):
         raise ValueError('Use a path such as /family-vpn/')
-    allowed = [ipaddress.ip_network(value, strict=False) for value in networks]
-    if not allowed or any(value.prefixlen == 0 or value.is_multicast or value.is_unspecified for value in allowed):
-        raise ValueError('Supply explicit VPN source networks or gateway addresses; default routes are forbidden')
+    allowed = validated_networks(networks, 'VPN')
     host = f'[{address}]' if address.version == 6 else str(address)
     acl = '\n'.join(f'    allow {network};' for network in allowed)
     result = f'''# Complete location example: do not nest inside NPM's custom-location Advanced box.
@@ -47,9 +52,7 @@ location = {prefix}{route} {{
 }}
 '''
     if registration_networks is not None:
-        registration = [ipaddress.ip_network(value, strict=False) for value in registration_networks]
-        if not registration or any(value.prefixlen == 0 or value.is_multicast or value.is_unspecified for value in registration):
-            raise ValueError('Supply explicit registration source networks; default routes are forbidden')
+        registration = validated_networks(registration_networks, 'registration')
         registration_acl = '\n'.join(f'    allow {network};' for network in registration)
         result += f'''
 # Registration has its own source boundary; VPN access does not grant enrollment.
