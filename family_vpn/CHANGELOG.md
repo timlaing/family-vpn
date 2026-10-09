@@ -1,3 +1,10 @@
+# 0.5.0
+
+- Host the primary push relay inside the HA app and configure publisher credentials through private Ingress uploads.
+- Add Primary/Custom setup, direct Apple-only custom APNs, and a shared REST address for callbacks.
+- Authenticate the Worker with a private injected credential; enforce duplicate registration rejection, daily key rotation with recovery, and 30-day inactivity expiry.
+- Simplify push settings and preserve policy checks in Administration.
+
 # 0.4.0
 
 - Add configurable published-app relay and direct APNs modes under Advanced.

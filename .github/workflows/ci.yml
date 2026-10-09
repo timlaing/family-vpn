@@ -38,6 +38,17 @@ jobs:
           python -m compileall -q app.py wsgi.py setup_local.py family_vpn
       - name: Check patch whitespace
         run: git show --format= --check HEAD
+  worker_proxy:
+    name: Cloudflare Worker proxy tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    container: node:24-bookworm-slim
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify proxy authentication and forwarding
+        run: node --test cloudflare-worker/test/proxy.test.js
   container:
     name: ${{ matrix.flavour }} ${{ matrix.arch }} container
     needs: tests

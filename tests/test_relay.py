@@ -47,9 +47,9 @@ def test_registration_auth_callback_proof_and_takeover_prevention(relay):
     assert enroll(client).status_code == 201
     assert callbacks[0][2] == {'server':'vpn.example.org', 'kind':'registration'}
     assert enroll(client, token='x'*32).status_code == 409
-    assert enroll(client, extra={'X-Relay-Signature':'wrong'}).status_code == 401
-    assert enroll(client, limit=11).status_code == 201
-    assert app.extensions['relay_store'].endpoint('vpn.example.org')['quota'] == 11
+    assert enroll(client).status_code == 409
+    assert enroll(client, limit=11).status_code == 409
+    assert app.extensions['relay_store'].endpoint('vpn.example.org')['quota'] == 10
     assert enroll(client, limit=101).status_code == 400
 
 
@@ -144,7 +144,7 @@ def test_signed_callback_updates_owner_only_and_rejects_replay(tmp_path):
 
 def test_transport_selection_and_signed_client_requests():
     settings = Settings(push_mode='relay',relay_server='vpn.example.org',relay_registered_server='vpn.example.org',
-        relay_secret='t'*32,relay_enrollment='e'*32,relay_url='https://push.example.org',relay_callback='https://dashboard.example.org/relay-results')
+        relay_secret='t'*32,relay_rotated_at=time.time(),relay_enrollment='e'*32,relay_url='https://push.example.org',relay_callback='https://dashboard.example.org/relay-results')
     sender = RelaySender(settings)
     response = Mock(status_code=200)
     response.json.return_value = {'result':'accepted'}

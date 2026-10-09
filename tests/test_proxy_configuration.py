@@ -46,3 +46,11 @@ class TestProxyConfiguration:
         for networks in ([],['0.0.0.0/0'],['::/0'],['bad; allow all']):
             with pytest.raises(ValueError):
                 generate('192.168.1.20',8500,'/family-vpn/',['10.20.30.0/24'],True,networks)
+
+
+def test_hosted_relay_routes_are_explicit_and_worker_header_is_preserved():
+    result = generate('192.168.1.20',8500,'/family-vpn/',['10.20.30.0/24'],host_relay=True)
+    for route in ('endpoints','rotate','push'):
+        assert f'location = /family-vpn/{route}' in result
+    assert result.count('proxy_set_header X-Relay-Proxy-Token $http_x_relay_proxy_token;') == 3
+    assert 'client_max_body_size 8k;' in result

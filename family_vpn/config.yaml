@@ -1,6 +1,6 @@
 name: Family VPN
 url: https://github.com/timlaing/family-vpn/tree/main/family_vpn
-version: "0.4.0"
+version: "0.5.0"
 slug: family_vpn
 description: Signed VPN commands, administrator provisioning and status with an Ingress dashboard
 arch: [amd64, aarch64]
@@ -12,7 +12,7 @@ panel_title: Family VPN
 ports:
   8500/tcp: 8500
 ports_description:
-  8500/tcp: Bearer-authenticated REST API for Nginx Proxy Manager (no dashboard)
+  8500/tcp: Authenticated REST API and optional Worker-gated push relay (no dashboard)
 map:
   - type: share
     read_only: true

@@ -12,7 +12,7 @@ def validated_networks(values, purpose):
     return networks
 
 
-def generate(upstream, port, prefix, networks, public_reports=False, registration_networks=None):
+def generate(upstream, port, prefix, networks, public_reports=False, registration_networks=None, host_relay=False):
     address = ipaddress.ip_address(upstream)
     if not address.is_private or address.is_unspecified or address.is_loopback or address.is_multicast:
         raise ValueError('Use the reachable private Home Assistant host address')
@@ -51,6 +51,21 @@ location = {prefix}{route} {{
     proxy_read_timeout 15s;
 }}
 '''
+    if host_relay:
+        for route in ('endpoints','rotate','push'):
+            result += f'''\n# Hosted relay: Worker credential plus endpoint HMAC (where applicable).
+location = {prefix}{route} {{
+    limit_except POST {{ deny all; }}
+    proxy_pass http://{host}:{port}/{route};
+    proxy_set_header Authorization $http_authorization;
+    proxy_set_header X-Relay-Proxy-Token $http_x_relay_proxy_token;
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 8k;
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 40s;
+}}
+'''
     if registration_networks is not None:
         registration = validated_networks(registration_networks, 'registration')
         registration_acl = '\n'.join(f'    allow {network};' for network in registration)
@@ -82,8 +97,9 @@ def main():
     parser.add_argument('--allow', action='append', required=True, help='VPN source CIDR or NAT gateway address; repeat for multiple sources')
     parser.add_argument('--public-reports', action='store_true', help='Expose only POST status and command acknowledgements with device authentication')
     parser.add_argument('--registration-allow', action='append', help='Registration-only source CIDR; overrides the VPN ACL for enrollment')
+    parser.add_argument('--host-relay', action='store_true', help='Expose hosted relay POST routes, authenticated by the private Worker credential')
     args = parser.parse_args()
-    try: print(generate(args.upstream, args.port, args.prefix, args.allow, args.public_reports, args.registration_allow), end='')
+    try: print(generate(args.upstream, args.port, args.prefix, args.allow, args.public_reports, args.registration_allow, args.host_relay), end='')
     except ValueError as error: parser.error(str(error))
 
 if __name__ == '__main__': main()

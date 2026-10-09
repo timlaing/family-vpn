@@ -1,0 +1,17 @@
+{% extends 'base.html' %}{% block content %}
+{% include 'navigation.html' %}
+<section class="card provisioning push-setup">
+<h2>Set up push delivery</h2><p>Choose how your dashboard will reach your devices.</p>
+<form method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+<div class="push-choices">
+<label class="push-choice"><input type="radio" name="push_choice" value="primary" {{ 'checked' if settings.push_choice=='primary' else '' }}><span><strong>Primary · Published Family VPN app</strong><small>Use the Family VPN push relay. No Apple key is needed on this dashboard.</small></span></label>
+<label class="push-choice"><input type="radio" name="push_choice" value="custom" {{ 'checked' if settings.push_choice=='custom' else '' }}><span><strong>Custom · Your own Apple app</strong><small>Send directly to Apple APNs using your uploaded credentials.</small></span></label>
+</div><button>Continue</button></form>
+<div class="setup-registration"><h3>{{ 'Register this VPN endpoint' if settings.push_choice=='primary' else 'Finish custom push setup' }}</h3><p>{{ settings.relay_server or 'Complete VPN provisioning first' }}</p>
+{% if settings.push_choice=='primary' %}
+<p>The dashboard sends its endpoint and generated signing key to the push relay. Existing endpoint registrations cannot be overwritten.</p>
+{% if settings.relay_registered_server and settings.relay_registered_server==settings.relay_server %}<p class="badge good">Registered</p><a href="{{ url_for('dashboard') }}">Continue to Status &amp; reports</a>
+{% else %}<form action="{{ url_for('relay_register') }}" method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button {{ 'disabled' if not settings.callback_url or not settings.relay_server else '' }}>Register endpoint</button></form>{% if not settings.callback_url %}<p><a href="{{ url_for('provisioning') }}">Set the REST interface address in VPN provisioning first.</a></p>{% endif %}{% endif %}
+{% elif settings.push_mode=='direct' and settings.apns_ready %}<p>Your own Apple APNs credentials are configured. Devices register directly with this dashboard; no primary-relay registration is needed.</p><form action="{{ url_for('relay_register') }}" method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button>Finish registration</button></form>
+{% else %}<p><a href="{{ url_for('advanced') }}">Configure custom Apple push delivery</a></p>{% endif %}
+</div></section>{% endblock %}

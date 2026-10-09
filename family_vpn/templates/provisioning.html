@@ -3,6 +3,7 @@
   <p>{{ 'Update the connection settings provided to your devices.' if vpn_provision else 'Enter your VPN gateway settings below. Save them, then set up the device administrator password.' }}</p>
   <form action="{{ url_for('configure_vpn_provisioning') }}" method="post" enctype="multipart/form-data">
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    {% if request.environ.get('vpnweb.ingress') %}<label>Public REST interface address<input name="rest_url" type="url" required placeholder="https://dashboard.example.org/family-vpn" value="{{ settings.rest_url }}"><small>Used for device enrollment, reports and relay callbacks. Enter the base address without /registrations.</small></label>{% endif %}
     <label>VPN gateway<input name="server" required maxlength="253" placeholder="vpn.example.org" value="{{ vpn_provision.server if vpn_provision else '' }}"><small>The hostname or IP address of your VPN server.</small></label>
     <label>Server certificate identity<input name="remote_identifier" maxlength="253" placeholder="Defaults to gateway" value="{{ vpn_provision.remoteIdentifier if vpn_provision else '' }}"><small>Leave blank if the server certificate uses the gateway name.</small></label>
     <fieldset class="wifi-list">

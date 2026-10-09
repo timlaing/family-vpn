@@ -46,6 +46,14 @@ class Settings:
     relay_secret: str = field(default="", repr=False)
     relay_enrollment: str = field(default="", repr=False)
     relay_limit: int = 10
+    rest_url: str = ""
+    push_choice: str = "primary"
+    relay_rotated_at: float = 0
+    host_enabled: bool = False
+    host_topic: str = "uk.co.laingcorp.myvpn"
+    host_push_url: str = "https://api.push.apple.com"
+    host_limit: int = 10
+    host_proxy_token: str = field(default="", repr=False)
     interval: int = 2700
     automatic: bool = True
     secure_cookie: bool = True
@@ -74,7 +82,7 @@ class Settings:
     def validate(self):
         from .relay_protocol import https_url
         from urllib.parse import urlsplit
-        for value in (self.relay_url, self.relay_callback):
+        for value in (self.relay_url, self.relay_callback, self.rest_url):
             if value: https_url(value)
         if self.relay_url and urlsplit(self.relay_url).path not in ("", "/"):
             raise ValueError("Host the relay at the HTTPS origin root")
@@ -86,9 +94,13 @@ class Settings:
             raise ValueError("Provision ADMIN_BEARER, REGISTRATION_BEARER and SESSION_SECRET (32+ characters)")
 
     @property
+    def callback_url(self):
+        return self.rest_url.rstrip('/')+'/relay-results' if self.rest_url else self.relay_callback
+
+    @property
     def apns_ready(self):
         if self.push_mode == "relay":
-            return bool(self.relay_url and self.relay_callback and len(self.relay_secret) >= 32 and self.relay_server and self.relay_server == self.relay_registered_server)
+            return bool(self.relay_url and self.callback_url and len(self.relay_secret) >= 32 and self.relay_server and self.relay_server == self.relay_registered_server)
         return bool(self.apns_key_file and self.apns_key_id and self.apns_team_id)
 
 
@@ -182,6 +194,7 @@ class Dispatcher:
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="apns")
         self.stop_event = threading.Event()
         self.future = None
+        self.maintenance = None
 
     def trigger(self, identifier=None, commands_only=False):
         if self.settings.demo: return False
@@ -216,6 +229,9 @@ class Dispatcher:
     def schedule(self):
         next_policy = time.monotonic() + self.settings.interval
         while not self.stop_event.wait(60):
+            if self.maintenance:
+                try: self.maintenance()
+                except Exception: pass  # Retry maintenance without logging credentials or payloads.
             policy_due = time.monotonic() >= next_policy
             if policy_due: next_policy = time.monotonic() + self.settings.interval
             if self.settings.apns_ready: self.trigger(commands_only=not (policy_due and self.settings.automatic))
@@ -267,6 +283,10 @@ class DashboardViews:
         app.add_url_rule('/configuration', endpoint='configuration', view_func=self.configuration, methods=['GET', 'POST'])
         app.add_url_rule('/advanced', endpoint='advanced', view_func=self.configuration, methods=['GET', 'POST'])
         app.add_url_rule('/relay-register', endpoint='relay_register', view_func=self.relay_register, methods=['POST'])
+        app.add_url_rule('/push-setup', endpoint='push_setup', view_func=self.push_setup, methods=['GET','POST'])
+        app.add_url_rule('/relay-rotate', endpoint='relay_rotate', view_func=self.relay_rotate, methods=['POST'])
+        app.add_url_rule('/policy-settings', endpoint='policy_settings', view_func=self.policy_settings, methods=['POST'])
+        app.add_url_rule('/relay-operator', endpoint='relay_operator', view_func=self.relay_operator, methods=['POST'])
         app.add_url_rule('/relay-results', endpoint='relay_results', view_func=self.relay_results, methods=['POST'])
         app.add_url_rule('/health', endpoint='health', view_func=self.health, methods=['GET'])
         app.add_template_filter(self.when, 'when')
@@ -297,7 +317,7 @@ class DashboardViews:
 
 
     def security(self):
-        if request.path == "/vpn-provisioning": request.max_content_length = 32768
+        if request.path in {"/vpn-provisioning", "/advanced", "/configuration", "/relay-operator"}: request.max_content_length = 32768
         if request.content_length is not None and request.content_length > (request.max_content_length or self.app.config["MAX_CONTENT_LENGTH"]): abort(413)
         if self.settings.demo and request.method != "GET": abort(403)
         if request.path in {"/status", "/command-results"}: self.limit_public_report()
@@ -343,14 +363,17 @@ class DashboardViews:
         provisioned = self.settings.demo or bool(self.vpn_provisioning.enrollment())
         administered = self.settings.demo or self.administrator.configured()
         ready = provisioned and administered
+        push_ready = self.settings.demo or not self.app.extensions.get('addon_configuration') or self.settings.apns_ready
         devices = self.settings.demo or bool(self.database.public_devices())
-        return {"available_pages": {"provisioning": True, "configuration": True, "advanced": True,
-            "administration": provisioned, "dashboard": ready, "activity": ready and devices}}
+        return {"available_pages": {"provisioning": True, "configuration": True, "advanced": True, "push_setup": ready,
+            "administration": provisioned, "dashboard": ready and push_ready, "activity": ready and push_ready and devices}}
 
     def dashboard(self):
         if not self.settings.demo and not session.get("admin"): return redirect(url_for("login"))
         available = self.navigation_state()["available_pages"]
         page = request.endpoint
+        if page == 'dashboard' and available['push_setup'] and not available[page]:
+            return redirect(url_for('push_setup'))
         if page == "dashboard" and not available[page]:
             page = "administration" if available["administration"] else "provisioning"
         elif not available[page]:
@@ -359,17 +382,24 @@ class DashboardViews:
             events = [dict(row) for row in db.execute("SELECT at,device,kind,result FROM events ORDER BY seq DESC LIMIT 30")]
         return render_template("dashboard.html", page=page, devices=self.database.public_devices(), events=events, demo=self.settings.demo,
                                configured=self.settings.apns_ready, environment=self.settings.apns_environment,
-                               interval=self.settings.interval // 60, automatic=self.settings.automatic, running=self.dispatcher.running, commands=self.commands.public(), administrator_configured=self.administrator.configured(), vpn_provision=self.vpn_provisioning.enrollment())
+                               settings=self.settings, interval=self.settings.interval // 60, automatic=self.settings.automatic, running=self.dispatcher.running, commands=self.commands.public(), administrator_configured=self.administrator.configured(), vpn_provision=self.vpn_provisioning.enrollment())
 
 
     def configure_vpn_provisioning(self):
         if not session.get("admin"): abort(401)
         ssids = [ssid for ssid in request.form.getlist("trusted_ssid") if ssid != ""] if "trusted_ssid" in request.form else request.form.get("trusted_ssids", "").splitlines()
         try:
+            manager = self.app.extensions.get('addon_configuration')
+            rest_url = self.settings.rest_url
+            if manager and 'rest_url' in request.form:
+                from .relay_protocol import https_url
+                rest_url = https_url(request.form['rest_url'].strip())
             ca = self.vpn_provisioning.certificate_pem(request.files.get("ca_file"), request.form.get("ca_pem", ""), request.form.get("remove_ca") == "true")
             value = self.vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, ca)
             from .relay_protocol import server_key
             self.settings.relay_server = server_key(value["server"])
+            self.settings.rest_url = rest_url
+            if manager: manager.save_settings(self.settings)
         except ValueError as exc: return str(exc), 400
         return redirect(url_for("provisioning"))
 
@@ -378,6 +408,8 @@ class DashboardViews:
         if not session.get("admin"): abort(401)
         try: self.administrator.set_password(request.form.get("password"),request.form.get("confirmation"))
         except ValueError: return "Use matching administrator passwords of at least 12 characters (maximum 1024 UTF-8 bytes).",400
+        if self.app.extensions.get('addon_configuration') and not self.settings.apns_ready:
+            return redirect(url_for('push_setup'))
         return redirect(url_for("administration"))
 
 
@@ -547,49 +579,100 @@ class DashboardViews:
         return redirect(url_for("dashboard"))
 
 
-    def configuration(self):
-        manager = self.app.extensions.get("addon_configuration")
+    def addon_manager(self):
+        manager = self.app.extensions.get('addon_configuration')
         if manager is None or not request.environ.get(INGRESS_FLAG): abort(404)
+        return manager
+
+    def configuration(self):
+        manager = self.addon_manager()
         error = None
-        if request.method == "POST":
+        if request.method == 'POST':
             try:
                 with self.dispatcher.lock:
                     if self.dispatcher.running: abort(409)
-                    manager.update(request.form, self.settings)
+                    if 'push_choice' in request.form:
+                        manager.update_push(request.form,self.settings,request.files.get('key_file'))
+                    else: manager.update(request.form,self.settings)
                     from .relay_client import PushSender
-                    if isinstance(self.dispatcher.sender, PushSender): self.dispatcher.sender.direct.jwt = None
-                    elif isinstance(self.dispatcher.sender, APNsSender): self.dispatcher.sender.jwt = None
-                return redirect(url_for("advanced"))
-            except ValueError:
-                error = "Use valid push settings, HTTPS relay/callback URLs, a 30–60 minute interval and a provider key under /share or /data."
+                    if isinstance(self.dispatcher.sender,PushSender): self.dispatcher.sender.direct.jwt = None
+                return redirect(url_for('push_setup' if 'push_choice' in request.form else 'advanced'))
+            except ValueError as exc: error = str(exc)
         from .relay_client import PushSender
-        relay = self.dispatcher.sender.relay if isinstance(self.dispatcher.sender, PushSender) else None
-        return render_template("configuration.html", settings=self.settings, error=error, relay_result=relay.last_result if relay else "not_contacted")
+        relay = self.dispatcher.sender.relay if isinstance(self.dispatcher.sender,PushSender) else None
+        hosted = self.app.extensions.get('hosted_relay')
+        return render_template('configuration.html',settings=self.settings,error=error,
+            relay_result=relay.last_result if relay else 'not_contacted',
+            hosted_endpoints=hosted.extensions['relay_store'].summary() if hosted and self.settings.host_enabled else [],
+            host_key_configured=(manager.data/'host-credentials.json').exists())
 
+    def push_setup(self):
+        manager = self.addon_manager()
+        if not self.navigation_state()['available_pages']['push_setup']: return redirect(url_for('dashboard'))
+        if request.method == 'POST':
+            choice = request.form.get('push_choice')
+            if choice not in {'primary','custom'}: abort(400)
+            if choice == 'primary':
+                manager.update_push({'push_choice':'primary'},self.settings)
+                return redirect(url_for('push_setup'))
+            self.settings.push_choice = 'custom'
+            manager.save_settings(self.settings)
+            return redirect(url_for('advanced'))
+        return render_template('push_setup.html',settings=self.settings)
 
     def relay_register(self):
         from .relay_client import PushSender
-        manager = self.app.extensions.get("addon_configuration")
-        if manager is None or not request.environ.get(INGRESS_FLAG): abort(404)
-        if not self.settings.relay_server or not self.settings.relay_enrollment: return "Save VPN provisioning and relay enrollment credentials first",400
+        manager = self.addon_manager()
+        if not self.navigation_state()['available_pages']['push_setup']: abort(409)
+        if self.settings.push_mode == 'direct':
+            return redirect(url_for('dashboard' if self.settings.apns_ready else 'advanced'))
+        if not self.settings.relay_server or not self.settings.callback_url: return 'Save VPN provisioning and the REST interface address first',400
         with self.dispatcher.lock:
             if self.dispatcher.running: abort(409)
             sender = self.dispatcher.sender
-            if not isinstance(sender, PushSender): abort(409)
+            if not isinstance(sender,PushSender): abort(409)
+            sender.relay.manager = manager
             try: result = sender.relay.register()
-            except ValueError: return "Save valid HTTPS relay and callback addresses first",400
-            if result != "registered": return "Relay registration failed; check the address, credentials and public callback route",502
+            except ValueError: return 'Save a valid HTTPS push address first',400
+            if result != 'registered': return 'Registration refused: the endpoint may already exist, or its callback is unavailable. Use Force rotate key only if you own the existing key.',409 if result == 'endpoint_exists' else 502
             self.settings.relay_registered_server = self.settings.relay_server
             manager.save_settings(self.settings)
-        return redirect(url_for("advanced"))
+        return redirect(url_for('dashboard'))
+
+    def relay_rotate(self):
+        from .relay_client import PushSender
+        manager = self.addon_manager()
+        sender = self.dispatcher.sender
+        if not isinstance(sender,PushSender) or self.settings.push_mode != 'relay': abort(409)
+        sender.relay.manager = manager
+        if not self.settings.relay_server or not self.settings.callback_url: abort(400)
+        if not sender.relay.rotate(force=True): return 'Key rotation failed. The relay requires the current endpoint key; check connectivity and endpoint ownership.',502
+        self.settings.relay_registered_server = self.settings.relay_server
+        manager.save_settings(self.settings)
+        return redirect(url_for('advanced'))
+
+    def policy_settings(self):
+        manager = self.addon_manager()
+        try:
+            form = {'interval':request.form.get('interval',''), 'automatic':request.form.get('automatic','')}
+            manager.update(form,self.settings)
+        except ValueError: return 'Use a policy interval between 1800 and 3600 seconds',400
+        return redirect(url_for('administration'))
+
+    def relay_operator(self):
+        manager = self.addon_manager()
+        try:
+            manager.update_host(request.form,self.settings,request.files.get('host_key_file'))
+        except ValueError as exc: return str(exc),400
+        return redirect(url_for('advanced'))
 
     def relay_results(self):
         from .relay_protocol import verify, server_key
         from urllib.parse import urlsplit
-        if not self.settings.relay_secret or not self.settings.relay_callback: abort(401)
+        if not self.settings.relay_secret or not self.settings.callback_url: abort(401)
         value = request.get_json(silent=True)
         if not isinstance(value,dict) or value.get("server") != self.settings.relay_server: abort(400)
-        nonce = verify(self.settings.relay_secret, urlsplit(self.settings.relay_callback).path, request.get_data(), request.headers)
+        nonce = verify(self.settings.relay_secret, urlsplit(self.settings.callback_url).path, request.get_data(), request.headers)
         if nonce is None: abort(401)
         if value == {"server":server_key(self.settings.relay_server), "kind":"registration"}:
             pass

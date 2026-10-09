@@ -48,29 +48,62 @@ class RelayStore:
         with self.connect() as db:
             db.executescript('''CREATE TABLE IF NOT EXISTS endpoints(server TEXT PRIMARY KEY, callback TEXT NOT NULL, secret BLOB NOT NULL, quota INTEGER NOT NULL);
                 CREATE TABLE IF NOT EXISTS requests(server TEXT NOT NULL, nonce TEXT NOT NULL, at REAL NOT NULL, PRIMARY KEY(server,nonce));''')
+            columns = {row['name'] for row in db.execute('PRAGMA table_info(endpoints)')}
+            for column in ('last_push', 'rotated_at'):
+                if column not in columns:
+                    db.execute(f'ALTER TABLE endpoints ADD COLUMN {column} REAL NOT NULL DEFAULT 0')
+                    db.execute(f'UPDATE endpoints SET {column}=?',(time.time(),))
         os.chmod(path, 0o600)
 
     @contextmanager
     def connect(self):
-        with sqlite3.connect(self.path, timeout=10) as db:
-            db.row_factory = sqlite3.Row
-            yield db
+        connection = sqlite3.connect(self.path, timeout=10)
+        connection.row_factory = sqlite3.Row
+        try:
+            with connection: yield connection
+        finally: connection.close()
+
+    def prune(self):
+        with self.connect() as db:
+            db.execute('DELETE FROM endpoints WHERE last_push<?', (time.time()-30*86400,))
+            db.execute('DELETE FROM requests WHERE at<? OR server NOT IN (SELECT server FROM endpoints)', (time.time()-600,))
 
     def endpoint(self, server):
+        self.prune()
         with self.connect() as db:
             row = db.execute('SELECT * FROM endpoints WHERE server=?',(server,)).fetchone()
         if not row: return None
         return {**dict(row), 'secret':self.cipher.decrypt(row['secret']).decode()}
 
     def register(self, server, url, token, limit):
-        import hmac
+        self.prune()
+        with self.connect() as db:
+            try:
+                db.execute('INSERT INTO endpoints(server,callback,secret,quota,last_push,rotated_at) VALUES(?,?,?,?,?,?)',
+                    (server,url,self.cipher.encrypt(token.encode()),limit,time.time(),time.time()))
+            except sqlite3.IntegrityError: return False
+        return True
+
+    def rotate(self, server, existing, token, callback_url):
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            existing = db.execute('SELECT secret FROM endpoints WHERE server=?',(server,)).fetchone()
-            if existing and not hmac.compare_digest(self.cipher.decrypt(existing['secret']).decode(),token): return False
-            db.execute('INSERT INTO endpoints VALUES(?,?,?,?) ON CONFLICT(server) DO UPDATE SET callback=excluded.callback,quota=excluded.quota',
-                       (server,url,self.cipher.encrypt(token.encode()),limit))
-        return True
+            row = db.execute('SELECT secret,rotated_at FROM endpoints WHERE server=?',(server,)).fetchone()
+            if not row or self.cipher.decrypt(row['secret']).decode() != existing: return None
+            # Retrying with the newly installed key is safe after a lost response.
+            if existing == token: return row['rotated_at']
+            now = time.time()
+            db.execute('UPDATE endpoints SET secret=?,rotated_at=?,callback=? WHERE server=?',
+                (self.cipher.encrypt(token.encode()),now,callback_url,server))
+        return now
+
+    def touched(self, server):
+        with self.connect() as db:
+            db.execute('UPDATE endpoints SET last_push=? WHERE server=?',(time.time(),server))
+
+    def summary(self):
+        self.prune()
+        with self.connect() as db:
+            return [dict(row) for row in db.execute('SELECT server,last_push,rotated_at,quota FROM endpoints ORDER BY server')]
 
     def claim(self, server, nonce, limit):
         with self.connect() as db:
@@ -84,13 +117,21 @@ class RelayStore:
         return None
 
 
-def create_relay(path, enrollment, master, sender, max_limit=100, callback_sender=callback):
+def valid_token(token):
+    return isinstance(token,str) and 32 <= len(token) <= 256 and all(33 <= ord(char) <= 126 for char in token)
+
+
+def create_relay(path, enrollment, master, sender, max_limit=100, callback_sender=callback, authorize=None):
     if len(enrollment) < 32 or len(master) < 32: raise ValueError('Provide separate 32+ character enrollment and storage secrets')
-    if type(max_limit) is not int or not 1 <= max_limit <= 100: raise ValueError('Use a maximum rate between 1 and 100')
+    if not callable(max_limit) and (type(max_limit) is not int or not 1 <= max_limit <= 100): raise ValueError('Use a maximum rate between 1 and 100')
     store = RelayStore(path, master)
     app = Flask(__name__)
     app.config['MAX_CONTENT_LENGTH'] = 8192
     app.extensions['relay_store'] = store
+
+    @app.before_request
+    def trusted_proxy():
+        if authorize is not None and request.path != '/health': authorize()
 
     @app.after_request
     def private_response(response):
@@ -100,26 +141,42 @@ def create_relay(path, enrollment, master, sender, max_limit=100, callback_sende
     @app.post('/endpoints')
     def enroll():
         import hmac
-        if not hmac.compare_digest(request.headers.get('Authorization','').encode(), ('Bearer '+enrollment).encode()): abort(401)
+        if authorize is None and not hmac.compare_digest(request.headers.get('Authorization','').encode(), ('Bearer '+enrollment).encode()): abort(401)
         value = request.get_json(silent=True)
         try:
             if not isinstance(value, dict) or set(value) != {'server','callback','token','limit'}: raise ValueError()
             server = server_key(value['server'])
             url = https_url(value['callback'])
             token, limit = value['token'], value['limit']
-            if not isinstance(token,str) or not 32 <= len(token) <= 256 or any(ord(char) < 33 or ord(char) > 126 for char in token) or type(limit) is not int or not 1 <= limit <= max_limit: raise ValueError()
+            cap = max_limit() if callable(max_limit) else max_limit
+            if not valid_token(token) or type(limit) is not int or not 1 <= limit <= cap: raise ValueError()
         except (ValueError, TypeError): abort(400)
-        existing = store.endpoint(server)
-        if existing:
-            if not hmac.compare_digest(existing['secret'],token): abort(409)
-            nonce = verify(existing['secret'], request.path, request.get_data(), request.headers)
-            if nonce is None: abort(401)
-            blocked = store.claim(server, nonce, existing['quota'])
-            if blocked: abort(blocked)
+        if store.endpoint(server): return jsonify(error='endpoint_exists'),409
         # Prove callback ownership before retaining registration or sending device data.
         if not callback_sender(url, token, {'server':server,'kind':'registration'}): return jsonify(error='callback_verification_failed'),400
         if not store.register(server,url,token,limit): abort(409)
-        return jsonify(server=server,limit=limit),201
+        return jsonify(server=server,limit=limit,rotated_at=store.endpoint(server)['rotated_at']),201
+
+    @app.post('/rotate')
+    def rotate():
+        value = request.get_json(silent=True)
+        try:
+            if not isinstance(value,dict) or set(value) != {'server','token','callback'}: raise ValueError()
+            server = server_key(value['server'])
+            url = https_url(value['callback'])
+            if not valid_token(value['token']): raise ValueError()
+        except (ValueError,TypeError): abort(400)
+        endpoint = store.endpoint(server)
+        if endpoint is None: return jsonify(error='endpoint_missing'),404
+        nonce = verify(endpoint['secret'],request.path,request.get_data(),request.headers)
+        if nonce is None: abort(401)
+        blocked = store.claim(server,nonce,endpoint['quota'])
+        if blocked: abort(blocked)
+        if url != endpoint['callback'] and not callback_sender(url,endpoint['secret'],{'server':server,'kind':'registration'}):
+            return jsonify(error='callback_verification_failed'),400
+        rotated_at = store.rotate(server,endpoint['secret'],value['token'],url)
+        if rotated_at is None: abort(409)
+        return jsonify(rotated_at=rotated_at)
 
     @app.post('/push')
     def push():
@@ -136,9 +193,11 @@ def create_relay(path, enrollment, master, sender, max_limit=100, callback_sende
         if endpoint is None: abort(401)
         nonce = verify(endpoint['secret'], request.path, request.get_data(), request.headers)
         if nonce is None: abort(401)
+        if time.time()-endpoint['rotated_at'] >= 86400: return jsonify(error='rotation_required'),409
         blocked = store.claim(server,nonce,endpoint['quota'])
         if blocked: return jsonify(error='rate_limit' if blocked == 429 else 'replay'),blocked
         result = sender.send(value['token'],command=value['command'])
+        store.touched(server)
         delivered = callback_sender(endpoint['callback'],endpoint['secret'],
             {'server':server,'kind':'push_result','device':value['device'],'token':value['token'],'result':result})
         return jsonify(result=result, callback='delivered' if delivered else 'failed')

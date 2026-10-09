@@ -19,7 +19,8 @@ class TestHomeAssistant:
         self.settings = self.manager.load()
         self.settings.secure_cookie = False
         self.app = create_app(self.settings)
-        self.app.extensions['addon_configuration'] = self.manager
+        from family_vpn.relay_host import install_relay
+        install_relay(self.app,self.manager)
         self.app.session_interface = IngressSessionInterface()
         self.app.wsgi_app = IngressMiddleware(self.app.wsgi_app)
         self.client = self.app.test_client()
@@ -131,7 +132,7 @@ class TestHomeAssistant:
 
     def test_ingress_credentials_are_not_exposed_by_dashboard_or_external_api(self):
         for secret in (self.settings.admin_secret, self.settings.enrollment_secret):
-            assert secret.encode() in self.ingress('/configuration').data
+            assert secret.encode() not in self.ingress('/configuration').data
             assert secret.encode() not in self.ingress().data
             assert secret.encode() not in self.client.get('/configuration', base_url='http://localhost:8500').data
 
@@ -140,6 +141,8 @@ class TestHomeAssistant:
         self.app.extensions['administrator'].set_password('dashboard-test-password', 'dashboard-test-password')
         with self.app.extensions['database'].connect() as db:
             db.execute("INSERT INTO devices(id,status_hash,registered) VALUES('sample','synthetic',0)")
+        self.settings.relay_server = self.settings.relay_registered_server = 'vpn.example.org'
+        self.settings.rest_url = 'https://dashboard.example.org/family-vpn'
         pages = {'/':'Device reports', '/provisioning':'Save VPN provisioning',
                  '/administration':'Change device administrator password', '/activity':'Recent activity'}
         for path, content in pages.items():
@@ -170,6 +173,11 @@ class TestHomeAssistant:
         assert self.ingress('/administration').status_code == 200
         assert self.ingress('/activity').status_code == 302
         self.app.extensions['administrator'].set_password('dashboard-test-password', 'dashboard-test-password')
+        assert self.ingress().status_code == 302
+        assert self.ingress().location.endswith('/push-setup')
+        assert b'Register endpoint' in self.ingress('/push-setup').data
+        self.settings.relay_server = self.settings.relay_registered_server = 'vpn.example.org'
+        self.settings.rest_url = 'https://dashboard.example.org/family-vpn'
         assert b'Device reports' in self.ingress().data
         assert self.ingress('/activity').status_code == 302
 
@@ -198,8 +206,8 @@ def test_relay_callback_is_external_only_and_advanced_is_ingress_only():
         assert fixture.client.post('/relay-register', base_url='http://localhost:8500').status_code == 404
         response = fixture.ingress('/advanced')
         assert response.status_code == 200
-        assert b'Published app' in response.data
-        assert b'Register / update relay endpoint' in response.data
+        assert b'Published Family VPN app' in response.data
+        assert b'Force rotate key' in response.data
         assert fixture.settings.relay_secret.encode() not in response.data
         assert fixture.client.post('/relay-results', base_url='http://localhost:8500', json={}).status_code == 401
     finally:
