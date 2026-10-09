@@ -1,7 +1,3 @@
-> Device administrator setup and signed reprovisioning: [ADMINISTRATION.md](ADMINISTRATION.md).
-
-> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.10.0/24; remaining REST routes stay VPN-only. See [REMOTE_COMMANDS.md](REMOTE_COMMANDS.md) for complete setup instructions.
-
 # Family VPN — Home Assistant app
 
 [![Add Family VPN to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftimlaing%2Ffamily-vpn)

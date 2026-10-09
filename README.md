@@ -1,7 +1,3 @@
-> Device administrator setup and signed reprovisioning: [ADMINISTRATION.md](docs/ADMINISTRATION.md).
-
-> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.10.0/24; remaining REST routes stay VPN-only. See [remote command and proxy configuration](docs/REMOTE_COMMANDS.md).
-
 # Family VPN
 
 [![CI](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml) [![Home Assistant lint](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
@@ -80,7 +76,7 @@ The server does not contact APNs until configured and triggered or its scheduled
 
 ## Connect the native app
 
-Use the updated MyVPN build from the sibling directory. Set the device administrator password in the dashboard, then on the native main page set the HTTPS registration endpoint (for example `https://vpn-control.example.com/registrations`) and REGISTRATION_BEARER, then register. Registration returns a device-specific status credential; the app stores it in device-only Keychain. APNs token changes re-register and rotate this credential.
+Install the Family VPN native app built from `MyVPN/FamilyVPN.xcodeproj` using the `FamilyVPN` scheme. Set the device administrator password in the dashboard, then on the native main page set the HTTPS registration endpoint (for example `https://vpn-control.example.com/registrations`) and REGISTRATION_BEARER, then register from your permitted registration LAN. Registration returns the device administrator verifier, command-signing public key and enrollment epoch, VPN/Wi-Fi/CA settings, and a device-specific reporting credential; the app stores it in device-only Keychain. APNs token changes re-register and rotate this credential.
 
 After foreground/timer/push recovery checks, the app posts only `{id, connection, policy_ok}` to `/status` on the same origin/prefix. It never sends VPN usernames/passwords, administrator passwords, SSIDs or browsing information. The server stores the suspension duration selected in its dashboard. Reporting failure does not disable local VPN policy. The updated app requires administrator provisioning from the 0.3.0 service; legacy 204 watchdog replies cannot provision it.
 
@@ -88,15 +84,22 @@ If endpoint/enrollment changes, re-register. If you replace the database or rota
 
 ## API
 
-| Endpoint | Authentication | Behaviour |
-| --- | --- | --- |
-| GET /health | None | Generic readiness only |
-| POST /registrations | Bearer REGISTRATION_BEARER | `{id, token}`; returns 201 `{status_token}`; rotates report credential |
-| POST /status | Per-device status_token | `{id, connection, policy_ok}`; returns 204 |
-| GET /api/devices | Bearer ADMIN_BEARER or admin session | Sanitized latest reports; no tokens/hashes |
-| POST /api/push | Bearer ADMIN_BEARER | `{}` for all or `{id}` for one; returns 202 queued, 409 busy or 503 unconfigured |
+The [HTTP API guide](docs/API.md) is the complete route and provisioning contract. Routes below are relative to the deployment prefix (for example `/family-vpn/`). Source restrictions are enforced by the reverse proxy, in addition to bearer authentication.
 
-IDs are canonical UUIDs. Connection values: connected, connecting, reasserting, disconnecting, disconnected, invalid. policy_ok is a JSON Boolean. Private/extra fields are rejected. APNs tokens are variable-length lowercase byte-pair hexadecimal. Requests are limited to 2048 bytes. A queued request is asynchronous; refresh the dashboard for its APNs result and wait for a separate device report.
+| Route | Access | Purpose |
+| --- | --- | --- |
+| POST /registrations | Registration LAN + enrollment bearer | Provision device settings and rotate its reporting credential |
+| POST /status | Public HTTPS + device bearer | Report connection and policy status |
+| POST /command-results | Public HTTPS + device bearer | Acknowledge command execution or failure |
+| GET /commands | VPN source + device bearer | Retrieve signed pending commands |
+| GET /vpn-configuration | VPN source + device bearer | Retrieve a pending VPN/Wi-Fi/CA snapshot |
+| GET /api/devices | VPN source + admin bearer (or standalone admin session) | Sanitized device status |
+| GET /api/commands | VPN source + admin bearer (or standalone admin session) | Sanitized command history |
+| POST /api/commands | VPN source + admin bearer | Queue refresh, suspend, enable or reprovisioning |
+| POST /api/push | VPN source + admin bearer | Queue checks for one or all devices |
+| GET /health | VPN source at the proxy; no bearer | Process liveness only |
+
+The Home Assistant dashboard and configuration use Ingress, not the REST listener. A queued command or Apple acceptance does not establish device execution; verify its acknowledgement and subsequent report. See [remote commands](docs/REMOTE_COMMANDS.md) and [proxy setup](docs/HOME_ASSISTANT.md).
 
 ## Test
 

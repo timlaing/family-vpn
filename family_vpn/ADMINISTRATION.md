@@ -6,11 +6,11 @@ Version 0.3.0 moves device administrator password creation and changes to the da
 
 1. Install the 0.3.0 service and updated native app. Back up the private service database and command signing key before updating.
 2. Open the Home Assistant Ingress dashboard and set/confirm a password of at least 12 characters. The maximum is 1024 UTF-8 bytes; request bodies remain limited to 2 KiB.
-3. On the device, open Dashboard registration, enter the HTTPS `/family-vpn/registrations` endpoint and enrollment secret, and authorize with device authentication. The proxy accepts registration exclusively from 192.168.10.0/24.
+3. On the device, open Dashboard registration, enter the HTTPS `/family-vpn/registrations` endpoint and enrollment secret, and authorize with device authentication. The proxy accepts registration exclusively from your configured registration LAN.
 4. Registration retrieves the salted PBKDF2-SHA256 verifier (600,000 iterations, 32-byte salt/output), its revision and command trust. No plaintext administrator password is returned. First installation remains disabled until provisioned administrator configuration is available.
 5. Install the VPN with its separate username/password. Use the dashboard-managed administrator password when unlocking local administrator controls.
 
-Registration works before an APNs token exists, including macOS. The native request contains `{id, token:null}` with `X-FamilyVPN-Administrator-Protocol: 1` and `X-FamilyVPN-Command-Protocol: 1`. The response adds `administrator: {algorithm, iterations, salt, verifier, revision}`; binary fields are base64, revision is a UUID. Without dashboard setup, this protocol returns 409 before registering the device. Older clients remain registration-compatible but cannot install the updated app using a legacy 204 watchdog response. Legacy local verifiers continue protecting an installed VPN until replaced by authorized provisioning.
+Registration works before an APNs token exists, including macOS. The native request contains `{id, token:null}` with `X-FamilyVPN-Administrator-Protocol: 1`, `X-FamilyVPN-Command-Protocol: 1` and `X-FamilyVPN-VPN-Protocol: 2`. The response adds `administrator: {algorithm, iterations, salt, verifier, revision}`; binary fields are base64, revision is a UUID. Without dashboard setup, this protocol returns 409 before registering the device. Older clients remain registration-compatible but cannot install the updated app using a legacy 204 watchdog response. Legacy local verifiers continue protecting an installed VPN until replaced by authorized provisioning.
 
 On iPhone/iPad, APNs tokens are registered afterward; unchanged tokens do not repeatedly rotate enrollment on every launch. macOS registers APNs tokens and receives signed commands in the app or running background helper, with VPN-only pending-command polling as a fallback. Failed manual enrollment restores the previous local enrollment records where possible; a server-side enrollment rotation may require another registration if the response was lost.
 
@@ -27,9 +27,9 @@ An executed acknowledgement means the local verifier update succeeded. Backgroun
 ## Access boundaries
 
 - Dashboard password setup: Home Assistant Ingress administrator access and CSRF, or authenticated standalone dashboard session and CSRF. It is unavailable on the add-on REST listener.
-- Registration: 192.168.10.0/24 plus enrollment bearer authentication.
+- Registration: your configured registration LAN plus enrollment bearer authentication.
 - Status and command acknowledgements: public HTTPS with device-scoped authentication and rate limits.
-- Pending commands and administrator REST APIs: VPN subnets 10.20.30.0/24 and 10.20.40.0/24 plus their respective bearer credentials.
+- Pending commands and administrator REST APIs: your configured VPN subnets plus their respective bearer credentials.
 
 The service stores only the password verifier in its private SQLite database; it never echoes the password or verifier in dashboard HTML, logs or admin device/history APIs. Keep database backups protected because they include verifier material. No live Home Assistant/NPM configuration is changed by installing repository code; apply and verify the generated proxy locations and firewall restrictions separately.
 

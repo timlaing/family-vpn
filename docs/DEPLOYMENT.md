@@ -1,5 +1,3 @@
-> Version 0.3.0: authenticated POST status and command acknowledgements may be public; registration is restricted to 192.168.10.0/24; remaining REST routes stay VPN-only. See the repository `docs/REMOTE_COMMANDS.md` for complete setup instructions.
-
 # Deployment and releases
 
 For the Home Assistant package and NPM custom location, start with [Home Assistant deployment](HOME_ASSISTANT.md). The source/container sections below describe standalone mode.
