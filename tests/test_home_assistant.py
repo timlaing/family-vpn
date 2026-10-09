@@ -45,10 +45,10 @@ class TestHomeAssistant:
         assert (self.ingress('/registrations', method='post', json={}).status_code) == (404)
     def test_external_listener_blocks_dashboard_and_keeps_rest_authentication(self):
         for path in ('/','/configuration','/login','/static/style.css','/push','/administrator-password'):
-            assert (self.client.get(path, base_url='http://localhost:8081', headers={'X-Ingress-Path': PREFIX}).status_code) == (404)
-        assert (self.client.get('/health', base_url='http://localhost:8081').status_code) == (200)
-        assert (self.client.get('/api/devices', base_url='http://localhost:8081').status_code) == (401)
-        assert (self.client.post('/registrations', base_url='http://localhost:8081', json={}).status_code) == (401)
+            assert (self.client.get(path, base_url='http://localhost:8500', headers={'X-Ingress-Path': PREFIX}).status_code) == (404)
+        assert (self.client.get('/health', base_url='http://localhost:8500').status_code) == (200)
+        assert (self.client.get('/api/devices', base_url='http://localhost:8500').status_code) == (401)
+        assert (self.client.post('/registrations', base_url='http://localhost:8500', json={}).status_code) == (401)
         assert (self.client.get('/health', base_url='http://localhost:9999').status_code) == (403)
     def test_configuration_requires_csrf_and_persists_only_allowed_fields(self):
         response=self.ingress('/configuration')
@@ -80,7 +80,7 @@ class TestHomeAssistant:
         form={'csrf':csrf,'password':'dashboard-test-password','confirmation':'dashboard-test-password'}
         assert (self.ingress('/administrator-password', method='post', data=form).status_code) == (302)
         assert self.app.extensions['administrator'].configured()
-        assert (self.client.post('/administrator-password', base_url='http://localhost:8081', data=form).status_code) == (404)
+        assert (self.client.post('/administrator-password', base_url='http://localhost:8500', data=form).status_code) == (404)
         assert (self.ingress('/administrator-password', method='post', data={**form, 'csrf': 'wrong'}).status_code) == (403)
 
     def test_vpn_provisioning_listener_isolation(self):
@@ -88,9 +88,9 @@ class TestHomeAssistant:
         csrf = re.search(rb'name="csrf" value="([^"]+)"', response.data).group(1).decode()
         form = {'csrf':csrf,'server':'vpn.example.org','trusted_ssids':'Home'}
         assert self.ingress('/vpn-provisioning', method='post', data=form).status_code == 302
-        assert self.client.post('/vpn-provisioning', base_url='http://localhost:8081', data=form).status_code == 404
+        assert self.client.post('/vpn-provisioning', base_url='http://localhost:8500', data=form).status_code == 404
         assert self.ingress('/vpn-configuration').status_code == 404
-        assert self.client.get('/vpn-configuration', base_url='http://localhost:8081').status_code == 400
+        assert self.client.get('/vpn-configuration', base_url='http://localhost:8500').status_code == 400
 
     def test_blank_or_missing_bearers_are_generated_and_retained(self):
         Path(self.directory.name, 'options.json').write_text('{}')
@@ -133,7 +133,7 @@ class TestHomeAssistant:
         for secret in (self.settings.admin_secret, self.settings.enrollment_secret):
             assert secret.encode() in self.ingress('/configuration').data
             assert secret.encode() not in self.ingress().data
-            assert secret.encode() not in self.client.get('/configuration', base_url='http://localhost:8081').data
+            assert secret.encode() not in self.client.get('/configuration', base_url='http://localhost:8500').data
 
     def test_navigation_pages_separate_forms_and_remain_ingress_only(self):
         self.app.extensions['vpn_provisioning'].save('vpn.example.org', '', [])
@@ -149,7 +149,7 @@ class TestHomeAssistant:
             assert b'aria-label="Open navigation"' in response.data
             for target in ('provisioning', 'administration', 'activity', 'configuration'):
                 assert (PREFIX+'/'+target).encode() in response.data
-            assert self.client.get(path, base_url='http://localhost:8081').status_code == 404
+            assert self.client.get(path, base_url='http://localhost:8500').status_code == 404
         assert b'Save VPN provisioning' not in self.ingress().data
         assert b'Set device administrator password' not in self.ingress().data
         assert b'Device reports' not in self.ingress('/administration').data

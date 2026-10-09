@@ -28,19 +28,19 @@ http {
     listen 8080;
     location = /family-vpn/status {
       limit_except POST { deny all; }
-      proxy_pass http://172.30.32.3:8081/status;
+      proxy_pass http://172.30.32.3:8500/status;
       proxy_set_header Authorization $http_authorization;
     }
     location = /family-vpn/command-results {
       limit_except POST { deny all; }
-      proxy_pass http://172.30.32.3:8081/command-results;
+      proxy_pass http://172.30.32.3:8500/command-results;
       proxy_set_header Authorization $http_authorization;
     }
     location = /family-vpn/registrations {
       allow 172.30.32.12;
       deny all;
       limit_except POST { deny all; }
-      proxy_pass http://172.30.32.3:8081/registrations;
+      proxy_pass http://172.30.32.3:8500/registrations;
       proxy_set_header Authorization $http_authorization;
       proxy_set_header X-FamilyVPN-Command-Protocol $http_x_familyvpn_command_protocol;
       proxy_set_header X-FamilyVPN-Administrator-Protocol $http_x_familyvpn_administrator_protocol;
@@ -48,7 +48,7 @@ http {
     location /family-vpn/ {
       allow 172.30.32.10;
       deny all;
-      proxy_pass http://172.30.32.3:8081/;
+      proxy_pass http://172.30.32.3:8500/;
       proxy_set_header Authorization $http_authorization;
       proxy_set_header Host vpn-control.test;
     }

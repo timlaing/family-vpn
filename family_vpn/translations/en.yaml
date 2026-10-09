@@ -6,4 +6,4 @@ configuration:
     name: Device enrollment bearer
     description: Optional separate random value with at least 32 characters. Leave blank to generate and persist on first startup; retrieve it in the dashboard for device enrollment.
 network:
-  8081/tcp: VPN-only bearer-authenticated REST port for Nginx Proxy Manager; no dashboard.
+  8500/tcp: VPN-only bearer-authenticated REST port for Nginx Proxy Manager; no dashboard.

@@ -14,8 +14,8 @@ print('AUTO_PUSH=false\nLOCAL_HTTP=true')
 PYTHON
 docker run -d --name "$name" --read-only --tmpfs /tmp --cap-drop ALL \
   --security-opt no-new-privileges --env-file "$env_file" \
-  -p 127.0.0.1::8081 "$image" >/dev/null
-port=$(docker port "$name" 8081/tcp | sed 's/.*://')
+  -p 127.0.0.1::8500 "$image" >/dev/null
+port=$(docker port "$name" 8500/tcp | sed 's/.*://')
 VPNWEB_SMOKE_PORT="$port" python3 - <<'PYTHON'
 import json, os, time, urllib.error, urllib.request
 url = 'http://127.0.0.1:' + os.environ['VPNWEB_SMOKE_PORT']

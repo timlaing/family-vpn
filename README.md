@@ -12,7 +12,7 @@ See [Apple device setup and use](docs/APPLE_APPS.md) to register the app, approv
 
 Supports **AMD64** and **ARM64/aarch64** on Home Assistant installations with Supervisor. Add the repository, install **Family VPN**, configure the two bearer secrets and APNs credentials, then open its Ingress dashboard.
 
-This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashboard and APNs settings use Ingress on port 8099; a separate bearer-authenticated REST listener on port 8081 sits behind your Nginx Proxy Manager custom location. Only authenticated POST status and command acknowledgements are publicly reachable; registration requires your configured registration LAN and remaining REST routes require VPN source addresses. Follow [Home Assistant and NPM setup](docs/HOME_ASSISTANT.md). The root entry points retain standalone preview compatibility.
+This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashboard and APNs settings use Ingress on port 8099; a separate bearer-authenticated REST listener on port 8500 sits behind your Nginx Proxy Manager custom location. Only authenticated POST status and command acknowledgements are publicly reachable; registration requires your configured registration LAN and remaining REST routes require VPN source addresses. Follow [Home Assistant and NPM setup](docs/HOME_ASSISTANT.md). The root entry points retain standalone preview compatibility.
 
 ## Documentation
 
@@ -39,10 +39,10 @@ Requires Python 3.12–3.14 on macOS/Linux, or Docker for Linux containers. CI t
 ```sh
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.lock
-.venv/bin/python app.py --demo --port 8081
+.venv/bin/python app.py --demo --port 8500
 ```
 
-Open http://127.0.0.1:8081. Preview data is synthetic; every POST is blocked and no APNs key is accessed. Stop with Control-C.
+Open http://127.0.0.1:8500. Preview data is synthetic; every POST is blocked and no APNs key is accessed. Stop with Control-C.
 
 ## Configure a local service
 
@@ -51,7 +51,7 @@ Open http://127.0.0.1:8081. Preview data is synthetic; every POST is blocked and
 set -a
 source .env
 set +a
-.venv/bin/python app.py --port 8081
+.venv/bin/python app.py --port 8500
 ```
 
 Open `/login`. Read your private `.env` locally and enter ADMIN_BEARER as the dashboard access key. Do not paste secrets into chat or Git. This generated configuration disables automatic pushes and enables loopback HTTP cookies. Without APNs configuration, enrollment/status work but push requests return 503.
@@ -66,7 +66,7 @@ The native app requires HTTPS. For a real device, deploy behind your trusted HTT
 4. Run exactly **one worker** so the scheduler and dispatch lock are unique:
 
 ```sh
-.venv/bin/gunicorn --workers 1 --threads 4 --bind 127.0.0.1:8081 \
+.venv/bin/gunicorn --workers 1 --threads 4 --bind 127.0.0.1:8500 \
   --access-logfile /dev/null --error-logfile - wsgi:application
 ```
 

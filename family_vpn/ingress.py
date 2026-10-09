@@ -26,7 +26,7 @@ class IngressMiddleware:
                 return self.reject(start_response, "404 Not Found")
             environ["SCRIPT_NAME"] = prefix.rstrip("/")
             environ[INGRESS_FLAG] = True
-        elif port == "8081":
+        elif port == "8500":
             if path not in {"/health", "/registrations", "/status", "/api/devices", "/api/push", "/api/commands", "/commands", "/command-results", "/vpn-configuration"}:
                 return self.reject(start_response, "404 Not Found")
             environ.pop(INGRESS_FLAG, None)

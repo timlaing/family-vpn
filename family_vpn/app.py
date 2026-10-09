@@ -578,7 +578,7 @@ def seed_demo(app):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--demo", action="store_true")
-    parser.add_argument("--port", type=int, default=8081)
+    parser.add_argument("--port", type=int, default=8500)
     args = parser.parse_args()
     if args.demo:
         import tempfile

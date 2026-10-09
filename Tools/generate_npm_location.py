@@ -77,7 +77,7 @@ location = {prefix}registrations {{
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--upstream', required=True, help='Private Home Assistant host IP reachable from NPM')
-    parser.add_argument('--port', type=int, default=8081)
+    parser.add_argument('--port', type=int, default=8500)
     parser.add_argument('--prefix', default='/family-vpn/')
     parser.add_argument('--allow', action='append', required=True, help='VPN source CIDR or NAT gateway address; repeat for multiple sources')
     parser.add_argument('--public-reports', action='store_true', help='Expose only POST status and command acknowledgements with device authentication')

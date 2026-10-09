@@ -3,10 +3,10 @@
   "image": "mcr.microsoft.com/devcontainers/python:2-3.14-trixie",
   "remoteUser": "vscode",
   "forwardPorts": [
-    8081
+    8500
   ],
   "portsAttributes": {
-    "8081": {
+    "8500": {
       "label": "Family VPN synthetic dashboard",
       "onAutoForward": "notify"
     }

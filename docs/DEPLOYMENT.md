@@ -9,7 +9,7 @@ Use Python 3.12–3.14, install `requirements.lock` into a dedicated virtual env
 Run as a dedicated service account with a persistent, private SQLite directory and read-only APNs provider key. Use exactly one worker:
 
 ```sh
-.venv/bin/gunicorn --workers 1 --threads 4 --bind 127.0.0.1:8081 \
+.venv/bin/gunicorn --workers 1 --threads 4 --bind 127.0.0.1:8500 \
   --access-logfile /dev/null --error-logfile - wsgi:application
 ```
 
@@ -50,7 +50,7 @@ docker run -d --name vpnweb --restart unless-stopped \
   --env-file /private/path/vpnweb.env \
   --mount type=volume,source=vpnweb-data,target=/data \
   --mount type=bind,source=/private/path/apns.p8,target=/run/secrets/apns.p8,readonly \
-  -p 127.0.0.1:8081:8081 vpnweb:local
+  -p 127.0.0.1:8500:8500 vpnweb:local
 ```
 
 Use your HTTPS proxy for external access. Docker publishes loopback only. Do not put secrets in the image build context; `.dockerignore` allowlists application runtime files. The standalone image targets Linux amd64 in the GitHub workflow; Home Assistant app images target amd64 and aarch64. Local Docker builds use the host architecture. Use source deployment or build locally for other architectures.

@@ -9,7 +9,7 @@ RUN python -m pip install --no-cache-dir --only-binary=:all: --no-deps --require
     && mkdir /data && chown vpnweb:vpnweb /data
 COPY family_vpn ./family_vpn
 USER 10001:10001
-EXPOSE 8081
+EXPOSE 8500
 VOLUME ["/data"]
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=3).close()"
-CMD ["gunicorn", "--workers", "1", "--threads", "4", "--bind", "0.0.0.0:8081", "--access-logfile", "/dev/null", "--error-logfile", "-", "family_vpn.wsgi:application"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8500/health', timeout=3).close()"
+CMD ["gunicorn", "--workers", "1", "--threads", "4", "--bind", "0.0.0.0:8500", "--access-logfile", "/dev/null", "--error-logfile", "-", "family_vpn.wsgi:application"]

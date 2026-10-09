@@ -23,8 +23,8 @@ os.chmod("/data/options.json",0o600)
 '
 docker run -d --name "$name" --read-only --tmpfs /tmp --cap-drop ALL \
   --security-opt no-new-privileges --mount "type=volume,source=$volume,target=/data" \
-  -p 127.0.0.1::8081 -p 127.0.0.1::8099 "$image" >/dev/null
-rest=$(docker port "$name" 8081/tcp | sed 's/.*://')
+  -p 127.0.0.1::8500 -p 127.0.0.1::8099 "$image" >/dev/null
+rest=$(docker port "$name" 8500/tcp | sed 's/.*://')
 ingress=$(docker port "$name" 8099/tcp | sed 's/.*://')
 VPNWEB_REST_PORT="$rest" VPNWEB_INGRESS_PORT="$ingress" python3 - <<'PY'
 import json,os,time,urllib.error,urllib.request

@@ -37,13 +37,13 @@ The sidebar entry is marked administrator-only. Ingress trusts Home Assistant's 
 
 ## External REST interface
 
-Port **8081** exposes `/registrations`, `/status`, `/commands`, `/command-results`, `/vpn-configuration`, `/api/devices`, `/api/push`, `/api/commands` and `/health`. All operational REST routes use bearer authentication; `/health` is generic liveness. Dashboard, login, static assets and configuration are rejected on this port. The container serves plain HTTP here; terminate trusted TLS at Nginx Proxy Manager.
+Port **8500** exposes `/registrations`, `/status`, `/commands`, `/command-results`, `/vpn-configuration`, `/api/devices`, `/api/push`, `/api/commands` and `/health`. All operational REST routes use bearer authentication; `/health` is generic liveness. Dashboard, login, static assets and configuration are rejected on this port. The container serves plain HTTP here; terminate trusted TLS at Nginx Proxy Manager.
 
-Select the host mapping under the app's **Network** settings (8081 by default). Keep this host port accessible only from the reverse proxy/trusted network; do not forward it directly from your router. If NPM runs in a separate container, `127.0.0.1` means that container, so use the Home Assistant host's reachable LAN address and the selected mapped port. If NPM shares the Supervisor network, a tested app DNS name can be used instead, but do not guess the repository-prefixed container name.
+Select the host mapping under the app's **Network** settings (8500 by default). Keep this host port accessible only from the reverse proxy/trusted network; do not forward it directly from your router. If NPM runs in a separate container, `127.0.0.1` means that container, so use the Home Assistant host's reachable LAN address and the selected mapped port. If NPM shares the Supervisor network, a tested app DNS name can be used instead, but do not guess the repository-prefixed container name.
 
 ## Nginx Proxy Manager routing and access restrictions
 
-Use a trusted HTTPS Proxy Host and strip `/family-vpn/` before forwarding to the mapped REST port. Preserve the Authorization header. Keep port 8099 private to Supervisor Ingress and firewall direct access to port 8081 so clients cannot bypass the proxy ACLs.
+Use a trusted HTTPS Proxy Host and strip `/family-vpn/` before forwarding to the mapped REST port. Preserve the Authorization header. Keep port 8099 private to Supervisor Ingress and firewall direct access to port 8500 so clients cannot bypass the proxy ACLs.
 
 Generate complete locations from the repository root, replacing these illustrative addresses with your actual Home Assistant host, registration LAN and VPN client networks:
 
