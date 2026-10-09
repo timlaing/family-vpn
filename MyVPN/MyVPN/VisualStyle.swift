@@ -2,6 +2,9 @@ import SwiftUI
 
 /// Shared vector artwork and adaptive layout; no connection state is inferred by the artwork.
 struct VPNArtwork: View {
+    var shieldSize: CGFloat = 54
+    var shieldColor: Color = .white
+    var accentColor: Color = .mint.opacity(0.75)
     var body: some View {
         ZStack {
             ForEach(0..<3) { index in
@@ -9,8 +12,8 @@ struct VPNArtwork: View {
                     .frame(width: CGFloat(90 + index * 38), height: CGFloat(90 + index * 38))
             }
             Image(systemName: "shield.lefthalf.filled")
-                .font(.system(size: 54, weight: .light))
-                .foregroundStyle(.white, Color.mint.opacity(0.75))
+                .font(.system(size: shieldSize, weight: .light))
+                .foregroundStyle(shieldColor, accentColor)
         }
         .frame(width: 170, height: 170)
         .accessibilityHidden(true)

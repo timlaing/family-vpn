@@ -133,9 +133,13 @@ struct ContentView: View {
     private var connectionHome: some View {
         Section {
             VStack(spacing: 18) {
-                Image(systemName: connectionSymbol)
-                    .font(.system(size: 88, weight: .medium)).foregroundStyle(connectionColor)
-                    .accessibilityHidden(true)
+                ZStack {
+                    VPNArtwork(shieldSize: 124, shieldColor: .teal.opacity(0.20), accentColor: .teal.opacity(0.55))
+                    Image(systemName: connectionSymbol)
+                        .font(.system(size: 64, weight: .medium)).foregroundStyle(connectionColor)
+                        .padding(4).background(.background, in: Circle())
+                        .offset(x: 42, y: 44)
+                }.frame(width: 190, height: 190).accessibilityHidden(true)
                 Text(connectionTitle).font(.title2.bold())
                 Text(vpn.status).font(.subheadline).foregroundStyle(.secondary)
                 if vpn.connectionIndicator == .trusted {
