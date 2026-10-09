@@ -2,13 +2,13 @@
 
 The published Apple app needs pushes sent with its publisher’s APNs credentials. Your own Apple keys work with a custom app built and signed for your Apple developer account. Choose the transport in the dashboard’s **Advanced** page. A fresh Home Assistant installation defaults to relay mode; existing saved APNs configurations retain direct mode.
 
-The relay URL is configurable. This repository supplies the service; it does not deploy or provide a running hosted endpoint automatically.
+The default relay URL is `https://push.family-vpn.workers.dev` and remains configurable. This repository supplies the service; it does not deploy or provide a running hosted endpoint automatically.
 
 ## Dashboard setup
 
 1. Complete VPN provisioning and administrator setup. The configured VPN gateway becomes the relay endpoint identifier (DNS names are case-insensitive; IP addresses are normalized).
 2. Publish the dashboard REST interface through trusted HTTPS. Allow public **POST** requests to `/family-vpn/relay-results`, alongside public device status and command acknowledgements. Keep registration LAN-only and other REST routes VPN-only. Generate the locations with `Tools/generate_npm_location.py --public-reports` and your deployment’s network options.
-3. Open **Advanced**, choose **Published app relay**, and enter the relay HTTPS origin, for example `https://relay.example.org`. Host the relay at the origin root, without a URL prefix. Enter the dashboard callback URL, for example `https://dashboard.example.org/family-vpn/relay-results`.
+3. Open **Advanced**, choose **Published app relay**, and use the default `https://push.family-vpn.workers.dev` or enter another relay HTTPS origin. Host the relay at the origin root, without a URL prefix. Enter the dashboard callback URL, for example `https://dashboard.example.org/family-vpn/relay-results`.
 4. Enter the enrollment credential supplied privately by the relay operator. The separate endpoint signing token is generated on first startup if left blank. You can supply a 32–256 character printable ASCII token instead; neither credential belongs in the native app or a public configuration file.
 5. Leave the endpoint limit at **10 requests per minute**, or choose 1–100 within the operator’s cap. Save, then select **Register / update relay endpoint**. Registration verifies a signed callback to your dashboard before retaining the endpoint.
 6. Confirm the registered state, then test a manual status refresh on an enrolled physical device. Enable automatic policy checks only after confirming push delivery, the device acknowledgement and a fresh status report.

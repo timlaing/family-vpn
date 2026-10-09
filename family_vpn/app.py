@@ -39,7 +39,7 @@ class Settings:
     apns_topic: str = "uk.co.laingcorp.myvpn"
     apns_environment: str = "sandbox"
     push_mode: str = "direct"
-    relay_url: str = ""
+    relay_url: str = "https://push.family-vpn.workers.dev"
     relay_callback: str = ""
     relay_server: str = ""
     relay_registered_server: str = ""
@@ -62,7 +62,7 @@ class Settings:
                    apns_team_id=os.getenv("APNS_TEAM_ID", ""),
                    apns_topic=os.getenv("APNS_TOPIC", "uk.co.laingcorp.myvpn"),
                    apns_environment=os.getenv("APNS_ENVIRONMENT", "sandbox"),
-                   push_mode=os.getenv("PUSH_MODE", "direct"), relay_url=os.getenv("RELAY_URL", ""),
+                   push_mode=os.getenv("PUSH_MODE", "direct"), relay_url=os.getenv("RELAY_URL", "https://push.family-vpn.workers.dev"),
                    relay_callback=os.getenv("RELAY_CALLBACK", ""), relay_secret=os.getenv("RELAY_TOKEN", ""),
                    relay_enrollment=os.getenv("RELAY_ENROLLMENT_BEARER", ""),
                    relay_registered_server=os.getenv("RELAY_REGISTERED_SERVER", ""),

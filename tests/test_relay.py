@@ -170,6 +170,7 @@ def test_addon_relay_credentials_persist_and_invalid_edit_is_atomic(tmp_path):
     manager = AddonConfiguration(tmp_path)
     settings = manager.load()
     assert settings.push_mode == 'relay'
+    assert settings.relay_url == 'https://push.family-vpn.workers.dev'
     assert len(settings.relay_secret) >= 32
     original = settings.relay_secret
     with pytest.raises(ValueError):

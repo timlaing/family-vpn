@@ -27,6 +27,7 @@ class AddonConfiguration:
         else:
             # Import legacy Supervisor settings once; subsequent edits belong to Ingress.
             values = {field: options.get(field, getattr(settings, field)) for field in FIELDS}
+        if not values["relay_url"]: values["relay_url"] = settings.relay_url
         self.validate(values)
         self.persist(values)
         for field, value in values.items(): setattr(settings, field, value)
