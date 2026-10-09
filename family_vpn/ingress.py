@@ -6,7 +6,7 @@ from flask.sessions import SecureCookieSessionInterface
 INGRESS_FLAG = "vpnweb.ingress"
 # Fixed Supervisor ingress gateway identity; trusting a configurable client header
 # here would allow callers on the external listener to impersonate Supervisor.
-SUPERVISOR_GATEWAY = "172.30.32.2"
+SUPERVISOR_GATEWAY = "172.30.32.2"  # noqa: S1313
 
 class IngressMiddleware:
     def __init__(self, application): self.application = application

@@ -540,7 +540,7 @@ def create_app(settings=None, sender=None):
     csrf = CSRFProtect(app)
     # Only bearer-authenticated REST writes are exempt; browser forms remain protected.
     for endpoint in ("register", "status", "command_results", "create_command", "push"):
-        csrf.exempt(app.view_functions[endpoint])
+        csrf.exempt(app.view_functions[endpoint])  # noqa: S4502
     app.register_error_handler(CSRFError, lambda error: ("CSRF validation failed", 403))
     if not settings.demo:
         threading.Thread(target=dispatcher.schedule, daemon=True, name="watchdog").start()
