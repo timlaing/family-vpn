@@ -43,3 +43,19 @@ def test_hashed_requirements_keep_only_package_pins(tmp_path):
     lock = tmp_path / "hashed.lock"
     lock.write_text("Flask==3.1.3 \\n    --hash=sha256:abc \\n    --hash=sha256:def\npytest==9.1.1 --hash=sha256:ghi\n".replace("\\n", "\\\n"))
     assert sync.read_requirements(lock) == ["Flask==3.1.3", "pytest==9.1.1"]
+
+
+def test_dependency_sync_cli_checks_updates_and_reports_missing_inputs(tmp_path, monkeypatch):
+    config = tmp_path / "config.yaml"
+    config.write_text("hooks:\n" + sync.BEGIN_MARKER + "\n" + sync.END_MARKER + "\n")
+    lock = tmp_path / "dependencies.lock"
+    lock.write_text("pytest==9.1.1\n")
+    monkeypatch.setattr(sync, "CONFIG_FILE", config)
+    monkeypatch.setattr(sync.sys, "argv", ["sync_prek_deps.py", "--check", str(lock)])
+    assert sync.main() == 1
+    monkeypatch.setattr(sync.sys, "argv", ["sync_prek_deps.py", str(lock)])
+    assert sync.main() == 0
+    monkeypatch.setattr(sync.sys, "argv", ["sync_prek_deps.py", "--check", str(lock)])
+    assert sync.main() == 0
+    monkeypatch.setattr(sync.sys, "argv", ["sync_prek_deps.py", str(tmp_path / "missing.lock")])
+    assert sync.main() == 2

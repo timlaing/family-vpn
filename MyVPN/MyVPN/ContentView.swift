@@ -172,7 +172,13 @@ struct ContentView: View {
                     Text("Manage the password in the dashboard. Send a reprovision request from the dashboard, or register again from the main page, to retrieve a changed administrator configuration.")
                 }
                 Section {
-                    Button("Validate and repair") { run { try await vpn.administer(password: administrator) { _ in /* Repair the existing policy without changing it. */ } } }
+                    Button("Validate and repair") {
+                        run {
+                            try await vpn.administer(password: administrator) { policy in
+                                try policy.validate()
+                            }
+                        }
+                    }
                     Button("Remove VPN configuration", role: .destructive) { confirmRemoval = true }
                     Button("Done") { adminOpen = false; administrator = "" }.id("securityEnd")
                 }

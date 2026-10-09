@@ -20,6 +20,10 @@ def api(path, method='GET', value=None):
     return json.loads(result.stdout) if result.stdout.strip() else None
 
 
+def label_matches(previous, expected):
+    return bool(previous) and previous['color'].lower() == expected['color'].lower() and (previous['description'] or '') == expected['description']
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--repo', default='timlaing/family-vpn')
@@ -39,7 +43,7 @@ def main():
     existing = {label['name']:label for label in current}
     for label in labels:
         previous = existing.get(label['name'])
-        if previous and previous['color'].lower() == label['color'].lower() and (previous['description'] or '') == label['description']:
+        if label_matches(previous, label):
             continue
         subprocess.run(['gh','label','create',label['name'],'--repo',args.repo,'--color',label['color'],
                         '--description',label['description'],'--force'],check=True)
@@ -51,7 +55,7 @@ def main():
     by_name = {label['name']:label for label in observed_labels}
     for label in labels:
         observed_label = by_name[label['name']]
-        if observed_label['color'].lower() != label['color'].lower() or (observed_label['description'] or '') != label['description']:
+        if not label_matches(observed_label, label):
             raise RuntimeError('Label readback mismatch: '+label['name'])
     print(f'Verified {len(labels)} labels, {len(configuration["topics"])} topics and repository settings for {args.repo}')
 

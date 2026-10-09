@@ -1,7 +1,9 @@
 [run]
 branch = True
 relative_files = True
-source = family_vpn
+source =
+    family_vpn
+    scripts
 omit = */test_*.py
 
 [xml]
