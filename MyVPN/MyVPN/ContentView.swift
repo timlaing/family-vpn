@@ -173,7 +173,7 @@ struct ContentView: View {
         Section {
             VStack(spacing: 18) {
                 ZStack {
-                    VPNArtwork(shieldSize: 124, shieldColor: .teal.opacity(0.20), accentColor: .teal.opacity(0.55))
+                    VPNArtwork(shieldSize: 124, shieldColor: .teal.opacity(0.35), accentColor: .teal.opacity(0.85))
                     Image(systemName: connectionSymbol)
                         .font(.system(size: 64, weight: .medium)).foregroundStyle(connectionColor)
                         .padding(4).background(.background, in: Circle())
@@ -185,6 +185,12 @@ struct ContentView: View {
                     Text("VPN bypass is allowed on this trusted Wi-Fi network.").font(.footnote)
                 }
             }.multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 38)
+                .background {
+                    ZStack {
+                        LinearGradient(colors: [.teal.opacity(0.20), .cyan.opacity(0.08), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+                        VPNNetworkBackdrop(color: .teal, emphasis: 2, centered: true)
+                    }.clipShape(RoundedRectangle(cornerRadius: 24))
+                }
             LabeledContent("VPN gateway", value: vpn.configuration?.server ?? "Unavailable")
             if vpn.busy { ProgressView("Checking connection…") }
         }

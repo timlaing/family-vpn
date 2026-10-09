@@ -22,24 +22,27 @@ struct VPNArtwork: View {
 
 /// Decorative topology: illustrative routes, never a map of real endpoints or live traffic.
 struct VPNNetworkBackdrop: View {
+    var color: Color = .mint
+    var emphasis: Double = 1
+    var centered = false
     var body: some View {
         Canvas { context, size in
             let diameter = max(size.height * 1.6, size.width * 0.62)
-            let globe = CGRect(x: size.width * 0.70 - diameter / 2,
+            let globe = CGRect(x: size.width * (centered ? 0.50 : 0.70) - diameter / 2,
                                y: size.height * 0.48 - diameter / 2,
                                width: diameter, height: diameter)
-            context.stroke(Path(ellipseIn: globe), with: .color(.mint.opacity(0.15)), lineWidth: 1)
+            context.stroke(Path(ellipseIn: globe), with: .color(color.opacity(min(1, 0.15 * emphasis))), lineWidth: 1)
             for fraction in [0.28, 0.56, 0.82] {
                 let width = diameter * fraction
                 let meridian = CGRect(x: globe.midX - width / 2, y: globe.minY,
                                       width: width, height: diameter)
-                context.stroke(Path(ellipseIn: meridian), with: .color(.mint.opacity(0.10)), lineWidth: 1)
+                context.stroke(Path(ellipseIn: meridian), with: .color(color.opacity(min(1, 0.10 * emphasis))), lineWidth: 1)
                 let height = diameter * fraction
                 let latitude = CGRect(x: globe.minX, y: globe.midY - height / 2,
                                       width: diameter, height: height)
-                context.stroke(Path(ellipseIn: latitude), with: .color(.mint.opacity(0.10)), lineWidth: 1)
+                context.stroke(Path(ellipseIn: latitude), with: .color(color.opacity(min(1, 0.10 * emphasis))), lineWidth: 1)
             }
-            let hub = CGPoint(x: size.width * 0.71, y: size.height * 0.55)
+            let hub = CGPoint(x: size.width * (centered ? 0.50 : 0.71), y: size.height * 0.55)
             let locations: [CGPoint] = [
                 CGPoint(x: size.width * 0.40, y: size.height * 0.16),
                 CGPoint(x: size.width * 0.52, y: size.height * 0.86),
@@ -52,16 +55,16 @@ struct VPNNetworkBackdrop: View {
                 route.move(to: point)
                 route.addQuadCurve(to: hub, control: CGPoint(x: (point.x + hub.x) / 2,
                                                             y: min(point.y, hub.y) - size.height * 0.30))
-                context.stroke(route, with: .color(.mint.opacity(0.32)), style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
+                context.stroke(route, with: .color(color.opacity(min(1, 0.32 * emphasis))), style: StrokeStyle(lineWidth: 1.3, lineCap: .round))
                 let radius: CGFloat = index.isMultiple(of: 2) ? 4 : 3
                 let node = CGRect(x: point.x - radius, y: point.y - radius, width: radius * 2, height: radius * 2)
-                context.fill(Path(ellipseIn: node), with: .color(.mint.opacity(0.65)))
-                context.stroke(Path(ellipseIn: node.insetBy(dx: -5, dy: -5)), with: .color(.mint.opacity(0.18)), lineWidth: 1)
+                context.fill(Path(ellipseIn: node), with: .color(color.opacity(min(1, 0.65 * emphasis))))
+                context.stroke(Path(ellipseIn: node.insetBy(dx: -5, dy: -5)), with: .color(color.opacity(min(1, 0.18 * emphasis))), lineWidth: 1)
             }
-            context.fill(Path(ellipseIn: CGRect(x: hub.x - 5, y: hub.y - 5, width: 10, height: 10)), with: .color(.mint.opacity(0.65)))
-            context.stroke(Path(ellipseIn: CGRect(x: hub.x - 13, y: hub.y - 13, width: 26, height: 26)), with: .color(.mint.opacity(0.24)), lineWidth: 1)
+            context.fill(Path(ellipseIn: CGRect(x: hub.x - 5, y: hub.y - 5, width: 10, height: 10)), with: .color(color.opacity(min(1, 0.65 * emphasis))))
+            context.stroke(Path(ellipseIn: CGRect(x: hub.x - 13, y: hub.y - 13, width: 26, height: 26)), with: .color(color.opacity(min(1, 0.24 * emphasis))), lineWidth: 1)
         }
-        .mask(LinearGradient(colors: [.clear, .white.opacity(0.35), .white], startPoint: .leading, endPoint: .trailing))
+        .mask(LinearGradient(colors: centered ? [.white, .white, .clear] : [.clear, .white.opacity(0.35), .white], startPoint: centered ? .top : .leading, endPoint: centered ? .bottom : .trailing))
         .clipped()
         .allowsHitTesting(false)
         .accessibilityHidden(true)
