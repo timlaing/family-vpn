@@ -1,3 +1,7 @@
+# 0.3.2
+
+- Fix VPN provisioning form layout with styled fields and responsive columns.
+
 # 0.3.1
 
 - Generate and persist optional bearer credentials on first startup; retrieve them through authenticated Ingress.

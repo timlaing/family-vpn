@@ -9,3 +9,14 @@ select{font:inherit;padding:10px;background:var(--bg);color:var(--text);border:1
 .administrator-setup input { display: block; width: 100%; margin-top: .4rem; padding: 12px; background: var(--bg); color: var(--text); border: 1px solid #38515e; border-radius: 9px; font: inherit; }
 .administrator-setup button { justify-self: start; white-space: normal; }
 .device button { white-space: normal; }
+
+.provisioning { margin-top: 24px; }
+.provisioning form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.provisioning label { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 14px; }
+.provisioning input, .provisioning textarea { display: block; width: 100%; min-width: 0; padding: 12px; background: var(--bg); color: var(--text); border: 1px solid #38515e; border-radius: 9px; font: inherit; }
+.provisioning textarea { resize: vertical; min-height: 140px; }
+.provisioning textarea[name=ca_pem] { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; }
+.provisioning input:focus-visible, .provisioning textarea:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
+.provisioning form p { grid-column: 1 / -1; margin: 0; font-size: 14px; }
+.provisioning button { grid-column: 1 / -1; justify-self: start; white-space: normal; }
+@media(max-width:650px) { .provisioning form { grid-template-columns: 1fr; } }
