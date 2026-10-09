@@ -40,6 +40,7 @@ struct VPNCommands: Commands {
 #endif
 
 struct VPNHelpView: View {
+    var showsDone = true
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
@@ -56,7 +57,13 @@ struct VPNHelpView: View {
                 Section("Best-effort recovery") {
                     Text("Open the app to retry a failed policy check. On macOS, enable the login monitor in Administrator Controls to check policy while the window is closed. Device owners can remove the VPN or app; background execution and precise suspension expiry are not guaranteed.")
                 }
-                Button("Done") { dismiss() }.buttonStyle(.borderedProminent)
+                Section("Support") {
+                    Text("For account or connection problems, contact the administrator of your VPN environment.")
+                    Link("Setup documentation", destination: URL(string: "https://github.com/timlaing/family-vpn#readme")!)
+                    Link("Report an application issue", destination: URL(string: "https://github.com/timlaing/family-vpn/issues")!)
+                    Text("Do not include passwords, enrollment secrets or private network details in public reports.").font(.footnote)
+                }
+                if showsDone { Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
             }
             .vpnPage(title: "How Family VPN works", subtitle: "Connection, protection and local administration.", icon: "questionmark.circle")
             .navigationTitle("Family VPN Help")

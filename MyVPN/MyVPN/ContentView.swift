@@ -23,15 +23,17 @@ struct ContentView: View {
     @State private var credentialsOpen = false
     @State private var confirmRemoval = false
     @State private var helpOpen = false
+    @State private var registrationOpen = false
     @State private var page: HomePage = .status
     private enum HomePage: String, CaseIterable {
-        case status = "Status", settings = "Settings", user = "User information", details = "Details"
+        case status = "Status", settings = "Settings", user = "User information", details = "Details", help = "Help"
         var icon: String {
             switch self {
             case .status: return "shield.fill"
             case .settings: return "gearshape"
             case .user: return "person.fill"
             case .details: return "info.circle"
+            case .help: return "questionmark.circle"
             }
         }
     }
@@ -63,6 +65,39 @@ struct ContentView: View {
         }
     }
     private var mainScreen: some View {
+        Group {
+            if vpn.policy.installed, page == .settings {
+                administratorEditor
+            } else if vpn.policy.installed, page == .help {
+                VPNHelpView(showsDone: false)
+            } else {
+                mainForm
+            }
+        }
+        .onAppear {
+            #if DEBUG
+            if vpn.screenshotPage == "settings" { page = .settings }
+            if vpn.screenshotPage == "help" { page = .help }
+            #endif
+        }
+        .sheet(isPresented: $credentialsOpen) { credentialEditor }
+        .sheet(isPresented: $adminOpen) { administratorEditor }
+        .sheet(isPresented: $registrationOpen) {
+            NavigationStack {
+                Form {
+                    registration
+                    if let error = vpn.error { Text(error).foregroundStyle(.red) }
+                    Button("Done") { registrationOpen = false }
+                }.vpnPage(title: "Dashboard registration", subtitle: "Retrieve your dashboard configuration again.", icon: "network")
+                    .disabled(vpn.busy)
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if vpn.policy.installed { navigationBar }
+            bottomPreviewLabel
+        }
+    }
+    private var mainForm: some View {
         NavigationStack {
             Form {
                 screenshotLabel
@@ -75,7 +110,7 @@ struct ContentView: View {
                 } else {
                     switch page {
                     case .status: connectionHome
-                    case .settings: settingsPage
+                    case .settings, .help: EmptyView()
                     case .user: userPage
                     case .details: detailsPage
                     }
@@ -96,12 +131,6 @@ struct ContentView: View {
             }
             .frame(minWidth: 320)
             .disabled(vpn.busy)
-            .sheet(isPresented: $credentialsOpen) { credentialEditor }
-            .sheet(isPresented: $adminOpen) { administratorEditor }
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                if vpn.policy.installed { navigationBar }
-                bottomPreviewLabel
-            }
         }
     }
     private var homeTitle: String {
@@ -181,16 +210,6 @@ struct ContentView: View {
         case .disconnected: return "VPN not connected"
         }
     }
-    private var settingsPage: some View {
-        Group {
-            Section("Protection") {
-                Button("Administrator controls") { adminUnlocked = false; administrator = ""; adminOpen = true }
-                Button("Help and setup guidance") { helpOpen = true }
-            }
-            certificateSection
-            registration
-        }
-    }
     private var userPage: some View {
         Section("VPN account") {
             LabeledContent("Username", value: vpn.accountUsername ?? "Unavailable")
@@ -202,6 +221,7 @@ struct ContentView: View {
     }
     private var detailsPage: some View {
         Group {
+            certificateSection
             Section("Policy checks") {
                 if let check = vpn.lastCheck { LabeledContent("Last successful check", value: check.formatted()) }
                 Text(vpn.result)
@@ -227,7 +247,10 @@ struct ContentView: View {
     private var navigationBar: some View {
         HStack(spacing: 0) {
             ForEach(HomePage.allCases, id: \.self) { item in
-                Button { page = item } label: {
+                Button {
+                    if page == .settings || item == .settings { adminUnlocked = false; administrator = "" }
+                    page = item
+                } label: {
                     VStack(spacing: 5) {
                         Image(systemName: item.icon).font(.title3)
                         Text(item.rawValue).font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
@@ -300,7 +323,8 @@ struct ContentView: View {
                 }
                 #endif
                 Section("Administrator password") {
-                    Text("Manage the password in the dashboard. Send a reprovision request from the dashboard, or register again from Settings, to retrieve a changed administrator configuration.")
+                    Button("Register with dashboard again") { registrationOpen = true }
+                    Text("Manage the password in the dashboard. Send a reprovision request from the dashboard, or register again through administrator controls, to retrieve a changed administrator configuration.")
                 }
                 Section {
                     Button("Validate and repair") {
@@ -311,7 +335,7 @@ struct ContentView: View {
                         }
                     }
                     Button("Remove VPN configuration", role: .destructive) { confirmRemoval = true }
-                    Button("Done") { adminOpen = false; administrator = "" }.id("securityEnd")
+                    Button("Done") { adminOpen = false; administrator = ""; adminUnlocked = false; page = .status }.id("securityEnd")
                 }
                 }
                 }
