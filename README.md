@@ -119,3 +119,5 @@ Copyright 2026 Tim Laing. Released under the [MIT licence](LICENSE). Third-party
 ## Gateway and Wi-Fi provisioning
 
 Configure the VPN gateway, certificate identity and trusted Wi-Fi names in the dashboard before device registration. After changes, send Push VPN / Wi-Fi / CA to updated devices while the existing VPN is available, or re-register on the configured registration LAN. New CA trust requires approval in system Settings. The app stores deployment settings in Keychain; it no longer provides a developer gateway or editable local trusted Wi-Fi list. Subnet examples are illustrative and must be replaced with your own network ranges. See [provisioning](https://github.com/timlaing/family-vpn/blob/main/docs/PROVISIONING.md).
+
+Published-app and custom-build push delivery: see [push relay setup](docs/PUSH_RELAY.md). Configure transport and endpoint registration in **Advanced**.

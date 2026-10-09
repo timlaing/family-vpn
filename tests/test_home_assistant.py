@@ -147,7 +147,7 @@ class TestHomeAssistant:
             assert response.status_code == 200
             assert content.encode() in response.data
             assert b'aria-label="Open navigation"' in response.data
-            for target in ('provisioning', 'administration', 'activity', 'configuration'):
+            for target in ('provisioning', 'administration', 'activity', 'advanced'):
                 assert (PREFIX+'/'+target).encode() in response.data
             assert self.client.get(path, base_url='http://localhost:8500').status_code == 404
         assert b'Save VPN provisioning' not in self.ingress().data
@@ -187,3 +187,20 @@ class TestHomeAssistant:
             rendered = self.ingress('/provisioning').data
             assert rendered.count(b'name="trusted_ssid"') == len([name for name in networks if name])
         assert self.ingress('/static/provisioning.js').status_code == 200
+
+
+def test_relay_callback_is_external_only_and_advanced_is_ingress_only():
+    fixture = TestHomeAssistant()
+    fixture.setup_method()
+    try:
+        assert fixture.ingress('/relay-results', method='post', json={}).status_code == 404
+        assert fixture.client.get('/advanced', base_url='http://localhost:8500').status_code == 404
+        assert fixture.client.post('/relay-register', base_url='http://localhost:8500').status_code == 404
+        response = fixture.ingress('/advanced')
+        assert response.status_code == 200
+        assert b'Published app' in response.data
+        assert b'Register / update relay endpoint' in response.data
+        assert fixture.settings.relay_secret.encode() not in response.data
+        assert fixture.client.post('/relay-results', base_url='http://localhost:8500', json={}).status_code == 401
+    finally:
+        fixture.teardown_method()

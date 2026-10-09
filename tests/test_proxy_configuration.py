@@ -25,9 +25,9 @@ class TestProxyConfiguration:
 
     def test_public_reports_are_exact_post_only_exceptions(self):
         result=generate('192.168.1.20',8500,'/family-vpn/',['10.20.30.0/24','10.20.40.0/24'],True)
-        assert (result.count('location = ')) == (2)
-        assert (result.count('limit_except POST { deny all; }')) == (2)
-        for route in ('status','command-results'):
+        assert (result.count('location = ')) == (3)
+        assert (result.count('limit_except POST { deny all; }')) == (3)
+        for route in ('status','command-results','relay-results'):
             assert ('location = /family-vpn/' + route + ' {') in (result)
             assert ('proxy_pass http://192.168.1.20:8500/' + route + ';') in (result)
         assert ('allow 10.20.30.0/24;') in (result)

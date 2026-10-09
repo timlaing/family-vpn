@@ -1,3 +1,9 @@
+# 0.4.0
+
+- Add configurable published-app relay and direct APNs modes under Advanced.
+- Register VPN endpoints with signed requests, callback ownership verification and durable replay protection.
+- Limit requests per endpoint (10/minute default), forward signed push results to the owner dashboard, and retain no device records on the relay.
+
 # 0.3.0
 
 - Move device administrator password setup to the dashboard and provision its verifier during registration.

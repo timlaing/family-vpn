@@ -78,7 +78,7 @@ for attempt in range(30):
         with client.open(base+prefix+'/',timeout=2) as response:
             assert response.status==200
             html=response.read().decode()
-            assert prefix+'/configuration' in html
+            assert prefix+'/advanced' in html
             assert response.headers.get('X-Frame-Options') is None
         break
     except (OSError,urllib.error.URLError): time.sleep(1)
@@ -88,7 +88,7 @@ with client.open(base+prefix+'/configuration',timeout=2) as response:
     csrf=re.search(r'name="csrf" value="([^"]+)"',response.read().decode()).group(1)
 form={'csrf':csrf,'apns_key_id':'','apns_team_id':'','apns_topic':'uk.co.laingcorp.myvpn','apns_key_file':'','apns_environment':'sandbox','interval':'1800'}
 with client.open(base+prefix+'/configuration',data=urllib.parse.urlencode(form).encode(),timeout=2) as response:
-    assert prefix+'/configuration' in response.url
+    assert prefix+'/advanced' in response.url
     assert b'value="1800"' in response.read()
 with client.open(base+prefix+'/',timeout=2) as response:
     csrf=re.search(r'name="csrf" value="([^"]+)"',response.read().decode()).group(1)

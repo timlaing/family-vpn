@@ -1,6 +1,6 @@
 name: Family VPN
 url: https://github.com/timlaing/family-vpn/tree/main/family_vpn
-version: "0.3.5"
+version: "0.4.0"
 slug: family_vpn
 description: Signed VPN commands, administrator provisioning and status with an Ingress dashboard
 arch: [amd64, aarch64]

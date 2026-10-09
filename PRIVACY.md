@@ -1,6 +1,6 @@
 # Family VPN Privacy Policy
 
-Effective date: 8 October 2026
+Effective date: 9 October 2026
 
 Family VPN is open-source software for iOS, iPadOS and macOS that connects to a configured IKEv2 VPN and an administrator-managed dashboard. The software does not include a VPN subscription or a hosted dashboard service. Your deployment's administrator is responsible for the VPN server, dashboard and their configuration.
 
@@ -25,6 +25,12 @@ Installation identifiers and push tokens enable device registration and remote c
 Apple provides system VPN, Keychain, device authentication and Apple Push Notification service. Push notifications may carry a signed command, including a requested suspension expiry or administrator verification update. They do not carry the plaintext administrator password or VPN password. Apple's processing is governed by its own privacy terms.
 
 Your VPN operator processes traffic routed through the VPN and authentication information required by the VPN server. Its visibility and logging practices depend on that deployment. This policy describes Family VPN's app/dashboard software and does not replace the operator's privacy policy.
+
+## Optional push relay
+
+When the administrator selects a published-app push relay, their dashboard sends the device installation identifier, Apple push token and signed command to that relay for immediate forwarding to Apple. The relay sends push acceptance/error results back to the administrator’s dashboard. Device status reports and command execution acknowledgements go directly to the dashboard. The relay does not retain device identifiers, push tokens, command payloads or device status records.
+
+The relay retains the VPN gateway address as its endpoint identifier, the dashboard callback URL, an encrypted endpoint signing credential and a configured request limit. Short-lived request nonces and timestamps support replay protection and rate limiting. These records persist in the relay operator’s database and backups until removed. The relay operator must disable request-body logging and use appropriate retention for infrastructure logs, which may include source IP addresses. Contact the configured relay operator to remove an endpoint registration.
 
 ## Advertising and tracking
 

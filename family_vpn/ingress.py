@@ -22,12 +22,12 @@ class IngressMiddleware:
                 path = path[len(prefix.rstrip("/")):]
                 environ["PATH_INFO"] = path
             # REST credentials belong on the external listener; ingress exposes only UI.
-            if path not in {"/", "/provisioning", "/administration", "/activity", "/administrator-password", "/vpn-provisioning", "/command", "/push", "/configuration", "/health"} and not path.startswith("/static/"):
+            if path not in {"/", "/provisioning", "/administration", "/activity", "/administrator-password", "/vpn-provisioning", "/command", "/push", "/configuration", "/advanced", "/relay-register", "/health"} and not path.startswith("/static/"):
                 return self.reject(start_response, "404 Not Found")
             environ["SCRIPT_NAME"] = prefix.rstrip("/")
             environ[INGRESS_FLAG] = True
         elif port == "8500":
-            if path not in {"/health", "/registrations", "/status", "/api/devices", "/api/push", "/api/commands", "/commands", "/command-results", "/vpn-configuration"}:
+            if path not in {"/health", "/registrations", "/status", "/api/devices", "/api/push", "/api/commands", "/commands", "/command-results", "/vpn-configuration", "/relay-results"}:
                 return self.reject(start_response, "404 Not Found")
             environ.pop(INGRESS_FLAG, None)
             environ["SCRIPT_NAME"] = ""

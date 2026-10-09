@@ -1,3 +1,9 @@
+# 0.4.0
+
+- Add configurable published-app relay and direct APNs modes under Advanced.
+- Register VPN endpoints with signed requests, callback ownership verification and durable replay protection.
+- Limit requests per endpoint (10/minute default), forward signed push results to the owner dashboard, and retain no device records on the relay.
+
 # 0.3.5
 
 - Change the default REST port to 8500 across app packaging, proxy generation and standalone deployment. Update existing reverse-proxy upstreams to the configured host mapping after upgrading. Ingress remains on 8099.

@@ -38,8 +38,8 @@ location {prefix} {{
 }}
 '''
     if public_reports:
-        for route in ('status', 'command-results'):
-            result += f'''\n# Authenticated device reporting only; all other routes retain the VPN ACL.
+        for route in ('status', 'command-results', 'relay-results'):
+            result += f'''\n# Authenticated device reporting / signed relay results only; all other routes retain the VPN ACL.
 location = {prefix}{route} {{
     limit_except POST {{ deny all; }}
     proxy_pass http://{host}:{port}/{route};
