@@ -23,6 +23,9 @@ import AppKit
     let store = CredentialStore()
     let admin = AdminAuthenticator()
     var accountUsername: String? {
+        #if DEBUG
+        if screenshotPage != nil { return "family@example.org" }
+        #endif
         guard let data = try? store.read("vpn-username") else { return nil }
         return String(data: data, encoding: .utf8)
     }
@@ -53,7 +56,13 @@ import AppKit
         #if DEBUG
         if isUnitTestHost { configuration = try? VPNConfiguration.load(); return }
         if let page = screenshotPage {
-            configuration = try? VPNConfiguration.load()
+            if let url = Bundle.main.url(forResource: "VPNConfiguration", withExtension: "json"),
+               let data = try? Data(contentsOf: url) {
+                configuration = try? JSONDecoder().decode(VPNConfiguration.self, from: data)
+            }
+            configuration?.server = "vpn.example.org"
+            configuration?.remoteIdentifier = "vpn.example.org"
+            configuration?.defaultTrustedSSIDs = ["Family Wi-Fi", "Office Wi-Fi"]
             policy.trustedSSIDs = configuration?.defaultTrustedSSIDs ?? []
             policy.installed = !["setup", "setup-bottom", "registered"].contains(page)
             administratorReady = page == "registered" || policy.installed

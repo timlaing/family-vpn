@@ -14,7 +14,7 @@ enum ScreenshotMode {
         let arguments = ProcessInfo.processInfo.arguments
         guard let index = arguments.firstIndex(of: "--screenshot-page"), arguments.indices.contains(index + 1) else { return nil }
         let page = arguments[index + 1]
-        return ["setup", "registered", "status-connected", "status-trusted", "dashboard", "suspended", "credentials", "admin-gate", "administrator", "admin-security", "setup-bottom", "administrator-bottom", "admin-security-bottom"].contains(page) ? page : nil
+        return ["setup", "registered", "settings", "user", "details", "status-connected", "status-trusted", "dashboard", "suspended", "credentials", "admin-gate", "administrator", "admin-security", "setup-bottom", "administrator-bottom", "admin-security-bottom"].contains(page) ? page : nil
         #else
         return nil
         #endif

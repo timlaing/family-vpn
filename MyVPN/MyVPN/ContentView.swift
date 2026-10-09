@@ -84,6 +84,16 @@ struct ContentView: View {
             }
             .vpnPage(title: homeTitle, subtitle: homeSubtitle, icon: vpn.policy.installed ? page.icon : "network")
             .navigationTitle("Family VPN")
+            .onAppear {
+                #if DEBUG
+                switch vpn.screenshotPage {
+                case "settings": page = .settings
+                case "user": page = .user
+                case "details": page = .details
+                default: break
+                }
+                #endif
+            }
             .frame(minWidth: 320)
             .disabled(vpn.busy)
             .sheet(isPresented: $credentialsOpen) { credentialEditor }
