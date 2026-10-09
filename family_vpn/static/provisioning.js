@@ -1,27 +1,32 @@
 const rows = document.getElementById("wifi-rows");
+const table = document.getElementById("wifi-table");
 const addButton = document.getElementById("add-wifi");
 rows.addEventListener("click", (event) => {
   const button = event.target.closest(".remove-wifi");
   if (!button) return;
   button.closest(".wifi-row").remove();
+  table.hidden = rows.children.length === 0;
   addButton.focus();
 });
 addButton.addEventListener("click", () => {
-  const row = document.createElement("div");
+  const row = document.createElement("tr");
   row.className = "wifi-row";
-  const label = document.createElement("label");
-  label.append("Wi-Fi network");
+  const cell = document.createElement("td");
   const input = document.createElement("input");
   input.name = "trusted_ssid";
   input.maxLength = 32;
   input.placeholder = "Network name";
-  label.append(input);
+  input.setAttribute("aria-label", "Wi-Fi network");
+  cell.append(input);
   const button = document.createElement("button");
   button.type = "button";
   button.className = "secondary remove-wifi";
   button.textContent = "Delete";
   button.setAttribute("aria-label", "Delete Wi-Fi network");
-  row.append(label, button);
+  const actions = document.createElement("td");
+  actions.append(button);
+  row.append(cell, actions);
   rows.append(row);
+  table.hidden = false;
   input.focus();
 });

@@ -42,6 +42,25 @@ class VPNProvisioning:
         with self.database.connect() as db:
             db.execute('INSERT INTO vpn_configuration VALUES(1,?) ON CONFLICT(singleton) DO UPDATE SET payload=excluded.payload', (json.dumps(payload),))
         return payload
+    def certificate_pem(self, uploaded, pasted, remove=False):
+        current = self.enrollment()
+        data = uploaded.read(16385) if uploaded and uploaded.filename else b""
+        if len(data) > 16384: raise ValueError("CA certificate must be at most 16 KB")
+        if sum((bool(data), bool(pasted), remove)) > 1:
+            raise ValueError("Choose one certificate action: upload, paste or remove")
+        if remove: return ""
+        if data:
+            try:
+                if b"-----BEGIN" in data:
+                    return data.decode("ascii")
+                return x509.load_der_x509_certificate(data).public_bytes(serialization.Encoding.PEM).decode("ascii")
+            except (ValueError, UnicodeDecodeError):
+                raise ValueError("Upload a PEM or DER CA certificate") from None
+        if pasted: return pasted
+        if current and current["caCertificate"]:
+            return x509.load_der_x509_certificate(base64.b64decode(current["caCertificate"])).public_bytes(serialization.Encoding.PEM).decode("ascii")
+        return ""
+
     def enrollment(self):
         with self.database.connect() as db:
             row = db.execute('SELECT payload FROM vpn_configuration WHERE singleton=1').fetchone()

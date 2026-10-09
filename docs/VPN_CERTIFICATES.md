@@ -62,7 +62,7 @@ Transfer it securely to the router and import through System → Certificates. V
 
 ## Provision devices and rotate
 
-Paste **only `vpn-ca.pem`** into dashboard VPN provisioning. Neither `vpn-server-key.pem`, `vpn-ca-key.pem`, nor `vpn-server.p12` belongs there. The leaf is not a CA. The dashboard validates a single PEM certificate with an explicit CA basic constraint and delivers its public DER certificate at registration or through a signed provisioning update.
+Upload or paste **only `vpn-ca.pem`** into dashboard VPN provisioning. Neither `vpn-server-key.pem`, `vpn-ca-key.pem`, nor `vpn-server.p12` belongs there. The leaf is not a CA. The dashboard validates a single PEM or DER certificate with an explicit CA basic constraint and delivers its public DER certificate at registration or through a signed provisioning update.
 
 Confirm the root fingerprint out of band before granting trust. On a device, export the supplied CA profile from the app, install it through system Settings and approve the appropriate certificate trust. [Apple describes manual certificate trust](https://support.apple.com/en-gb/102390); the app cannot grant it automatically.
 

@@ -30,7 +30,7 @@ Point your public gateway name at the WAN endpoint and make UDP 500/4500 reachab
 
 Use WinBox **System → Certificates → Import**, or `/certificate import file-name=...`, to import your CA/chain, server leaf and its private key or protected PKCS#12 bundle. Inspect `/certificate print detail` and ensure the leaf has the private-key flag. Rename it to `vpn-server` for the example. Its DNS SAN must cover `vpn.example.org`, which must match `my-id` and dashboard certificate identity. Import intermediates as well when your issuer uses them. Mark the intended CA trusted. Do not export a private key to the dashboard.
 
-For an existing endpoint, preserve its old certificate/identity until replacement clients have approved the new CA. The dashboard CA upload accepts one public PEM root with explicit CA basic constraints.
+For an existing endpoint, preserve its old certificate/identity until replacement clients have approved the new CA. The dashboard CA upload accepts one public PEM or DER root with explicit CA basic constraints.
 
 ## IKEv2 responder
 

@@ -176,11 +176,14 @@ class TestHomeAssistant:
     def test_wifi_list_add_delete_and_empty_list_submission(self):
         response = self.ingress('/provisioning')
         assert b'id="add-wifi"' in response.data
-        assert b'class="secondary remove-wifi"' in response.data
+        assert b'name="trusted_ssid"' not in response.data
+        assert b'id="wifi-table" hidden' in response.data
         csrf = re.search(rb'name="csrf" value="([^"]+)"', response.data).group(1).decode()
         for networks in (['Home', 'Office'], ['Office'], [''], []):
             form = {'csrf':csrf,'server':'vpn.example.org','trusted_ssid':networks}
             response = self.ingress('/vpn-provisioning', method='post', data=form)
             assert response.status_code == 302
             assert self.app.extensions['vpn_provisioning'].enrollment()['trustedSSIDs'] == [name for name in networks if name]
+            rendered = self.ingress('/provisioning').data
+            assert rendered.count(b'name="trusted_ssid"') == len([name for name in networks if name])
         assert self.ingress('/static/provisioning.js').status_code == 200

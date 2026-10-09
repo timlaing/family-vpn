@@ -43,9 +43,9 @@ The app allows MOBIKE and uses high DPD, but gateway implementations determine t
 
 Use a leaf server certificate containing the gateway DNS SAN and an identity matching the dashboard. Prefer a publicly trusted certificate, or a dedicated private CA with `BasicConstraints: CA:TRUE`; the leaf should have `CA:FALSE`, appropriate signing usage and server authentication EKU. For an IP-based endpoint, use a matching IP SAN rather than a DNS SAN. The certificate chain and private key belong on the endpoint.
 
-The dashboard accepts **one public CA certificate in PEM**, not a server leaf, bundle or private key. It rejects certificates without an explicit CA basic constraint. The legacy certificate bundled in this repository has no X.509 extensions and is not suitable for this new CA upload validation. Generate a proper CA and leaf for a new deployment; changing trust on an existing deployment requires a staged rollout.
+The dashboard accepts **one public CA certificate in PEM or DER**, not a server leaf, bundle or private key. It rejects certificates without an explicit CA basic constraint. The legacy certificate bundled in this repository has no X.509 extensions and is not suitable for this new CA upload validation. Generate a proper CA and leaf for a new deployment; changing trust on an existing deployment requires a staged rollout.
 
-With a private CA, upload its public PEM in dashboard VPN provisioning before registration. The app receives it during enrollment and exports a CA-only profile. Install and approve system trust before installing the VPN. The app cannot silently grant certificate trust. See [Apple's certificate trust instructions](https://support.apple.com/en-gb/102390) and [dashboard provisioning](PROVISIONING.md).
+With a private CA, upload its public PEM or DER certificate in dashboard VPN provisioning before registration. The app receives it during enrollment and exports a CA-only profile. Install and approve system trust before installing the VPN. The app cannot silently grant certificate trust. See [Apple's certificate trust instructions](https://support.apple.com/en-gb/102390) and [dashboard provisioning](PROVISIONING.md).
 
 ## Enrollment and endpoint changes
 

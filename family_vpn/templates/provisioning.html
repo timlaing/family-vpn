@@ -1,0 +1,31 @@
+<section class="card provisioning">
+  <h2>{{ 'VPN provisioning' if vpn_provision else 'Set up your VPN' }}</h2>
+  <p>{{ 'Update the connection settings provided to your devices.' if vpn_provision else 'Enter your VPN gateway settings below. Save them, then set up the device administrator password.' }}</p>
+  <form action="{{ url_for('configure_vpn_provisioning') }}" method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf_token() }}">
+    <label>VPN gateway<input name="server" required maxlength="253" placeholder="vpn.example.org" value="{{ vpn_provision.server if vpn_provision else '' }}"><small>The hostname or IP address of your VPN server.</small></label>
+    <label>Server certificate identity<input name="remote_identifier" maxlength="253" placeholder="Defaults to gateway" value="{{ vpn_provision.remoteIdentifier if vpn_provision else '' }}"><small>Leave blank if the server certificate uses the gateway name.</small></label>
+    <fieldset class="wifi-list">
+      <legend>Trusted Wi-Fi networks</legend>
+      <p>Add networks where devices can use Wi-Fi without connecting to the VPN. Leave the list empty to use the VPN on every network.</p>
+      <table id="wifi-table" {% if not vpn_provision or not vpn_provision.trustedSSIDs %}hidden{% endif %}>
+        <thead><tr><th scope="col">Network name (SSID)</th><th scope="col">Action</th></tr></thead>
+        <tbody id="wifi-rows">{% for ssid in (vpn_provision.trustedSSIDs if vpn_provision else []) %}
+          <tr class="wifi-row"><td><input aria-label="Wi-Fi network" name="trusted_ssid" maxlength="32" value="{{ ssid }}" placeholder="Network name" {% if demo %}disabled{% endif %}></td><td><button type="button" class="secondary remove-wifi" aria-label="Delete Wi-Fi network" {% if demo %}disabled{% endif %}>Delete</button></td></tr>
+        {% endfor %}</tbody>
+      </table>
+      <button type="button" id="add-wifi" class="secondary" {% if demo %}disabled{% endif %}>Add network</button>
+    </fieldset>
+    <fieldset class="certificate-fields">
+      <legend>CA certificate <span>(optional)</span></legend>
+      <p>If your VPN uses a private certificate authority, upload its CA certificate. Otherwise, use the device’s built-in certificate trust.</p>
+      {% if vpn_provision and vpn_provision.caCertificate %}<p class="certificate-status">A CA certificate is configured. Leave the fields below empty to keep it.</p>{% endif %}
+      <label>Upload CA certificate<input type="file" name="ca_file" accept=".pem,.crt,.cer,.der" {% if demo %}disabled{% endif %}><small>One PEM or DER certificate, up to 16 KB.</small></label>
+      <details class="paste-certificate"><summary>Or paste a PEM certificate</summary><label><span class="sr-only">CA certificate PEM</span><textarea name="ca_pem" rows="5" placeholder="-----BEGIN CERTIFICATE-----" {% if demo %}disabled{% endif %}></textarea></label></details>
+      {% if vpn_provision and vpn_provision.caCertificate %}<label class="checkbox-label"><input type="checkbox" name="remove_ca" value="true">Remove the configured CA certificate</label>{% endif %}
+      <p>Your devices will need to approve a private CA in system Settings after registration.</p>
+    </fieldset>
+    <button {% if demo %}disabled{% endif %}>Save VPN provisioning</button>
+  </form>
+  {% if vpn_provision %}<p class="setup-next"><a href="{{ url_for('administration') }}">Continue to Administration</a></p>{% endif %}
+</section>

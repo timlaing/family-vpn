@@ -96,7 +96,10 @@ class TestApp:
         assert (self.login().status_code) == (302)
         dashboard = self.client.get("/")
         assert (dashboard.status_code) == (200)
-        assert ('Only a subsequent device report') in (dashboard.text)
+        assert ('Set up your VPN') in dashboard.text
+        self.app.extensions['vpn_provisioning'].save('vpn.example.org', '', [])
+        self.app.extensions['administrator'].set_password('synthetic-test-password', 'synthetic-test-password')
+        assert 'Only a subsequent device report' in self.client.get('/').text
         assert (secret) not in (dashboard.text)
 
     def test_login_csrf_rate_limit_and_logout(self):

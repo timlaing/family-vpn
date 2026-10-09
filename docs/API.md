@@ -74,7 +74,7 @@ Validation failures may precede authentication on `/status`; error bodies are no
 
 Registration clients send `X-FamilyVPN-VPN-Protocol: 2`. Successful responses include `vpn` with `server`, `remoteIdentifier`, `trustedSSIDs` and UUID `revision`. The dashboard must have valid gateway settings first; otherwise registration returns 409 without rotating credentials. Configuration is managed through the authenticated, CSRF-protected dashboard. See [PROVISIONING.md](PROVISIONING.md).
 
-`reprovision_vpn` commands include `vpn_digest`, a signed SHA-256 hash of a configuration snapshot. Authenticated `GET /vpn-configuration?id=UUID&request_id=UUID` returns the exact pending snapshot only for its device and enrollment epoch. Keep this route VPN-only. `vpn.caCertificate` is optional base64 DER, supplied through a validated PEM CA in the dashboard.
+`reprovision_vpn` commands include `vpn_digest`, a signed SHA-256 hash of a configuration snapshot. Authenticated `GET /vpn-configuration?id=UUID&request_id=UUID` returns the exact pending snapshot only for its device and enrollment epoch. Keep this route VPN-only. `vpn.caCertificate` is optional base64 DER, supplied through a validated PEM or DER CA in the dashboard.
 
 ## Signed commands and acknowledgements
 

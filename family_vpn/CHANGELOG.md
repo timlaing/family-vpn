@@ -1,3 +1,9 @@
+# 0.3.4
+
+- Simplify setup wording and single-column form; strengthen branding and stop repeating background graphics.
+- Start trusted Wi-Fi empty and render added networks as table rows.
+- Upload PEM/DER CA certificates; retain existing certificates unless explicitly replaced or removed.
+
 # 0.3.3
 
 - Gate menu pages and direct links by provisioning, administrator setup and device enrollment prerequisites.

@@ -1,4 +1,5 @@
 import re
+import io
 import base64
 import hashlib
 import json
@@ -49,6 +50,7 @@ def test_valid_gateway(host):
     assert VPNProvisioning.hostname(host) == host
 
 class TestVPNPush:
+    login = AppFixture.login
     setup_method = AppFixture.setup_method
     teardown_method = AppFixture.teardown_method
     def test_snapshot_digest_authentication_and_supersession(self):
@@ -83,3 +85,32 @@ class TestVPNPush:
         headers = {'Authorization':'Bearer '+self.settings.enrollment_secret,'X-FamilyVPN-VPN-Protocol':'1'}
         assert self.client.post('/registrations',headers=headers,json={'id':self.device,'token':'ab'*32}).json['vpn']['caCertificate'] == value['caCertificate']
         assert provisioning.save('vpn.example.org','',[])['caCertificate'] is None
+
+    def test_certificate_upload_retention_and_explicit_removal(self):
+        self.login()
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get('/').text).group(1)
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'Synthetic upload CA')])
+        now = datetime.now(timezone.utc)
+        certificate = x509.CertificateBuilder().subject_name(name).issuer_name(name).public_key(key.public_key()).serial_number(x509.random_serial_number()).not_valid_before(now-timedelta(days=1)).not_valid_after(now+timedelta(days=1)).add_extension(x509.BasicConstraints(ca=True,path_length=None),critical=True).sign(key,hashes.SHA256())
+        form = {'csrf':csrf, 'server':'vpn.example.org'}
+        provisioning = self.app.extensions['vpn_provisioning']
+        der = certificate.public_bytes(serialization.Encoding.DER)
+        pem = certificate.public_bytes(serialization.Encoding.PEM)
+        for content, filename in ((pem, 'ca.pem'), (der, 'ca.cer')):
+            response = self.client.post('/vpn-provisioning', data={**form, 'ca_file':(io.BytesIO(content), filename)})
+            assert response.status_code == 302
+            assert base64.b64decode(provisioning.enrollment()['caCertificate']) == der
+        assert 'Leave the fields below empty to keep it' in self.client.get('/provisioning').text
+        assert self.client.post('/vpn-provisioning', data={**form,'server':'new.example.org'}).status_code == 302
+        assert base64.b64decode(provisioning.enrollment()['caCertificate']) == der
+        assert self.client.post('/vpn-provisioning', data={**form,'remove_ca':'true'}).status_code == 302
+        assert provisioning.enrollment()['caCertificate'] is None
+
+        for content in (b'invalid', b'x'*16385, pem+b'-----BEGIN '+b'PRIVATE KEY-----'):
+            response = self.client.post('/vpn-provisioning', data={**form, 'ca_file':(io.BytesIO(content), 'ca.pem')})
+            assert response.status_code == 400
+            assert provisioning.enrollment()['caCertificate'] is None
+        for conflicting in ({'remove_ca':'true'}, {'ca_pem':pem.decode()}):
+            assert self.client.post('/vpn-provisioning', data={**form, **conflicting, 'ca_file':(io.BytesIO(pem),'ca.pem')}).status_code == 400
+        assert self.client.post('/vpn-provisioning', data={'server':'vpn.example.org','ca_file':(io.BytesIO(pem),'ca.pem')}).status_code == 403

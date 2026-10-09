@@ -335,7 +335,9 @@ class DashboardViews:
     def configure_vpn_provisioning(self):
         if not session.get("admin"): abort(401)
         ssids = [ssid for ssid in request.form.getlist("trusted_ssid") if ssid != ""] if "trusted_ssid" in request.form else request.form.get("trusted_ssids", "").splitlines()
-        try: self.vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, request.form.get("ca_pem", ""))
+        try:
+            ca = self.vpn_provisioning.certificate_pem(request.files.get("ca_file"), request.form.get("ca_pem", ""), request.form.get("remove_ca") == "true")
+            self.vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, ca)
         except ValueError as exc: return str(exc), 400
         return redirect(url_for("provisioning"))
 
