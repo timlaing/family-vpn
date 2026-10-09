@@ -20,6 +20,7 @@ import httpx
 from .commands import Commands, ACTIONS
 from .provisioning import VPNProvisioning
 from .administrator import AdministratorProvisioning
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask import Flask, abort, jsonify, redirect, render_template, request, session, url_for
 
 CONNECTIONS = {"connected", "connecting", "reasserting", "disconnecting", "disconnected", "invalid"}
@@ -262,27 +263,13 @@ class DashboardViews:
         return (not self.settings.demo and bool(self.bearer()) and equal(self.bearer(), self.settings.admin_secret)) or (not request.environ.get("vpnweb.home_assistant") and session.get("admin") is True)
 
 
-    def csrf(self):
-        if not equal(request.form.get("csrf", ""), session.get("csrf", "missing")): abort(403)
-
-
     def security(self):
-        # Every browser mutation requires a session token. REST mutations instead
-        # require explicit bearer credentials and never accept session authentication.
-        if request.method not in {"GET", "HEAD", "OPTIONS"} and (
-            session.get("admin") or request.environ.get(INGRESS_FLAG) or request.endpoint in {"login", "logout"}
-        ) and request.endpoint in {
-            "login", "logout", "configure_vpn_provisioning", "administrator_password",
-            "command_form", "push_form", "configuration",
-        }:
-            self.csrf()
         if request.path == "/vpn-provisioning": request.max_content_length = 32768
         if request.content_length is not None and request.content_length > (request.max_content_length or self.app.config["MAX_CONTENT_LENGTH"]): abort(413)
         if self.settings.demo and request.method != "GET": abort(403)
         if request.path in {"/status", "/command-results"}: self.limit_public_report()
         if request.environ.get(INGRESS_FLAG):
             session["admin"] = True
-        if "csrf" not in session: session["csrf"] = secrets.token_urlsafe(32)
 
 
     def headers(self, response):
@@ -298,7 +285,6 @@ class DashboardViews:
     def login(self):
         failed = False
         if request.method == "POST":
-            self.csrf()
             address = request.remote_addr or "unknown"
             now = time.monotonic()
             with self.login_lock:
@@ -310,14 +296,14 @@ class DashboardViews:
                     if len(self.login_failures) >= 1000: self.login_failures.clear()
                     self.login_failures[address] = attempts + [now]
             if valid:
-                session.clear(); session.update(admin=True, csrf=secrets.token_urlsafe(32))
+                session.clear(); session.update(admin=True)
                 return redirect(url_for("dashboard"))
             failed = True
         return render_template("login.html", failed=failed)
 
 
     def logout(self):
-        self.csrf(); session.clear(); return redirect(url_for("login"))
+        session.clear(); return redirect(url_for("login"))
 
 
     def dashboard(self):
@@ -331,7 +317,6 @@ class DashboardViews:
 
     def configure_vpn_provisioning(self):
         if not session.get("admin"): abort(401)
-        self.csrf()
         ssids = request.form.get("trusted_ssids", "").splitlines()
         try: self.vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, request.form.get("ca_pem", ""))
         except ValueError as exc: return str(exc), 400
@@ -340,7 +325,6 @@ class DashboardViews:
 
     def administrator_password(self):
         if not session.get("admin"): abort(401)
-        self.csrf()
         try: self.administrator.set_password(request.form.get("password"),request.form.get("confirmation"))
         except ValueError: return "Use matching administrator passwords of at least 12 characters (maximum 1024 UTF-8 bytes).",400
         return redirect(url_for("dashboard"))
@@ -466,7 +450,6 @@ class DashboardViews:
 
     def command_form(self):
         if not session.get("admin"): abort(401)
-        self.csrf()
         try:
             device=identifier(request.form.get("id"))
             action=request.form.get("action")
@@ -504,7 +487,6 @@ class DashboardViews:
 
     def push_form(self):
         if not session.get("admin"): abort(401)
-        self.csrf()
         device = request.form.get("id") or None
         try:
             if device: identifier(device)
@@ -519,7 +501,6 @@ class DashboardViews:
         if manager is None or not request.environ.get(INGRESS_FLAG): abort(404)
         error = None
         if request.method == "POST":
-            self.csrf()
             try:
                 with self.dispatcher.lock:
                     if self.dispatcher.running: abort(409)
@@ -546,6 +527,7 @@ def create_app(settings=None, sender=None):
     os.umask(0o077)
     app = Flask(__name__)
     app.config.update(SECRET_KEY=settings.session_secret or secrets.token_hex(32), MAX_CONTENT_LENGTH=2048,
+                      WTF_CSRF_FIELD_NAME="csrf",
                       SESSION_COOKIE_SECURE=settings.secure_cookie, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Strict")
     database = Database(settings.database)
     commands = Commands(database)
@@ -555,6 +537,11 @@ def create_app(settings=None, sender=None):
     dispatcher = Dispatcher(database, sender or APNsSender(settings), settings, commands)
     app.extensions.update(database=database, dispatcher=dispatcher, settings=settings, commands=commands, administrator=administrator)
     DashboardViews(app)
+    csrf = CSRFProtect(app)
+    # Only bearer-authenticated REST writes are exempt; browser forms remain protected.
+    for endpoint in ("register", "status", "command_results", "create_command", "push"):
+        csrf.exempt(app.view_functions[endpoint])
+    app.register_error_handler(CSRFError, lambda error: ("CSRF validation failed", 403))
     if not settings.demo:
         threading.Thread(target=dispatcher.schedule, daemon=True, name="watchdog").start()
     return app

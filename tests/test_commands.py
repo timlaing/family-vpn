@@ -1,3 +1,4 @@
+import re
 import base64
 import json
 import time
@@ -111,7 +112,7 @@ class TestCommand:
     def test_dashboard_requires_csrf_for_policy_commands(self):
         self.login()
         assert (self.client.post('/command', data={'id': self.device, 'action': 'enable'}).status_code) == (403)
-        with self.client.session_transaction() as session: csrf=session['csrf']
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get("/login").text).group(1)
         response=self.client.post('/command',data={'csrf':csrf,'id':self.device,'action':'suspend','duration_seconds':'manual'})
         assert (response.status_code) == (302)
         self.dispatcher.future.result(timeout=2)

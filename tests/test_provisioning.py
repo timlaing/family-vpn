@@ -1,3 +1,4 @@
+import re
 import base64
 import hashlib
 import json
@@ -16,10 +17,10 @@ class TestProvisioning:
     teardown_method = AppFixture.teardown_method
     login = AppFixture.login
     def test_dashboard_configuration_requires_authentication_and_csrf(self):
-        assert self.client.post('/vpn-provisioning').status_code == 401
+        assert self.client.post('/vpn-provisioning').status_code == 403
         self.login()
         assert self.client.post('/vpn-provisioning', data={'server':'vpn.example.org'}).status_code == 403
-        with self.client.session_transaction() as session: csrf = session['csrf']
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get("/login").text).group(1)
         response = self.client.post('/vpn-provisioning', data={'csrf':csrf,'server':'vpn.example.org','trusted_ssids':'Home Wi-Fi\nOffice'})
         assert response.status_code == 302
         assert self.app.extensions['vpn_provisioning'].enrollment()['trustedSSIDs'] == ['Home Wi-Fi','Office']

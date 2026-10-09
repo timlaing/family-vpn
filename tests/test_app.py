@@ -1,3 +1,4 @@
+import re
 import json
 import tempfile
 import threading
@@ -49,7 +50,7 @@ class TestApp:
 
     def login(self):
         self.client.get("/login")
-        with self.client.session_transaction() as session: csrf = session["csrf"]
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get("/login").text).group(1)
         return self.client.post("/login", data={"csrf": csrf, "password": self.settings.admin_secret})
 
     def test_registration_and_device_scoped_status(self):
@@ -100,7 +101,7 @@ class TestApp:
 
     def test_login_csrf_rate_limit_and_logout(self):
         self.client.get("/login")
-        with self.client.session_transaction() as session: csrf = session["csrf"]
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get("/login").text).group(1)
         assert (self.client.post('/login', data={'password': self.settings.admin_secret}).status_code) == (403)
         for _ in range(5):
             assert (self.client.post('/login', data={'csrf': csrf, 'password': 'wrong'}).status_code) == (200)
@@ -122,7 +123,7 @@ class TestApp:
     def test_dashboard_push_requires_csrf(self):
         self.register(); self.login()
         assert (self.client.post('/push', data={}).status_code) == (403)
-        with self.client.session_transaction() as session: csrf = session["csrf"]
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get("/login").text).group(1)
         assert (self.client.post('/push', data={'csrf': csrf}).status_code) == (302)
         self.dispatcher.future.result(timeout=2)
 
@@ -236,5 +237,24 @@ def test_browser_mutations_reject_missing_and_wrong_csrf(tmp_path, path):
         assert client.post(path, data={}).status_code == 403
         assert client.post(path, data={"csrf":"forged"}).status_code == 403
         assert client.post(path, data={"csrf":"forged"}, environ_overrides={"vpnweb.ingress":True}).status_code == 403
+    finally:
+        app.extensions["dispatcher"].close()
+
+
+def test_flask_wtf_rejects_cross_session_and_expired_tokens(tmp_path):
+    app = create_app(Settings(database=str(tmp_path / "signed-csrf.sqlite"), demo=False,
+                              admin_secret="a"*32, enrollment_secret="e"*32,
+                              session_secret="s"*32, automatic=False, secure_cookie=False))
+    try:
+        first, second = app.test_client(), app.test_client()
+        token = re.search(r'name="csrf" value="([^" ]+)"', first.get("/login").text).group(1)
+        second.get("/login")
+        form = {"csrf":token, "password":"a"*32}
+        assert second.post("/login", data=form).status_code == 403
+        app.config["WTF_CSRF_TIME_LIMIT"] = -1
+        assert first.post("/login", data=form).status_code == 403
+        app.config["WTF_CSRF_TIME_LIMIT"] = 3600
+        assert first.post("/login", data=form).status_code == 302
+        assert first.post("/logout", data={"csrf":token}).status_code == 403
     finally:
         app.extensions["dispatcher"].close()

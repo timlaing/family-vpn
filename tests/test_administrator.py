@@ -1,3 +1,4 @@
+import re
 import base64
 import hashlib
 import json
@@ -14,13 +15,13 @@ class TestAdministrator:
         return {'Authorization':'Bearer '+self.settings.enrollment_secret,'X-FamilyVPN-Administrator-Protocol':'1','X-FamilyVPN-Command-Protocol':'1'}
     def setup_password(self,password='dashboard-test-password'):
         self.login()
-        with self.client.session_transaction() as session: csrf=session['csrf']
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get("/login").text).group(1)
         return self.client.post('/administrator-password',data={'csrf':csrf,'password':password,'confirmation':password})
     def test_setup_requires_dashboard_session_csrf_and_matching_password(self):
-        assert (self.client.post('/administrator-password', data={}).status_code) == (401)
+        assert (self.client.post('/administrator-password', data={}).status_code) == (403)
         self.login()
         assert (self.client.post('/administrator-password', data={}).status_code) == (403)
-        with self.client.session_transaction() as session: csrf=session['csrf']
+        csrf = re.search(r'name="csrf" value="([^" ]+)"', self.client.get("/login").text).group(1)
         for password,confirmation in [('short','short'),('long-test-password','different')]:
             assert (self.client.post('/administrator-password', data={'csrf': csrf, 'password': password, 'confirmation': confirmation}).status_code) == (400)
         assert (self.client.post('/administrator-password', data={'csrf': csrf, 'password': 'x' * 1025, 'confirmation': 'x' * 1025}).status_code) == (413)
