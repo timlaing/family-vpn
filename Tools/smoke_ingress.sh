@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Exercise a synthetic Supervisor gateway; this does not install Home Assistant.
+# Sonar shell:S5332 is suppressed for this file in sonar-project.properties:
+# HTTP stays inside the disposable Docker fixture or loopback, using synthetic credentials.
 set -euo pipefail
 image="${1:-vpnweb-addon:test}"
 suffix="${RANDOM}"

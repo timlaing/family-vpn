@@ -117,4 +117,5 @@ if __name__ == "__main__":
         if not os.environ.get(required): raise RuntimeError("Missing server configuration")
     validated_interval()  # Fail startup rather than silently losing the watchdog thread.
     threading.Thread(target=watchdog, daemon=True).start()
-    ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("PORT", "8080"))), RegistrationHandler).serve_forever()
+    # HTTP is confined to loopback; remote clients use the HTTPS reverse proxy.
+    ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("PORT", "8080"))), RegistrationHandler).serve_forever()  # noqa: S5332
