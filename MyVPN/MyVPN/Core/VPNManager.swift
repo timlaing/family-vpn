@@ -27,6 +27,10 @@ import AppKit
         return String(data: data, encoding: .utf8)
     }
     var connectionIndicator: ConnectionIndicator {
+        #if DEBUG
+        if screenshotPage == "status-connected" { return .connected }
+        if screenshotPage == "status-trusted" { return .trusted }
+        #endif
         guard policy.installed, system.localizedDescription == owner else { return .disconnected }
         return NetworkContext.indicator(status: system.connection.status, ssid: currentSSID,
                                  trusted: policy.trustedSSIDs, online: networkAvailable,
@@ -54,6 +58,8 @@ import AppKit
             policy.installed = !["setup", "setup-bottom", "registered"].contains(page)
             administratorReady = page == "registered" || policy.installed
             status = !policy.installed ? "Not installed" : "Disconnected — preview state"
+            if page == "status-connected" { status = "Connected — preview state" }
+            if page == "status-trusted" { status = "Not connected on trusted Wi-Fi — preview state" }
             result = "Policy verified — preview data"
             lastCheck = Date()
             if page == "suspended" {
