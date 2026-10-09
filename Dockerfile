@@ -2,7 +2,7 @@ FROM python:3.14-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 VPNWEB_DATABASE=/data/vpnweb.sqlite
 WORKDIR /app
 COPY requirements.lock ./
-RUN python -m pip install --no-cache-dir -r requirements.lock \
+RUN python -m pip install --no-cache-dir --only-binary=:all: --no-deps --require-hashes -r requirements.lock \
     && python -m pip check \
     && groupadd --gid 10001 vpnweb \
     && useradd --uid 10001 --gid vpnweb --no-create-home vpnweb \

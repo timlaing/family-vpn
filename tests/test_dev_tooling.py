@@ -37,3 +37,9 @@ def test_missing_markers_fail_without_overwriting(tmp_path, monkeypatch):
     monkeypatch.setattr(sync, "CONFIG_FILE", config)
     assert sync.update_config([], check_only=False) == 2
     assert config.read_text() == "repos: []\n"
+
+
+def test_hashed_requirements_keep_only_package_pins(tmp_path):
+    lock = tmp_path / "hashed.lock"
+    lock.write_text("Flask==3.1.3 \\n    --hash=sha256:abc \\n    --hash=sha256:def\npytest==9.1.1 --hash=sha256:ghi\n".replace("\\n", "\\\n"))
+    assert sync.read_requirements(lock) == ["Flask==3.1.3", "pytest==9.1.1"]

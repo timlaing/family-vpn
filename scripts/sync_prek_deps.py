@@ -37,8 +37,10 @@ def read_requirements(
     for raw_line in path.read_text(encoding="utf-8").splitlines():
         line = raw_line.strip()
 
-        if not line or line.startswith("#"):
+        # Hashes are pip lock metadata, not valid prek additional_dependencies.
+        if not line or line.startswith(("#", "--hash=")):
             continue
+        line = line.split(" --hash=", 1)[0].rstrip("\\").strip()
 
         if line.startswith("-r "):
             included = line[3:].strip()
