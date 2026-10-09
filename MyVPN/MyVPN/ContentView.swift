@@ -26,12 +26,11 @@ struct ContentView: View {
     @State private var registrationOpen = false
     @State private var page: HomePage = .status
     private enum HomePage: String, CaseIterable {
-        case status = "Status", settings = "Settings", user = "User information", details = "Details", help = "Help"
+        case status = "Status", details = "Details", settings = "Settings", help = "Help"
         var icon: String {
             switch self {
             case .status: return "shield.fill"
             case .settings: return "gearshape"
-            case .user: return "person.fill"
             case .details: return "info.circle"
             case .help: return "questionmark.circle"
             }
@@ -66,9 +65,7 @@ struct ContentView: View {
     }
     private var mainScreen: some View {
         Group {
-            if vpn.policy.installed, page == .settings {
-                administratorEditor
-            } else if vpn.policy.installed, page == .help {
+            if vpn.policy.installed, page == .help {
                 VPNHelpView(showsDone: false)
             } else {
                 mainForm
@@ -110,8 +107,8 @@ struct ContentView: View {
                 } else {
                     switch page {
                     case .status: connectionHome
-                    case .settings, .help: EmptyView()
-                    case .user: userPage
+                    case .settings: userPage
+                    case .help: EmptyView()
                     case .details: detailsPage
                     }
                 }
@@ -123,8 +120,8 @@ struct ContentView: View {
                 #if DEBUG
                 switch vpn.screenshotPage {
                 case "settings": page = .settings
-                case "user": page = .user
-                case "details": page = .details
+                case "user": page = .settings
+                case "details", "details-suspended": page = .details
                 default: break
                 }
                 #endif
@@ -217,18 +214,32 @@ struct ContentView: View {
         }
     }
     private var userPage: some View {
-        Section("VPN account") {
-            LabeledContent("Username", value: vpn.accountUsername ?? "Unavailable")
-            Text("Your password is stored securely and is never displayed.").font(.footnote)
-            Button("Change VPN credentials") {
-                run { try await DeviceAuthentication.authorize(); credentialsOpen = true }
+        Group {
+            Section("VPN account") {
+                LabeledContent("Username", value: vpn.accountUsername ?? "Unavailable")
+                Text("Your password is stored securely and is never displayed.").font(.footnote)
+                Button("Change VPN credentials") {
+                    run { try await DeviceAuthentication.authorize(); credentialsOpen = true }
+                }
+            }
+            Section("Administration") {
+                Button {
+                    adminUnlocked = false; administrator = ""; adminOpen = true
+                } label: {
+                    Label("Administrator controls", systemImage: "lock.shield")
+                }
             }
         }
+    }
+    private var suspensionEnd: String {
+        guard let suspension = vpn.policy.suspension else { return "Not suspended" }
+        return suspension.expiry?.formatted() ?? "Until manually re-enabled"
     }
     private var detailsPage: some View {
         Group {
             certificateSection
             Section("Policy checks") {
+                LabeledContent("Suspension end", value: suspensionEnd)
                 if let check = vpn.lastCheck { LabeledContent("Last successful check", value: check.formatted()) }
                 Text(vpn.result)
             }
@@ -341,7 +352,7 @@ struct ContentView: View {
                         }
                     }
                     Button("Remove VPN configuration", role: .destructive) { confirmRemoval = true }
-                    Button("Done") { adminOpen = false; administrator = ""; adminUnlocked = false; page = .status }.id("securityEnd")
+                    Button("Done") { adminOpen = false; administrator = ""; adminUnlocked = false }.id("securityEnd")
                 }
                 }
                 }

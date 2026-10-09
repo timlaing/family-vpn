@@ -71,7 +71,7 @@ import AppKit
             if page == "status-trusted" { status = "Not connected on trusted Wi-Fi — preview state" }
             result = "Policy verified — preview data"
             lastCheck = Date()
-            if page == "suspended" {
+            if ["suspended", "details-suspended"].contains(page) {
                 policy.suspension = SuspensionPolicy(created: Date(), expiry: Date().addingTimeInterval(3600))
                 status = "Suspended by administrator — " + policy.suspension!.expiry!.formatted()
             }
