@@ -66,13 +66,13 @@ class TestHomeAssistant:
         for field,value in [('interval','10'),('apns_key_file','/share/../etc/passwd'),('apns_key_id','bad\nvalue')]:
             assert (self.ingress('/configuration', method='post', data={**form, field: value}).status_code) == (200)
             assert (self.manager.load().interval) == (1800)
-    def test_session_secret_persists_and_reset_restores_options_after_restart(self):
+    def test_session_secret_persists_and_reset_restores_defaults(self):
         assert (self.manager.load().session_secret) == (self.settings.session_secret)
         assert (Path(self.directory.name, 'session-secret').stat().st_mode & 511) == (384)
         self.manager.update({'apns_key_id':'','apns_team_id':'','apns_topic':'test','apns_key_file':'','apns_environment':'sandbox','interval':'1800'},self.settings)
         self.manager.update({'reset':'true'},self.settings)
         assert (self.manager.load().interval) == (2700)
-        assert not (self.manager.path.exists())
+        assert self.manager.path.exists()
 
     def test_administrator_setup_is_ingress_only_on_addon_listeners(self):
         response=self.ingress()
@@ -91,3 +91,46 @@ class TestHomeAssistant:
         assert self.client.post('/vpn-provisioning', base_url='http://localhost:8081', data=form).status_code == 404
         assert self.ingress('/vpn-configuration').status_code == 404
         assert self.client.get('/vpn-configuration', base_url='http://localhost:8081').status_code == 400
+
+    def test_blank_or_missing_bearers_are_generated_and_retained(self):
+        Path(self.directory.name, 'options.json').write_text('{}')
+        # Existing explicit credentials survive clearing their Supervisor overrides.
+        settings = self.manager.load()
+        assert settings.admin_secret == self.settings.admin_secret
+        assert settings.enrollment_secret == self.settings.enrollment_secret
+        for name in ('admin-bearer', 'registration-bearer'):
+            Path(self.directory.name, name).unlink()
+        settings = self.manager.load()
+        assert len(settings.admin_secret) >= 32
+        assert len(settings.enrollment_secret) >= 32
+        assert settings.admin_secret != settings.enrollment_secret
+        Path(self.directory.name, 'options.json').write_text(json.dumps({'admin_bearer':'','registration_bearer':''}))
+        restarted = self.manager.load()
+        assert restarted.admin_secret == settings.admin_secret
+        assert restarted.enrollment_secret == settings.enrollment_secret
+        for name in ('admin-bearer', 'registration-bearer'):
+            assert Path(self.directory.name, name).stat().st_mode & 0o777 == 0o600
+
+    def test_legacy_push_settings_migrate_once_and_reset_immediately(self):
+        self.manager.path.unlink()
+        options = {**self.options, 'apns_key_id':'legacy', 'interval':1800, 'automatic':True}
+        Path(self.directory.name, 'options.json').write_text(json.dumps(options))
+        settings = self.manager.load()
+        assert settings.apns_key_id == 'legacy'
+        assert settings.automatic
+        options.update(apns_key_id='ignored', interval=3600)
+        Path(self.directory.name, 'options.json').write_text(json.dumps(options))
+        assert self.manager.load().apns_key_id == 'legacy'
+        assert self.manager.load().interval == 1800
+        self.manager.update({'reset':'true'}, settings)
+        assert settings.interval == 2700
+        assert not settings.automatic
+        assert settings.apns_key_id == ''
+        assert self.manager.load().apns_key_id == ''
+        assert settings.admin_secret == self.settings.admin_secret
+
+    def test_ingress_credentials_are_not_exposed_by_dashboard_or_external_api(self):
+        for secret in (self.settings.admin_secret, self.settings.enrollment_secret):
+            assert secret.encode() in self.ingress('/configuration').data
+            assert secret.encode() not in self.ingress().data
+            assert secret.encode() not in self.client.get('/configuration', base_url='http://localhost:8081').data

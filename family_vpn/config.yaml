@@ -1,6 +1,6 @@
 name: Family VPN
 url: https://github.com/timlaing/family-vpn/tree/main/family_vpn
-version: "0.3.0"
+version: "0.3.1"
 slug: family_vpn
 description: Signed VPN commands, administrator provisioning and status with an Ingress dashboard
 arch: [amd64, aarch64]
@@ -20,20 +20,6 @@ backup: cold
 options:
   admin_bearer: ""
   registration_bearer: ""
-  apns_key_file: /share/family-vpn/apns.p8
-  apns_key_id: ""
-  apns_team_id: ""
-  apns_topic: uk.co.laingcorp.myvpn
-  apns_environment: sandbox
-  interval: 2700
-  automatic: false
 schema:
-  admin_bearer: password
-  registration_bearer: password
-  apns_key_file: str
-  apns_key_id: str
-  apns_team_id: str
-  apns_topic: str
-  apns_environment: list(sandbox|production)
-  interval: int(1800,3600)
-  automatic: bool
+  admin_bearer: password?
+  registration_bearer: password?

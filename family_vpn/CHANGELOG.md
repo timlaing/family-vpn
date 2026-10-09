@@ -1,3 +1,8 @@
+# 0.3.1
+
+- Generate and persist optional bearer credentials on first startup; retrieve them through authenticated Ingress.
+- Configure APNs and policy-check scheduling exclusively in the dashboard, with one-time migration of existing options.
+
 # 0.3.0
 
 - Move device administrator password setup to the dashboard and provision its verifier during registration.

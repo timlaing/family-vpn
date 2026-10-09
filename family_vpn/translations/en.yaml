@@ -1,15 +1,9 @@
 configuration:
   admin_bearer:
     name: Administrative REST bearer
-    description: Separate random value with at least 32 characters. Never share it with enrolled devices.
+    description: Optional separate random value with at least 32 characters. Leave blank to generate and persist on first startup. Never share it with enrolled devices.
   registration_bearer:
     name: Device enrollment bearer
-    description: Separate random value with at least 32 characters, entered in the native administrator controls while VPN is connected.
-  apns_key_file:
-    name: APNs provider key path
-    description: Read-only provider key under /share or /data, typically /share/family-vpn/apns.p8.
-  automatic:
-    name: Automatic policy-check pushes
-    description: Enable after confirming one manual request and a physical-device report.
+    description: Optional separate random value with at least 32 characters. Leave blank to generate and persist on first startup; retrieve it in the dashboard for device enrollment.
 network:
   8081/tcp: VPN-only bearer-authenticated REST port for Nginx Proxy Manager; no dashboard.
