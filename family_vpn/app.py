@@ -222,6 +222,8 @@ class DashboardViews:
         app.add_url_rule('/login', endpoint='login', view_func=self.login, methods=['GET', 'POST'])
         app.add_url_rule('/logout', endpoint='logout', view_func=self.logout, methods=['POST'])
         app.add_url_rule('/', endpoint='dashboard', view_func=self.dashboard, methods=['GET'])
+        for page in ("provisioning", "administration", "activity"):
+            app.add_url_rule('/'+page, endpoint=page, view_func=self.dashboard, methods=['GET'])
         app.add_url_rule('/vpn-provisioning', endpoint='configure_vpn_provisioning', view_func=self.configure_vpn_provisioning, methods=['POST'])
         app.add_url_rule('/administrator-password', endpoint='administrator_password', view_func=self.administrator_password, methods=['POST'])
         app.add_url_rule('/registrations', endpoint='register', view_func=self.register, methods=['POST'])
@@ -238,6 +240,7 @@ class DashboardViews:
         app.add_url_rule('/configuration', endpoint='configuration', view_func=self.configuration, methods=['GET', 'POST'])
         app.add_url_rule('/health', endpoint='health', view_func=self.health, methods=['GET'])
         app.add_template_filter(self.when, 'when')
+        app.context_processor(self.navigation_state)
 
     def limit_public_report(self):
         now = time.monotonic()
@@ -306,28 +309,42 @@ class DashboardViews:
         session.clear(); return redirect(url_for("login"))
 
 
+    def navigation_state(self):
+        provisioned = self.settings.demo or bool(self.vpn_provisioning.enrollment())
+        administered = self.settings.demo or self.administrator.configured()
+        ready = provisioned and administered
+        devices = self.settings.demo or bool(self.database.public_devices())
+        return {"available_pages": {"provisioning": True, "configuration": True,
+            "administration": provisioned, "dashboard": ready, "activity": ready and devices}}
+
     def dashboard(self):
         if not self.settings.demo and not session.get("admin"): return redirect(url_for("login"))
+        available = self.navigation_state()["available_pages"]
+        page = request.endpoint
+        if page == "dashboard" and not available[page]:
+            page = "administration" if available["administration"] else "provisioning"
+        elif not available[page]:
+            return redirect(url_for("dashboard"))
         with self.database.connect() as db:
             events = [dict(row) for row in db.execute("SELECT at,device,kind,result FROM events ORDER BY seq DESC LIMIT 30")]
-        return render_template("dashboard.html", devices=self.database.public_devices(), events=events, demo=self.settings.demo,
+        return render_template("dashboard.html", page=page, devices=self.database.public_devices(), events=events, demo=self.settings.demo,
                                configured=self.settings.apns_ready, environment=self.settings.apns_environment,
                                interval=self.settings.interval // 60, automatic=self.settings.automatic, running=self.dispatcher.running, commands=self.commands.public(), administrator_configured=self.administrator.configured(), vpn_provision=self.vpn_provisioning.enrollment())
 
 
     def configure_vpn_provisioning(self):
         if not session.get("admin"): abort(401)
-        ssids = request.form.get("trusted_ssids", "").splitlines()
+        ssids = [ssid for ssid in request.form.getlist("trusted_ssid") if ssid != ""] if "trusted_ssid" in request.form else request.form.get("trusted_ssids", "").splitlines()
         try: self.vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, request.form.get("ca_pem", ""))
         except ValueError as exc: return str(exc), 400
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("provisioning"))
 
 
     def administrator_password(self):
         if not session.get("admin"): abort(401)
         try: self.administrator.set_password(request.form.get("password"),request.form.get("confirmation"))
         except ValueError: return "Use matching administrator passwords of at least 12 characters (maximum 1024 UTF-8 bytes).",400
-        return redirect(url_for("dashboard"))
+        return redirect(url_for("administration"))
 
 
     def registration_payload(self):

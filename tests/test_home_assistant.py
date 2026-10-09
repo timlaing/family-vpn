@@ -37,7 +37,7 @@ class TestHomeAssistant:
         response=self.ingress()
         assert (response.status_code) == (200)
         assert ((PREFIX + '/static/style.css').encode()) in (response.data)
-        assert ((PREFIX + '/push').encode()) in (response.data)
+        assert ((PREFIX + '/vpn-provisioning').encode()) in (response.data)
         assert ('X-Frame-Options') not in (response.headers)
         assert ("frame-ancestors 'self'") in (response.headers['Content-Security-Policy'])
         with self.ingress('/static/style.css') as asset: assert (asset.status_code) == (200)
@@ -134,3 +134,53 @@ class TestHomeAssistant:
             assert secret.encode() in self.ingress('/configuration').data
             assert secret.encode() not in self.ingress().data
             assert secret.encode() not in self.client.get('/configuration', base_url='http://localhost:8081').data
+
+    def test_navigation_pages_separate_forms_and_remain_ingress_only(self):
+        self.app.extensions['vpn_provisioning'].save('vpn.example.org', '', [])
+        self.app.extensions['administrator'].set_password('dashboard-test-password', 'dashboard-test-password')
+        with self.app.extensions['database'].connect() as db:
+            db.execute("INSERT INTO devices(id,status_hash,registered) VALUES('sample','synthetic',0)")
+        pages = {'/':'Device reports', '/provisioning':'Save VPN provisioning',
+                 '/administration':'Change device administrator password', '/activity':'Recent activity'}
+        for path, content in pages.items():
+            response = self.ingress(path)
+            assert response.status_code == 200
+            assert content.encode() in response.data
+            assert b'aria-label="Open navigation"' in response.data
+            for target in ('provisioning', 'administration', 'activity', 'configuration'):
+                assert (PREFIX+'/'+target).encode() in response.data
+            assert self.client.get(path, base_url='http://localhost:8081').status_code == 404
+        assert b'Save VPN provisioning' not in self.ingress().data
+        assert b'Set device administrator password' not in self.ingress().data
+        assert b'Device reports' not in self.ingress('/administration').data
+        response = self.ingress('/provisioning')
+        csrf = re.search(rb'name="csrf" value="([^"]+)"', response.data).group(1).decode()
+        saved = self.ingress('/vpn-provisioning', method='post', data={'csrf':csrf,'server':'vpn.example.org','trusted_ssids':'Home'})
+        assert saved.headers['Location'] == PREFIX+'/provisioning'
+
+    def test_setup_gates_menu_and_direct_links(self):
+        page = self.ingress()
+        assert b'Save VPN provisioning' in page.data
+        for target in ('administration', 'activity'):
+            assert self.ingress('/'+target).status_code == 302
+            assert ('href="'+PREFIX+'/'+target+'"').encode() not in page.data
+        assert self.ingress('/configuration').status_code == 200
+        self.app.extensions['vpn_provisioning'].save('vpn.example.org', '', [])
+        assert b'Set device administrator password' in self.ingress().data
+        assert self.ingress('/administration').status_code == 200
+        assert self.ingress('/activity').status_code == 302
+        self.app.extensions['administrator'].set_password('dashboard-test-password', 'dashboard-test-password')
+        assert b'Device reports' in self.ingress().data
+        assert self.ingress('/activity').status_code == 302
+
+    def test_wifi_list_add_delete_and_empty_list_submission(self):
+        response = self.ingress('/provisioning')
+        assert b'id="add-wifi"' in response.data
+        assert b'class="secondary remove-wifi"' in response.data
+        csrf = re.search(rb'name="csrf" value="([^"]+)"', response.data).group(1).decode()
+        for networks in (['Home', 'Office'], ['Office'], [''], []):
+            form = {'csrf':csrf,'server':'vpn.example.org','trusted_ssid':networks}
+            response = self.ingress('/vpn-provisioning', method='post', data=form)
+            assert response.status_code == 302
+            assert self.app.extensions['vpn_provisioning'].enrollment()['trustedSSIDs'] == [name for name in networks if name]
+        assert self.ingress('/static/provisioning.js').status_code == 200

@@ -1,3 +1,9 @@
+# 0.3.3
+
+- Gate menu pages and direct links by provisioning, administrator setup and device enrollment prerequisites.
+- Edit trusted Wi-Fi with an Add network button and per-network Delete buttons.
+- Split dashboard into status/reports, provisioning, administration, commands/activity and configuration pages with an accessible hamburger menu.
+
 # 0.3.2
 
 - Fix VPN provisioning form layout with styled fields and responsive columns.

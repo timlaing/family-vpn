@@ -1,7 +1,7 @@
 FROM python:3.14-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 VPNWEB_DATABASE=/data/vpnweb.sqlite
 WORKDIR /app
-ARG BUILD_VERSION=0.3.2
+ARG BUILD_VERSION=0.3.3
 ARG BUILD_ARCH=amd64
 LABEL io.hass.type="app" io.hass.version=$BUILD_VERSION io.hass.arch=$BUILD_ARCH
 COPY requirements.lock ./

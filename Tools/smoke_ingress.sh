@@ -92,10 +92,18 @@ with client.open(base+prefix+'/configuration',data=urllib.parse.urlencode(form).
     assert b'value="1800"' in response.read()
 with client.open(base+prefix+'/',timeout=2) as response:
     csrf=re.search(r'name="csrf" value="([^"]+)"',response.read().decode()).group(1)
+form={'csrf':csrf,'server':'vpn.example.org','trusted_ssid':'Synthetic Wi-Fi'}
+with client.open(base+prefix+'/vpn-provisioning',data=urllib.parse.urlencode(form).encode(),timeout=2) as response:
+    assert response.url.endswith('/provisioning')
+    assert b'Synthetic Wi-Fi' in response.read()
 form={'csrf':csrf,'password':'synthetic-test-password','confirmation':'synthetic-test-password'}
 with client.open(base+prefix+'/administrator-password',data=urllib.parse.urlencode(form).encode(),timeout=2) as response:
     assert b'Configured.' in response.read()
-print('Synthetic Supervisor gateway, prefixed assets/cookies, configuration and administrator setup passed')
+with client.open(base+prefix+'/',timeout=2) as response:
+    html=response.read()
+    assert b'Device reports' in html
+    assert b'Save VPN provisioning' not in html
+print('Synthetic Supervisor gateway, prefixed assets/cookies, configuration, provisioning and default status page passed')
 PY
 
 # These peer addresses simulate allowed/denied network paths, not a live VPN.
