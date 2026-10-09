@@ -23,6 +23,18 @@ struct ContentView: View {
     @State private var credentialsOpen = false
     @State private var confirmRemoval = false
     @State private var helpOpen = false
+    @State private var page: HomePage = .status
+    private enum HomePage: String, CaseIterable {
+        case status = "Status", settings = "Settings", user = "User information", details = "Details"
+        var icon: String {
+            switch self {
+            case .status: return "shield.fill"
+            case .settings: return "gearshape"
+            case .user: return "person.fill"
+            case .details: return "info.circle"
+            }
+        }
+    }
     var body: some View {
         Group {
         #if DEBUG
@@ -52,61 +64,166 @@ struct ContentView: View {
     }
     private var mainScreen: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
             Form {
                 screenshotLabel
-                Section("Connection") {
-                    Label(vpn.status, systemImage: "shield.lefthalf.filled")
-                    LabeledContent("Server", value: vpn.configuration?.server ?? "Unavailable")
-                    Text("On unsupervised devices, protection is best effort. Device owners can remove the app or VPN and prevent background recovery.").font(.footnote)
-                }
-                Section("Dashboard registration") {
-                    Text(vpn.administratorReady ? "Administrator configuration received. To change the password, update it in the dashboard and send a reprovision request or register again." : "Registration is required before installing the VPN.")
-                    TextField("HTTPS registration endpoint", text: $endpoint)
-                    SecureField("Enrollment secret", text: $enrollmentSecret)
-                    Button("Register this installation") { run { try await vpn.enroll(endpoint: endpoint, secret: enrollmentSecret); enrollmentSecret = "" } }
-                    Text("Registration requires device authentication and the dashboard enrollment secret. Only the configured registration network can enroll. Public reports use device credentials; pending commands require VPN connectivity. Enrollment authorizes signed refresh, suspend and enable requests.").font(.footnote)
-                }
-                if vpn.configuration?.caCertificate != nil, let url = RootCertificate.profileURL {
-                    Section("VPN certificate authority") {
-                        Text("A CA profile was provided by your dashboard. Export and install it through system Settings, then approve trust. The notification badge clears after a successful system trust check.")
-                        ShareLink("Export VPN CA profile", item: url)
-                        Button("Check certificate trust and apply provisioning") { run { _ = await vpn.recover() } }
-                    }
-                }
                 if !vpn.policy.installed {
-                    Section("First-run setup") {
-                        Text("Set the device administrator password in the dashboard, then register this device from the configured registration LAN. The app retrieves a password verifier over HTTPS.")
-                        TextField("VPN username", text: $username)
-                        SecureField("VPN password", text: $password)
-                        Text("Initial trusted Wi-Fi: " + (vpn.policy.trustedSSIDs.isEmpty ? "None" : vpn.policy.trustedSSIDs.joined(separator: ", ")))
-                        Button("Install Personal VPN") { run { try await vpn.install(username: username, password: password) } }.buttonStyle(.borderedProminent).controlSize(.large).disabled(!vpn.administratorReady).id("setupEnd")
+                    if vpn.administratorReady {
+                        initialAccount
+                    } else {
+                        registration
                     }
                 } else {
-                    Section("Policy checks") {
-                        if let check = vpn.lastCheck { LabeledContent("Last successful check", value: check.formatted()) }
-                        Text(vpn.result)
-                        Button("Change VPN credentials") { run { try await DeviceAuthentication.authorize(); credentialsOpen = true } }
-                        Button("Administrator controls") { adminUnlocked = false; adminOpen = true }
+                    switch page {
+                    case .status: connectionHome
+                    case .settings: settingsPage
+                    case .user: userPage
+                    case .details: detailsPage
                     }
                 }
                 if let error = vpn.error { Section { Text(error).foregroundStyle(.red) } }
             }
-            .vpnPage(title: vpn.policy.installed ? "Your connection" : "Welcome home", subtitle: vpn.policy.installed ? "Connection status and protection policy, in one place." : "Set up your family’s private connection.", icon: "network")
-            .task {
-                if vpn.screenshotPage == "setup-bottom" {
-                    try? await Task.sleep(for: .milliseconds(400))
-                    proxy.scrollTo("setupEnd", anchor: .bottom)
-                }
-            }
-            }
+            .vpnPage(title: homeTitle, subtitle: homeSubtitle, icon: vpn.policy.installed ? page.icon : "network")
             .navigationTitle("Family VPN")
             .frame(minWidth: 320)
             .disabled(vpn.busy)
             .sheet(isPresented: $credentialsOpen) { credentialEditor }
             .sheet(isPresented: $adminOpen) { administratorEditor }
-            .safeAreaInset(edge: .bottom) { bottomPreviewLabel }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                if vpn.policy.installed { navigationBar }
+                bottomPreviewLabel
+            }
         }
+    }
+    private var homeTitle: String {
+        if vpn.policy.installed { return page == .status ? "Your connection" : page.rawValue }
+        return vpn.administratorReady ? "Your VPN account" : "Welcome home"
+    }
+    private var homeSubtitle: String {
+        if vpn.policy.installed { return "Your family’s private connection." }
+        return vpn.administratorReady ? "Registration complete. Add your VPN account to finish setup." : "Register with your dashboard to get started."
+    }
+    private var registration: some View {
+        Section("Dashboard registration") {
+            Text("Set up your environment and device administrator password in the dashboard, then register from its allowed registration network.")
+            TextField("HTTPS registration endpoint", text: $endpoint)
+            SecureField("Enrollment secret", text: $enrollmentSecret)
+            Button("Register this installation") {
+                run { try await vpn.enroll(endpoint: endpoint, secret: enrollmentSecret); enrollmentSecret = "" }
+            }.buttonStyle(.borderedProminent).controlSize(.large)
+            Text("Device authentication is required. Registration securely retrieves your VPN gateway, trusted Wi-Fi and administrator configuration.").font(.footnote)
+        }
+    }
+    private var initialAccount: some View {
+        Group {
+            Section("Registration complete") {
+                Label("Dashboard configuration received", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                LabeledContent("VPN gateway", value: vpn.configuration?.server ?? "Unavailable")
+            }
+            certificateSection
+            Section("VPN account") {
+                Text("Enter the account provided by your VPN administrator. The password is stored securely on this device.")
+                TextField("VPN username", text: $username)
+                SecureField("VPN password", text: $password)
+                Button("Install Personal VPN") {
+                    run { try await vpn.install(username: username, password: password); page = .status }
+                }.buttonStyle(.borderedProminent).controlSize(.large)
+            }
+        }
+    }
+    private var connectionHome: some View {
+        Section {
+            VStack(spacing: 18) {
+                Image(systemName: connectionSymbol)
+                    .font(.system(size: 88, weight: .medium)).foregroundStyle(connectionColor)
+                    .accessibilityHidden(true)
+                Text(connectionTitle).font(.title2.bold())
+                Text(vpn.status).font(.subheadline).foregroundStyle(.secondary)
+                if vpn.connectionIndicator == .trusted {
+                    Text("VPN bypass is allowed on this trusted Wi-Fi network.").font(.footnote)
+                }
+            }.multilineTextAlignment(.center).frame(maxWidth: .infinity).padding(.vertical, 38)
+            LabeledContent("VPN gateway", value: vpn.configuration?.server ?? "Unavailable")
+            if vpn.busy { ProgressView("Checking connection…") }
+        }
+    }
+    private var connectionSymbol: String {
+        switch vpn.connectionIndicator {
+        case .connected: return "checkmark.circle.fill"
+        case .trusted: return "wifi.circle.fill"
+        case .disconnected: return "xmark.circle.fill"
+        }
+    }
+    private var connectionColor: Color {
+        switch vpn.connectionIndicator {
+        case .connected: return .green
+        case .trusted: return .yellow
+        case .disconnected: return .red
+        }
+    }
+    private var connectionTitle: String {
+        switch vpn.connectionIndicator {
+        case .connected: return "VPN connected"
+        case .trusted: return "On a trusted network"
+        case .disconnected: return "VPN not connected"
+        }
+    }
+    private var settingsPage: some View {
+        Group {
+            Section("Protection") {
+                Button("Administrator controls") { adminUnlocked = false; administrator = ""; adminOpen = true }
+                Button("Help and setup guidance") { helpOpen = true }
+            }
+            certificateSection
+            registration
+        }
+    }
+    private var userPage: some View {
+        Section("VPN account") {
+            LabeledContent("Username", value: vpn.accountUsername ?? "Unavailable")
+            Text("Your password is stored securely and is never displayed.").font(.footnote)
+            Button("Change VPN credentials") {
+                run { try await DeviceAuthentication.authorize(); credentialsOpen = true }
+            }
+        }
+    }
+    private var detailsPage: some View {
+        Group {
+            Section("Policy checks") {
+                if let check = vpn.lastCheck { LabeledContent("Last successful check", value: check.formatted()) }
+                Text(vpn.result)
+            }
+            Section("Trusted Wi-Fi") {
+                ForEach(vpn.policy.trustedSSIDs, id: \.self) { Text($0) }
+                if vpn.policy.trustedSSIDs.isEmpty { Text("No trusted networks configured.") }
+            }
+            Section("Protection limits") {
+                Text("On unsupervised devices, protection is best effort. Device owners can remove the app or VPN and prevent background recovery.").font(.footnote)
+            }
+        }
+    }
+    @ViewBuilder private var certificateSection: some View {
+        if vpn.configuration?.caCertificate != nil, let url = RootCertificate.profileURL {
+            Section("VPN certificate authority") {
+                Text("Export and install the dashboard’s CA profile through system Settings, then approve trust.")
+                ShareLink("Export VPN CA profile", item: url)
+                Button("Check certificate trust and apply provisioning") { run { _ = await vpn.recover() } }
+            }
+        }
+    }
+    private var navigationBar: some View {
+        HStack(spacing: 0) {
+            ForEach(HomePage.allCases, id: \.self) { item in
+                Button { page = item } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: item.icon).font(.title3)
+                        Text(item.rawValue).font(.caption2).lineLimit(1).minimumScaleFactor(0.8)
+                    }.frame(maxWidth: .infinity).padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(page == item ? Color.teal : Color.secondary)
+                .accessibilityAddTraits(page == item ? .isSelected : [])
+            }
+        }.padding(.horizontal, 8).background(.regularMaterial)
     }
     private var credentialEditor: some View {
         NavigationStack {
@@ -169,7 +286,7 @@ struct ContentView: View {
                 }
                 #endif
                 Section("Administrator password") {
-                    Text("Manage the password in the dashboard. Send a reprovision request from the dashboard, or register again from the main page, to retrieve a changed administrator configuration.")
+                    Text("Manage the password in the dashboard. Send a reprovision request from the dashboard, or register again from Settings, to retrieve a changed administrator configuration.")
                 }
                 Section {
                     Button("Validate and repair") {

@@ -6,7 +6,16 @@ import CoreWLAN
 #endif
 
 /// SSIDs are used locally for display only and are never included in dashboard reports.
+enum ConnectionIndicator { case connected, trusted, disconnected }
+
 @MainActor enum NetworkContext {
+    static func indicator(status: NEVPNStatus, ssid: String?, trusted: [String], online: Bool?, suspended: Bool) -> ConnectionIndicator {
+        if suspended { return .disconnected }
+        if status == .connected { return .connected }
+        if status == .disconnected, online != false, let ssid, trusted.contains(ssid) { return .trusted }
+        return .disconnected
+    }
+
     static func currentSSID() async -> String? {
         #if os(iOS)
         return await withCheckedContinuation { continuation in

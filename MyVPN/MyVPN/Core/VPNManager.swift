@@ -22,6 +22,16 @@ import AppKit
     let isUnitTestHost = ScreenshotMode.isUnitTestHost
     let store = CredentialStore()
     let admin = AdminAuthenticator()
+    var accountUsername: String? {
+        guard let data = try? store.read("vpn-username") else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+    var connectionIndicator: ConnectionIndicator {
+        guard policy.installed, system.localizedDescription == owner else { return .disconnected }
+        return NetworkContext.indicator(status: system.connection.status, ssid: currentSSID,
+                                 trusted: policy.trustedSSIDs, online: networkAvailable,
+                                 suspended: policy.suspension?.isActive == true)
+    }
     private let system = NEVPNManager.shared()
     private let operations = PreferenceOperationQueue()
     private var observers: [NSObjectProtocol] = []
@@ -41,7 +51,8 @@ import AppKit
         if let page = screenshotPage {
             configuration = try? VPNConfiguration.load()
             policy.trustedSSIDs = configuration?.defaultTrustedSSIDs ?? []
-            policy.installed = !["setup", "setup-bottom"].contains(page)
+            policy.installed = !["setup", "setup-bottom", "registered"].contains(page)
+            administratorReady = page == "registered" || policy.installed
             status = !policy.installed ? "Not installed" : "Disconnected — preview state"
             result = "Policy verified — preview data"
             lastCheck = Date()
@@ -456,6 +467,7 @@ import AppKit
         lastCheck = Date(); updateStatus()
     }
     func refreshNetworkStatus(online: Bool? = nil) {
+        guard screenshotPage == nil else { return }
         if let online { networkAvailable = online }
         currentSSID = nil
         updateStatus()
