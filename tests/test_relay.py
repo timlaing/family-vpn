@@ -59,6 +59,24 @@ def test_callback_failure_does_not_register(tmp_path):
     assert app.extensions['relay_store'].endpoint('vpn.example.org') is None
 
 
+@pytest.mark.parametrize("expired", [False, True])
+def test_missing_or_expired_endpoint_cannot_send_or_callback(relay, expired):
+    app, client, sender, callbacks = relay
+    now = time.time()
+    if expired:
+        with patch('time.time', return_value=now):
+            assert enroll(client).status_code == 201
+    previous_callbacks = list(callbacks)
+    with patch('time.time', return_value=now + 31 * 86400):
+        response, _, _, _ = send(client)
+        assert response.status_code == 401
+        assert app.extensions['relay_store'].summary() == []
+    assert sender.calls == []
+    assert callbacks == previous_callbacks
+    with app.extensions['relay_store'].connect() as db:
+        assert db.execute('SELECT COUNT(*) FROM requests').fetchone()[0] == 0
+
+
 def test_signed_push_returns_to_owner_and_does_not_persist_devices(relay):
     app, client, sender, callbacks = relay
     assert enroll(client).status_code == 201
