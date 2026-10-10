@@ -8,6 +8,9 @@ from urllib.parse import urlsplit
 from .relay_protocol import body_bytes, https_url, signed_headers
 
 
+ROTATE_PATH = "/rotate"
+
+
 class RelaySender:
     def __init__(self, settings):
         self.settings = settings
@@ -26,7 +29,7 @@ class RelaySender:
                 headers = signed_headers(settings.relay_secret, urlsplit(url).path, encoded)
                 if settings.relay_enrollment: headers['Authorization'] = 'Bearer '+settings.relay_enrollment
                 response = client.post(url, headers=headers, content=encoded)
-            self.last_result = 'registered' if response.status_code == 201 else 'endpoint_exists' if response.status_code == 409 else 'registration_failed'
+            self.last_result = {201: 'registered', 409: 'endpoint_exists'}.get(response.status_code, 'registration_failed')
             if response.status_code == 201:
                 settings.relay_rotated_at = time.time()
                 if self.manager: self.manager.save_settings(settings)
@@ -34,46 +37,61 @@ class RelaySender:
             self.last_result = 'network_error'
         return self.last_result
 
+    def pending_rotation(self, pending_file):
+        settings = self.settings
+        if pending_file and pending_file.exists():
+            pending = json.loads(pending_file.read_text())
+            if pending['server'] != settings.relay_server or pending['url'] != settings.relay_url:
+                self.last_result = 'rotation_pending_for_previous_endpoint'
+                return None
+            return pending
+        pending = {'server':settings.relay_server,'url':settings.relay_url,'token':secrets.token_urlsafe(32)}
+        if self.manager: self.manager.private_file('relay-pending-rotation.json',json.dumps(pending))
+        return pending
+
+    def request_rotation(self, pending):
+        settings = self.settings
+        url = https_url(settings.relay_url)+ROTATE_PATH
+        body = body_bytes({'server':settings.relay_server,'token':pending['token'],'callback':settings.callback_url})
+        with httpx.Client(timeout=15,follow_redirects=False) as client:
+            # Probe the pending key first to recover an accepted rotation with a lost response.
+            response = client.post(url,content=body,headers=signed_headers(pending['token'],ROTATE_PATH,body))
+            if response.status_code == 401:
+                response = client.post(url,content=body,headers=signed_headers(settings.relay_secret,ROTATE_PATH,body))
+        return response
+
+    def rotation_failed(self, response, pending_file):
+        self.last_result = 'endpoint_missing' if response.status_code == 404 else 'rotation_failed'
+        if response.status_code == 404:
+            self.settings.relay_registered_server = ''
+            if self.manager:
+                self.manager.save_settings(self.settings)
+                pending_file.unlink(missing_ok=True)
+        return False
+
+    def finish_rotation(self, response, pending, pending_file):
+        rotated_at = response.json()['rotated_at']
+        if not isinstance(rotated_at,(int,float)) or not 0 <= rotated_at <= time.time()+300: raise ValueError()
+        if self.manager: self.manager.secret('relay-token',pending['token'])
+        self.settings.relay_secret = pending['token']
+        self.settings.relay_rotated_at = rotated_at
+        if self.manager:
+            self.manager.save_settings(self.settings)
+            pending_file.unlink(missing_ok=True)
+        self.last_result = 'key_rotated'
+        return True
+
     def rotate(self, force=False):
         with self.lock:
-            settings = self.settings
             pending_file = self.manager.data/'relay-pending-rotation.json' if self.manager else None
-            if not force and time.time()-settings.relay_rotated_at < 86400 and not (pending_file and pending_file.exists()):
+            if not force and time.time()-self.settings.relay_rotated_at < 86400 and not (pending_file and pending_file.exists()):
                 return True
-            if pending_file and pending_file.exists():
-                pending = json.loads(pending_file.read_text())
-                if pending['server'] != settings.relay_server or pending['url'] != settings.relay_url:
-                    self.last_result = 'rotation_pending_for_previous_endpoint'
-                    return False
-            else:
-                pending = {'server':settings.relay_server,'url':settings.relay_url,'token':secrets.token_urlsafe(32)}
-                if self.manager: self.manager.private_file('relay-pending-rotation.json',json.dumps(pending))
-            url = https_url(settings.relay_url)+'/rotate'
-            body = body_bytes({'server':settings.relay_server,'token':pending['token'],'callback':settings.callback_url})
+            pending = self.pending_rotation(pending_file)
+            if pending is None: return False
             try:
-                with httpx.Client(timeout=15,follow_redirects=False) as client:
-                    # Probe the pending key first to recover an accepted rotation with a lost response.
-                    response = client.post(url,content=body,headers=signed_headers(pending['token'],'/rotate',body))
-                    if response.status_code == 401:
-                        response = client.post(url,content=body,headers=signed_headers(settings.relay_secret,'/rotate',body))
-                if response.status_code != 200:
-                    self.last_result = 'endpoint_missing' if response.status_code == 404 else 'rotation_failed'
-                    if response.status_code == 404:
-                        settings.relay_registered_server = ''
-                        if self.manager:
-                            self.manager.save_settings(settings)
-                            pending_file.unlink(missing_ok=True)
-                    return False
-                rotated_at = response.json()['rotated_at']
-                if not isinstance(rotated_at,(int,float)) or not 0 <= rotated_at <= time.time()+300: raise ValueError()
-                if self.manager: self.manager.secret('relay-token',pending['token'])
-                settings.relay_secret = pending['token']
-                settings.relay_rotated_at = rotated_at
-                if self.manager:
-                    self.manager.save_settings(settings)
-                    pending_file.unlink(missing_ok=True)
-                self.last_result = 'key_rotated'
-                return True
+                response = self.request_rotation(pending)
+                if response.status_code != 200: return self.rotation_failed(response, pending_file)
+                return self.finish_rotation(response, pending, pending_file)
             except (httpx.RequestError,ValueError,KeyError):
                 self.last_result = 'rotation_failed'
                 return False

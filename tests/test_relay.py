@@ -103,7 +103,8 @@ def test_rate_limit_is_per_endpoint_and_survives_restart(relay):
 def test_callback_rejects_internal_dns_and_pins_public_tls():
     address = (socket.AF_INET,socket.SOCK_STREAM,6,'',('127.0.0.1',443))
     with patch('socket.getaddrinfo',return_value=[address]), patch('socket.create_connection') as connect:
-        with pytest.raises(ValueError): PublicHTTPS('dashboard.example.org').connect()
+        connection = PublicHTTPS('dashboard.example.org')
+        with pytest.raises(ValueError): connection.connect()
         connect.assert_not_called()
     public = (socket.AF_INET,socket.SOCK_STREAM,6,'',('1.1.1.1',443))
     with patch('socket.getaddrinfo',return_value=[public]), patch('socket.create_connection') as connect, patch('ssl.create_default_context') as tls:

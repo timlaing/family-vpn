@@ -61,33 +61,42 @@ class SetupViews:
             if not result.rowcount: abort(401)
         return jsonify(status='ok')
 
+    def proxy_configuration(self):
+        parsed = urlsplit(self.views.settings.rest_url)
+        return generate(request.form.get('upstream',''),int(request.form.get('port','8500')),parsed.path.rstrip('/')+'/',
+            request.form.get('vpn_networks','').split(),True,request.form.get('registration_networks','').split(),self.views.settings.host_enabled)
+
+    def enable_push(self, manager):
+        if self.views.settings.push_choice == 'primary':
+            manager.update_push({'push_choice':'primary'},self.views.settings)
+            if not self.views.settings.apns_ready:
+                response = make_response(self.views.relay_register())
+                if response.status_code == 302: return redirect(url_for('add_device'))
+                raise ValueError(response.get_data(as_text=True))
+        elif not self.views.settings.apns_ready:
+            return redirect(url_for('advanced'))
+        return redirect(url_for('add_device'))
+
+    def setup_action(self, manager):
+        action = request.form.get('action')
+        if action not in {'proxy','check','enable'}: abort(400)
+        if self.step() in {'network','administrator'}: abort(409)
+        if action == 'proxy': return self.proxy_configuration(), False, None
+        self.check_connection()
+        if action == 'enable': return None, False, self.enable_push(manager)
+        return None, True, None
+
     def setup(self):
         manager = self.views.addon_manager()
         error, config, success = None, None, False
         if request.method == 'POST':
-            action = request.form.get('action')
             try:
-                if action == 'proxy':
-                    if self.step() in {'network','administrator'}: abort(409)
-                    parsed = urlsplit(self.views.settings.rest_url)
-                    config = generate(request.form.get('upstream',''),int(request.form.get('port','8500')),parsed.path.rstrip('/')+'/',
-                        request.form.get('vpn_networks','').split(),True,request.form.get('registration_networks','').split(),self.views.settings.host_enabled)
-                elif action in {'check','enable'}:
-                    if self.step() in {'network','administrator'}: abort(409)
-                    self.check_connection()
-                    if action == 'enable':
-                        if self.views.settings.push_choice == 'primary':
-                            manager.update_push({'push_choice':'primary'},self.views.settings)
-                            if not self.views.settings.apns_ready:
-                                response = make_response(self.views.relay_register())
-                                if response.status_code == 302: return redirect(url_for('add_device'))
-                                raise ValueError(response.get_data(as_text=True))
-                        elif not self.views.settings.apns_ready: return redirect(url_for('advanced'))
-                        return redirect(url_for('add_device'))
-                    success = True
-                else: abort(400)
+                config, success, response = self.setup_action(manager)
+                if response is not None: return response
             except (ValueError,TypeError) as exc: error = str(exc)
-        return render_template('setup.html',step='connection' if config or (self.step() == 'devices' and request.args.get('step') == 'connection') else self.step(),settings=self.views.settings,error=error,proxy_config=config,checked=success,
+        step = self.step()
+        if config or (step == 'devices' and request.args.get('step') == 'connection'): step = 'connection'
+        return render_template('setup.html',step=step,settings=self.views.settings,error=error,proxy_config=config,checked=success,
             vpn_provision=self.views.vpn_provisioning.enrollment(),administrator_configured=self.views.administrator.configured())
 
     def add_device(self):

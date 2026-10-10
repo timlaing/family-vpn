@@ -94,7 +94,8 @@ def test_uploaded_custom_credentials_are_private_and_only_apple_urls_are_allowed
     assert value['private_key'] not in manager.path.read_text()
     assert manager.load().apns_key_id == value['key_id']
     with pytest.raises(ValueError): manager.update_push({'push_choice':'custom','push_url':'https://other-relay.example.org'},settings)
-    with pytest.raises(ValueError): manager.read_credentials(FileStorage(stream=io.BytesIO(b'bad key'),filename='key.json'))
+    invalid_upload = FileStorage(stream=io.BytesIO(b'bad key'),filename='key.json')
+    with pytest.raises(ValueError): manager.read_credentials(invalid_upload)
     manager.update_push({'push_choice':'primary'},settings)
     assert settings.push_mode == 'relay'
     assert settings.relay_url == 'https://push.family-vpn.workers.dev'

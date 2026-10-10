@@ -54,7 +54,7 @@ class VPNProvisioning:
                 if b"-----BEGIN" in data:
                     return data.decode("ascii")
                 return x509.load_der_x509_certificate(data).public_bytes(serialization.Encoding.PEM).decode("ascii")
-            except (ValueError, UnicodeDecodeError):
+            except ValueError:
                 raise ValueError("Upload a PEM or DER CA certificate") from None
         if pasted: return pasted
         if current and current["caCertificate"]:

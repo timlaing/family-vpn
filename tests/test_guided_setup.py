@@ -112,7 +112,9 @@ def test_setup_and_invitation_ui_are_ingress_only_and_csrf_protected(dashboard):
     csrf=re.search(rb'name="csrf" value="([^"]+)"',page.data).group(1).decode()
     assert ingress(client,'/add-device','post').status_code==403
     page=ingress(client,'/add-device','post',data={'csrf':csrf})
-    assert page.status_code==200 and b'<svg' in page.data and b'familyvpn://enroll#' in page.data
+    assert page.status_code==200
+    assert b'<svg' in page.data
+    assert b'familyvpn://enroll#' in page.data
     assert page.headers['Cache-Control']=='no-store'
     for secret in (settings.enrollment_secret,settings.admin_secret,settings.relay_secret):
         assert secret.encode() not in page.data
@@ -167,7 +169,8 @@ def test_one_button_verifies_https_and_registers_primary_relay(dashboard):
     csrf=re.search(rb'name="csrf" value="([^"]+)"',ingress(client,'/setup').data).group(1).decode()
     with patch('family_vpn.setup.SetupViews.check_connection') as check, patch.object(app.extensions['dispatcher'].sender.relay,'register',return_value='registered') as register_endpoint:
         response=ingress(client,'/setup','post',data={'csrf':csrf,'action':'enable'})
-    assert response.status_code==302 and response.location.endswith('/add-device')
+    assert response.status_code==302
+    assert response.location.endswith('/add-device')
     check.assert_called_once()
     register_endpoint.assert_called_once()
     assert settings.relay_registered_server==settings.relay_server

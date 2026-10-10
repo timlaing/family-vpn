@@ -1,5 +1,7 @@
 # Unreleased
 
+- Resolve open SonarQube findings in dashboard/relay handlers, scanner delegates, configurable support links, stylesheet contrast and tests.
+
 - Share Family VPN artwork throughout the native apps, show QR and inline setup-link actions, and simplify manual registration wording.
 - Improve dashboard setup progress, password-manager generation hints and icon-only navigation.
 
