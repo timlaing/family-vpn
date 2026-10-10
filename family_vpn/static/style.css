@@ -80,3 +80,8 @@ input[type=file]::file-selector-button { background: #203c48; color: var(--text)
 .enrollment-qr{background:white;padding:16px;border-radius:12px;max-width:360px;margin:24px auto}.enrollment-qr svg{width:100%;height:auto;display:block}.proxy-output{font:12px/1.5 ui-monospace,monospace}.setup-link{font-size:18px;font-weight:650}
 
 .setup-intro~.provisioning{margin:24px auto}.device-enrollment{margin-inline:auto}.provisioning>ol{padding-left:22px}.provisioning>ol li{margin-bottom:10px}
+
+.setup-alert{display:grid;grid-template-columns:28px minmax(0,1fr);gap:12px;margin:20px 0;padding:18px;border:1px solid #ffb7a8;border-left-width:5px;border-radius:12px;background:#38202a;color:#ffe4de}
+.setup-alert h3{font-size:18px;margin-bottom:6px}
+.setup-alert p{color:inherit;margin:0;overflow-wrap:anywhere}
+.setup-alert-icon{font-size:25px;line-height:1.2;color:#ffb7a8}

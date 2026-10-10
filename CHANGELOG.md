@@ -1,5 +1,7 @@
 # Unreleased
 
+- Show setup connection errors beside the check buttons in a prominent accessible alert, and scroll to the result after checking.
+
 - Expose the add-on hash-pinned runtime dependencies in a Dependabot-readable manifest and check it stays synchronized.
 
 - Resolve open SonarQube findings in dashboard/relay handlers, scanner delegates, configurable support links, stylesheet contrast and tests.
