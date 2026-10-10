@@ -1,5 +1,9 @@
 # Unreleased
 
+# 0.6.2
+
+- Separate hosted relay administration from push delivery and configure the public relay HTTPS URL.
+
 - Configure hosted relay APNs credentials with separate Key ID, Team ID and private-key upload/paste fields; keep saved private keys hidden.
 
 - Show setup connection errors beside the check buttons in a prominent accessible alert, and scroll to the result after checking.
