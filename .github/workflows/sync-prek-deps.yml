@@ -1,10 +1,10 @@
 name: Check prek dependency sync
 on:
   pull_request:
-    paths: ['requirements*', 'family_vpn/requirements.lock', '.pre-commit-config.yaml', 'scripts/sync_prek_deps.py', 'scripts/check_runtime_locks.py', '.github/workflows/sync-prek-deps.yml']
+    paths: ['requirements*', 'family_vpn/requirements.lock', 'family_vpn/requirements.txt', '.pre-commit-config.yaml', 'scripts/sync_prek_deps.py', 'scripts/check_runtime_locks.py', '.github/workflows/sync-prek-deps.yml']
   push:
     branches: [main]
-    paths: ['requirements*', 'family_vpn/requirements.lock', '.pre-commit-config.yaml', 'scripts/sync_prek_deps.py', 'scripts/check_runtime_locks.py', '.github/workflows/sync-prek-deps.yml']
+    paths: ['requirements*', 'family_vpn/requirements.lock', 'family_vpn/requirements.txt', '.pre-commit-config.yaml', 'scripts/sync_prek_deps.py', 'scripts/check_runtime_locks.py', '.github/workflows/sync-prek-deps.yml']
   workflow_dispatch:
 permissions:
   contents: read

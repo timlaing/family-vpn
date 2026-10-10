@@ -13,6 +13,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 from cryptography.fernet import Fernet
 from flask import Flask, abort, jsonify, request
+from werkzeug.exceptions import Unauthorized
 from .relay_protocol import body_bytes, https_url, server_key, signed_headers, verify
 
 
@@ -209,7 +210,7 @@ class RelayViews:
     def push(self):
         value, server = self.push_payload()
         endpoint = self.store.endpoint(server)
-        if endpoint is None: abort(401)
+        if endpoint is None: raise Unauthorized()
         nonce = self.authenticate(endpoint)
         if time.time()-endpoint['rotated_at'] >= 86400: return jsonify(error='rotation_required'),409
         blocked = self.store.claim(server,nonce,endpoint['quota'])

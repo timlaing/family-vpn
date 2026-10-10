@@ -1,5 +1,7 @@
 # Unreleased
 
+- Expose the add-on hash-pinned runtime dependencies in a Dependabot-readable manifest and check it stays synchronized.
+
 - Resolve open SonarQube findings in dashboard/relay handlers, scanner delegates, configurable support links, stylesheet contrast and tests.
 
 - Share Family VPN artwork throughout the native apps, show QR and inline setup-link actions, and simplify manual registration wording.
