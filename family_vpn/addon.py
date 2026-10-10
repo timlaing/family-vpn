@@ -18,7 +18,7 @@ class AddonConfiguration:
             admin_secret=self.secret("admin-bearer", options.get("admin_bearer", "")),
             enrollment_secret=self.secret("registration-bearer", options.get("registration_bearer", "")),
             session_secret=self.secret("session-secret"), secure_cookie=True,
-            automatic=False, push_mode="relay", relay_secret=self.secret("relay-token"),
+            automatic=True, push_mode="relay", relay_secret=self.secret("relay-token"),
             relay_enrollment=(self.data / "relay-enrollment").read_text() if (self.data / "relay-enrollment").exists() else "", apns_key_file="/share/family-vpn/apns.p8")
         if self.path.exists():
             saved = json.loads(self.path.read_text())
@@ -96,7 +96,7 @@ class AddonConfiguration:
 
     def update(self, form, settings):
         if form.get("reset") == "true":
-            defaults = Settings(automatic=False, push_mode=settings.push_mode, relay_url=settings.relay_url,
+            defaults = Settings(automatic=True, push_mode=settings.push_mode, relay_url=settings.relay_url,
                 relay_callback=settings.relay_callback, relay_limit=settings.relay_limit,
                 relay_registered_server=settings.relay_registered_server, apns_key_file="/share/family-vpn/apns.p8")
             values = {field:getattr(settings,field) for field in FIELDS}

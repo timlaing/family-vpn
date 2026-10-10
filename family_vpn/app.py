@@ -227,14 +227,25 @@ class Dispatcher:
             with self.lock: self.running = False
 
     def schedule(self):
-        next_policy = time.monotonic() + self.settings.interval
+        next_policy = None
         while not self.stop_event.wait(60):
             if self.maintenance:
                 try: self.maintenance()
                 except Exception: pass  # Retry maintenance without logging credentials or payloads.
-            policy_due = time.monotonic() >= next_policy
-            if policy_due: next_policy = time.monotonic() + self.settings.interval
-            if self.settings.apns_ready: self.trigger(commands_only=not (policy_due and self.settings.automatic))
+            with self.database.connect() as db:
+                registered = db.execute("SELECT 1 FROM devices WHERE token IS NOT NULL LIMIT 1").fetchone() is not None
+            if not registered or not self.settings.apns_ready:
+                next_policy = None
+                continue
+            now = time.monotonic()
+            if not self.settings.automatic:
+                next_policy = None
+                policy_due = False
+            else:
+                if next_policy is None: next_policy = now + self.settings.interval
+                policy_due = now >= next_policy
+                if policy_due: next_policy = now + self.settings.interval
+            self.trigger(commands_only=not policy_due)
 
     def close(self):
         self.stop_event.set()

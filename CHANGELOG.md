@@ -1,3 +1,8 @@
+# 0.5.2
+
+- Enable automatic policy checks by default; start their interval only after a push-capable device registers and push delivery is ready.
+- Preserve explicitly saved policy preferences and show waiting status during setup.
+
 # 0.5.1
 
 - Clarify Primary relay and Direct APNs choices, with independent optional relay hosting.

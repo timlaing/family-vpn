@@ -125,7 +125,7 @@ class TestHomeAssistant:
         assert self.manager.load().interval == 1800
         self.manager.update({'reset':'true'}, settings)
         assert settings.interval == 2700
-        assert not settings.automatic
+        assert settings.automatic
         assert settings.apns_key_id == ''
         assert self.manager.load().apns_key_id == ''
         assert settings.admin_secret == self.settings.admin_secret
