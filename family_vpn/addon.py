@@ -7,6 +7,7 @@ from .app import Settings
 
 RELAY_RESULTS_PATH = "/relay-results"
 HOST_CREDENTIALS_FILE = "host-credentials.json"
+HOST_KEY_FILE = "host-apns.p8"
 
 FIELDS = {"apns_key_id", "apns_team_id", "apns_topic", "apns_key_file", "apns_environment", "interval", "automatic", "push_mode", "relay_url", "relay_callback", "relay_limit", "relay_registered_server", "rest_url", "push_choice", "relay_rotated_at", "host_enabled", "host_topic", "host_push_url", "host_limit"}
 
@@ -180,7 +181,7 @@ class AddonConfiguration:
         temporary.replace(self.data/name)
 
     @staticmethod
-    def apns_credentials(text, filename, team_id):
+    def apns_credentials(text, filename, team_id, key_id=""):
         import re
         from cryptography.hazmat.primitives import serialization
         from cryptography.hazmat.primitives.asymmetric import ec
@@ -188,29 +189,63 @@ class AddonConfiguration:
             value = json.loads(text)
             if set(value) != {'key_id','team_id','private_key'}: raise ValueError()
         else:
-            match = re.fullmatch(r'AuthKey_([A-Z0-9]{10})\.p8',Path(filename).name)
-            if not match or not team_id: raise ValueError()
-            value = {'key_id':match[1],'team_id':team_id,'private_key':text}
+            if not key_id:
+                match = re.fullmatch(r'AuthKey_([A-Z0-9]{10})\.p8',Path(filename).name)
+                if not match: raise ValueError()
+                key_id = match[1]
+            value = {'key_id':key_id,'team_id':team_id,'private_key':text}
         if not all(isinstance(value[field],str) and re.fullmatch(r'[A-Z0-9]{10}',value[field]) for field in ('key_id','team_id')): raise ValueError()
+        if not isinstance(value['private_key'], str): raise ValueError()
         key = serialization.load_pem_private_key(value['private_key'].encode(),password=None)
         if not isinstance(key,ec.EllipticCurvePrivateKey) or not isinstance(key.curve,ec.SECP256R1): raise ValueError()
         return value
 
     @staticmethod
-    def read_credentials(upload, direct=True, team_id=''):
+    def read_credentials(upload, direct=True, team_id='', key_id=''):
         from .relay_service import valid_token
         raw = upload.read(16385)
         if len(raw) > 16384: raise ValueError('Key file must be at most 16 KB')
         try:
             text = raw.decode('utf-8').strip()
-            if direct: return AddonConfiguration.apns_credentials(text, upload.filename, team_id)
+            if direct: return AddonConfiguration.apns_credentials(text, upload.filename, team_id, key_id)
             if not valid_token(text): raise ValueError()
             return text
         except (ValueError,TypeError,KeyError):
-            raise ValueError('Upload an APNs JSON credential containing key_id, team_id and private_key, or a relay credential text file') from None
+            raise ValueError('Provide a P-256 APNs private key with a 10-character Key ID and Team ID, or a valid APNs JSON credential') from None
 
-    def uploaded_credentials(self, upload):
-        return self.read_credentials(upload) if upload and upload.filename else None
+    def host_metadata(self):
+        path = self.data / HOST_CREDENTIALS_FILE
+        return json.loads(path.read_text()) if path.exists() else {}
+
+    def has_host_credentials(self):
+        return (self.data / HOST_CREDENTIALS_FILE).exists() and (self.data / HOST_KEY_FILE).exists()
+
+    @staticmethod
+    def host_private_key_input(form, upload):
+        pasted = form.get('host_private_key', '').strip()
+        if len(pasted.encode()) > 16384: raise ValueError('Private key must be at most 16 KB')
+        if pasted and upload and upload.filename: raise ValueError('Upload or paste the private key, not both')
+        return pasted
+
+    @staticmethod
+    def parse_host_key(text, team_id, key_id):
+        try:
+            return AddonConfiguration.apns_credentials(text, HOST_KEY_FILE, team_id, key_id)
+        except (ValueError, TypeError, KeyError):
+            raise ValueError('Provide a P-256 APNs private key with a 10-character Key ID and Team ID') from None
+
+    def host_credentials(self, form, upload):
+        saved = self.host_metadata()
+        key_id = form.get('host_key_id', saved.get('key_id', '')).strip()
+        team_id = form.get('host_team_id', saved.get('team_id', '')).strip()
+        pasted = self.host_private_key_input(form, upload)
+        if upload and upload.filename:
+            return self.read_credentials(upload, team_id=team_id, key_id=key_id)
+        if pasted: return self.parse_host_key(pasted, team_id, key_id)
+        if not saved: return None
+        if (key_id, team_id) == (saved['key_id'], saved['team_id']): return None
+        if not self.has_host_credentials(): raise ValueError('Upload or paste the APNs private key first')
+        return self.parse_host_key((self.data / HOST_KEY_FILE).read_text(), team_id, key_id)
 
     def update_host(self, form, settings, upload=None):
         from .relay_protocol import https_url
@@ -222,22 +257,22 @@ class AddonConfiguration:
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{1,255}',topic): raise ValueError('Invalid bundle ID')
         proxy = form.get('proxy_token','').strip()
         if proxy and not valid_token(proxy): raise ValueError('Worker credential requires 32–256 printable characters')
-        credentials = self.uploaded_credentials(upload)
+        credentials = self.host_credentials(form, upload)
         enabled = form.get('host_enabled') == 'true'
-        if enabled and not (credentials or (self.data/HOST_CREDENTIALS_FILE).exists()): raise ValueError('Upload publisher APNs credentials first')
+        if enabled and not (credentials or self.has_host_credentials()): raise ValueError('Upload publisher APNs credentials first')
         values = {field:getattr(settings,field) for field in FIELDS}
         values.update(host_enabled=enabled,host_topic=topic,host_push_url=url,host_limit=int(form.get('host_limit',settings.host_limit)))
         self.validate(values)
         if credentials:
             self.private_file(HOST_CREDENTIALS_FILE,json.dumps({field:credentials[field] for field in ('key_id','team_id')}))
-            self.private_file('host-apns.p8',credentials['private_key'])
+            self.private_file(HOST_KEY_FILE,credentials['private_key'])
         if proxy:
             settings.host_proxy_token = self.secret('relay-proxy-token',proxy)
         self.persist(values)
         for field,value in values.items(): setattr(settings,field,value)
 
     def host_settings(self, settings):
-        values = json.loads((self.data/HOST_CREDENTIALS_FILE).read_text()) if (self.data/HOST_CREDENTIALS_FILE).exists() else {}
-        return Settings(apns_key_file=str(self.data/'host-apns.p8') if values else '',
+        values = self.host_metadata()
+        return Settings(apns_key_file=str(self.data/HOST_KEY_FILE) if values else '',
             apns_key_id=values.get('key_id',''),apns_team_id=values.get('team_id',''),apns_topic=settings.host_topic,
             apns_environment='sandbox' if 'sandbox.push.apple.com' in settings.host_push_url else 'production')

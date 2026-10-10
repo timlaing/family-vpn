@@ -22,7 +22,7 @@ Protect the app’s `/data` and backups. They include its SQLite databases, endp
 
 ## APNs credential upload
 
-Apple token authentication requires the private `.p8` key, Key ID and Apple Team ID. To keep the visible form to three inputs, upload a private JSON file containing:
+Apple token authentication requires the private `.p8` key, Key ID and Apple Team ID. Hosted relays accept these separately in the operator form described below. For the dashboard’s **Direct APNs** delivery choice, the three-input form uses a private JSON credential file containing:
 
 ```json
 {
@@ -41,8 +41,8 @@ The `.p8` signing key does not expire. APNs JWT authentication tokens do: the ap
 ## Hosting the primary relay on Home Assistant
 
 1. Update the Family VPN app and complete its normal dashboard setup.
-2. Open **Advanced → Host the primary push relay on this app**.
-3. Upload the publisher’s APNs JSON credential, set the published app bundle ID, and choose the Apple push URL.
+2. Open **Advanced → Host a push relay on this installation**.
+3. Enter the publisher’s **Apple Key ID** and **Apple Team ID** separately. Upload Apple’s downloaded `.p8` private key, or expand **Paste the private key instead** and paste the complete PEM including its BEGIN/END lines. Set the published app bundle ID and choose the Apple push URL. No JSON file is needed for hosting. Leaving both private-key inputs empty retains an existing key; saved identifiers remain editable and the private key is never displayed. Older saved credentials and JSON uploads through the API remain compatible.
 4. Generate a separate random Worker credential of at least 32 characters. Enter it into the blank password field in this operator section. It is stored privately; leaving the field blank retains it. An externally configured `RELAY_PROXY_TOKEN` environment variable can also supply this credential. Do not include it in the repo.
 5. Set **Maximum requests per endpoint per minute** (default 10; configurable 1–100), enable the hosted relay and save.
 6. Publish this same app’s REST base through Nginx Proxy Manager. Generate the complete locations with `--host-relay` in addition to `--public-reports` and your LAN/VPN boundaries. The relay API routes are POST `/endpoints`, `/rotate` and `/push`. When a Worker credential is configured, each hosted request requires its matching header. If none is configured, that additional check is disabled. Rotation and push always require the endpoint HMAC. Ingress forms are never exposed on this listener.

@@ -657,7 +657,7 @@ class DashboardViews:
         return render_template('configuration.html',settings=self.settings,error=error,
             relay_result=relay.last_result if relay else 'not_contacted',
             hosted_endpoints=hosted.extensions['relay_store'].summary() if hosted and self.settings.host_enabled else [],
-            host_key_configured=(manager.data/'host-credentials.json').exists())
+            host_key_configured=manager.has_host_credentials(), host_apns=manager.host_settings(self.settings))
 
     def push_setup(self):
         manager = self.addon_manager()

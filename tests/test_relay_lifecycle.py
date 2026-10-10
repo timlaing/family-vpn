@@ -123,6 +123,9 @@ def test_hosted_relay_is_guarded_and_no_saved_secrets_are_rendered(tmp_path):
         page = ingress('/advanced').data
         for secret in (settings.host_proxy_token,settings.relay_secret,settings.admin_secret,settings.enrollment_secret,value['private_key']):
             assert secret.encode() not in page
+        assert b'name="host_key_id" value="ABCDEFGHIJ"' in page
+        assert b'name="host_team_id" value="0123456789"' in page
+        assert b'name="host_private_key"' in page
         assert b'name="key_file"' not in page
         assert b'name="relay_callback"' not in page
         assert b'Force rotate key' in page
@@ -218,3 +221,71 @@ def test_hosting_can_be_enabled_without_worker_credential(tmp_path):
     manager.update_host({'host_enabled':'true'}, settings, upload)
     assert manager.load().host_enabled
     assert manager.load().host_proxy_token == ''
+
+
+@pytest.mark.parametrize('source', ['upload', 'paste'])
+def test_hosted_apns_fields_store_valid_p256_credentials_privately(tmp_path, source):
+    manager, settings = manager_for(tmp_path)
+    _, value = key_upload()
+    form = {'host_enabled':'true', 'host_key_id':value['key_id'], 'host_team_id':value['team_id']}
+    upload = None
+    if source == 'upload':
+        upload = FileStorage(stream=io.BytesIO(value['private_key'].encode()), filename='renamed-key.p8')
+    else:
+        form['host_private_key'] = value['private_key']
+    manager.update_host(form, settings, upload)
+    host = manager.host_settings(manager.load())
+    assert host.apns_ready
+    assert host.apns_key_id == value['key_id']
+    assert host.apns_team_id == value['team_id']
+    assert (tmp_path/'host-apns.p8').read_text() == value['private_key'].strip()
+    assert (tmp_path/'host-apns.p8').stat().st_mode & 0o777 == 0o600
+    assert set(json.loads((tmp_path/'host-credentials.json').read_text())) == {'key_id','team_id'}
+    assert value['private_key'] not in manager.path.read_text()
+
+
+@pytest.mark.parametrize(('field','invalid'), [
+    ('host_key_id','too-short'), ('host_team_id','lowercase1'),
+    ('host_private_key','not a key'), ('host_private_key','x'*16385),
+])
+def test_invalid_hosted_apns_inputs_preserve_existing_credentials(tmp_path, field, invalid):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    manager.update_host({'host_enabled':'true'}, settings, upload)
+    before = {p.name:p.read_bytes() for p in tmp_path.iterdir() if p.is_file()}
+    form = {'host_enabled':'true', 'host_key_id':value['key_id'], 'host_team_id':value['team_id'], 'host_private_key':value['private_key']}
+    form[field] = invalid
+    with pytest.raises(ValueError): manager.update_host(form, settings)
+    after = {p.name:p.read_bytes() for p in tmp_path.iterdir() if p.is_file()}
+    assert after == before
+    assert settings.host_enabled
+
+
+def test_hosted_private_key_cannot_be_uploaded_and_pasted_together(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    form = {'host_key_id':value['key_id'], 'host_team_id':value['team_id'], 'host_private_key':value['private_key']}
+    with pytest.raises(ValueError, match='not both'): manager.update_host(form, settings, upload)
+    assert not manager.has_host_credentials()
+
+
+def test_hosted_private_key_rejects_wrong_curve(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    key = ec.generate_private_key(ec.SECP384R1())
+    pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    form = {'host_key_id':'ABCDEFGHIJ', 'host_team_id':'0123456789', 'host_private_key':pem}
+    with pytest.raises(ValueError, match='P-256'): manager.update_host(form, settings)
+    assert not manager.has_host_credentials()
+
+
+def test_hosted_saved_private_key_is_retained_when_only_identifiers_change(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    manager.update_host({'host_enabled':'true'}, settings, upload)
+    manager.update_host({'host_enabled':'true', 'host_key_id':value['key_id'], 'host_team_id':value['team_id']}, settings)
+    assert (tmp_path/'host-apns.p8').read_text() == value['private_key']
+    manager.update_host({'host_enabled':'true', 'host_key_id':'9876543210', 'host_team_id':'ZYXWVUTSRQ'}, settings)
+    host = manager.host_settings(settings)
+    assert host.apns_key_id == '9876543210'
+    assert host.apns_team_id == 'ZYXWVUTSRQ'
+    assert (tmp_path/'host-apns.p8').read_text() == value['private_key']
