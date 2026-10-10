@@ -18,7 +18,7 @@ This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashb
 
 - [VPN endpoint setup](docs/VPN_ENDPOINT_SETUP.md): [MikroTik RouterOS](docs/MIKROTIK_IKEV2.md), [strongSwan](docs/STRONGSWAN_IKEV2.md) and [certificate setup](docs/VPN_CERTIFICATES.md) and [dashboard provisioning](docs/PROVISIONING.md).
 
-- [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
+- [Contributing and local development](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
 - [API contract](docs/API.md) and [deployment](docs/DEPLOYMENT.md).
 - [Changelog](CHANGELOG.md) and [MIT licence](LICENSE).
 
@@ -33,30 +33,6 @@ Requires Python 3.12–3.14 on macOS/Linux, or Docker for Linux containers. CI t
 - Connection-state and policy-check reports, with server receipt timestamps and a bounded 200-event operational history.
 - Separate enrollment/admin credentials, session authentication, CSRF protection, login throttling, restricted response headers and private SQLite permissions.
 - Dashboard distinguishes APNs acceptance from actual device execution. Device reports describe their last execution opportunity, not live coverage. Silent pushes are discretionary, particularly after force-quit.
-
-## Local preview (no secrets or real pushes)
-
-```sh
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.lock
-.venv/bin/python app.py --demo --port 8500
-```
-
-Open http://127.0.0.1:8500. Preview data is synthetic; every POST is blocked and no APNs key is accessed. Stop with Control-C.
-
-## Configure a local service
-
-```sh
-.venv/bin/python setup_local.py
-set -a
-source .env
-set +a
-.venv/bin/python app.py --port 8500
-```
-
-Open `/login`. Read your private `.env` locally and enter ADMIN_BEARER as the dashboard access key. Do not paste secrets into chat or Git. This generated configuration disables automatic pushes and enables loopback HTTP cookies. Without APNs configuration, enrollment/status work but push requests return 503.
-
-The native app requires HTTPS. For a real device, deploy behind your trusted HTTPS reverse proxy and set LOCAL_HTTP=false. Use certificates trusted by the device, not an unapproved TLS bypass.
 
 ## Production
 
@@ -100,17 +76,6 @@ The [HTTP API guide](docs/API.md) is the complete route and provisioning contrac
 | GET /health | VPN source at the proxy; no bearer | Process liveness only |
 
 The Home Assistant dashboard and configuration use Ingress, not the REST listener. A queued command or Apple acceptance does not establish device execution; verify its acknowledgement and subsequent report. See [remote commands](docs/REMOTE_COMMANDS.md) and [proxy setup](docs/HOME_ASSISTANT.md).
-
-## Test
-
-Install the separate test dependencies; production images do not include pytest.
-
-```sh
-.venv/bin/python -m pip install -r requirements-test.txt
-.venv/bin/python -m pytest -v
-```
-
-Tests use temporary SQLite files, synthetic tokens/provider responses and a fake sender. Coverage includes enrollment/authentication, scoped reports, credential rotation, CSRF, login throttling, payload limits, privacy, queue coalescing, token rotation during delivery, pruning, bounded history and read-only preview. These do not prove real APNs delivery, device scheduling or production deployment.
 
 ## Licence
 
