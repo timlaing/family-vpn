@@ -4,6 +4,7 @@ relative_files = True
 source =
     family_vpn
     scripts
+    strongswan-endpoint
 omit = */test_*.py
 
 [xml]

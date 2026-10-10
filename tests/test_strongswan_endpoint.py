@@ -36,7 +36,9 @@ def test_generated_certificates_and_secrets_are_private_and_not_overwritten(tmp_
     result=subprocess.run(['openssl','verify','-CAfile',str(output/'swanctl/x509ca/family-vpn-ca.pem'),'-verify_hostname','vpn.example.org',str(cert)],capture_output=True,text=True,check=True)
     assert 'OK' in result.stdout
     detail=subprocess.run(['openssl','x509','-in',str(cert),'-noout','-text'],capture_output=True,text=True,check=True).stdout
-    assert 'CA:FALSE' in detail and 'DNS:vpn.example.org' in detail and 'TLS Web Server Authentication' in detail
+    assert 'CA:FALSE' in detail
+    assert 'DNS:vpn.example.org' in detail
+    assert 'TLS Web Server Authentication' in detail
     original=secrets.read_bytes()
     with pytest.raises(ValueError):endpoint.create(output,'vpn.example.org','10.20.30.0/24','192.168.10.53','device','synthetic-test-password','192.168.10.0/24','192.168.10.53/32')
     assert secrets.read_bytes()==original

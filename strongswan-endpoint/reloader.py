@@ -69,9 +69,14 @@ def apply_request(data, request, run=subprocess.run, terminate=terminate_account
 def process_pending(data, control, apply=apply_request, now=time.time):
     control = Path(control)
     control.mkdir(mode=0o700, parents=True, exist_ok=True)
+    owner = 10001 if os.geteuid() == 0 else None
+    if owner is not None:
+        os.chown(control, owner, owner)
     paths = requests(data)
     active = {path.name for path in paths}
     for obsolete in control.glob("*.json"):
+        if owner is not None:
+            os.chown(obsolete, owner, owner)
         if obsolete.name not in active:
             obsolete.unlink()
     for path in paths:
@@ -89,7 +94,7 @@ def process_pending(data, control, apply=apply_request, now=time.time):
             # Retry transient daemon failures; do not expose CLI output or credentials.
             status = {"status": "error", "message": "Account changes saved, but the gateway could not apply them. Retrying automatically.",
                       "updated_at": now()}
-        atomic(result, json.dumps(status))
+        atomic(result, json.dumps(status), owner=owner)
 
 
 def main():

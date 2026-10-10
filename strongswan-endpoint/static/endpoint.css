@@ -3,3 +3,5 @@
 .table-scroll{overflow-x:auto}.account-actions{display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap}.account-actions button{margin-top:0;font-size:14px;padding:8px 12px}.account-actions details{max-width:280px}.account-actions details[open]{flex-basis:100%}.account-actions summary{cursor:pointer;padding:8px 12px;border:1px solid #38515e;border-radius:9px;font-size:14px}.account-actions details form button{margin-top:12px}.delete-account summary{color:#ffb7a8}.badge{font-size:12px;border:1px solid #65818d;border-radius:30px;padding:4px 8px;color:#a5b9c6}.badge.enabled{color:var(--mint);border-color:#74f1cc66}td{vertical-align:top}table td:first-child{max-width:160px}@media(max-width:600px){table{font-size:14px}.account-actions{min-width:135px}th,td{padding:12px 4px}.account-actions details{max-width:180px}}
 
 select{width:100%;padding:12px;border:1px solid #456370;border-radius:9px;background:var(--bg);color:white;font:inherit}.checkbox{display:flex;gap:12px;align-items:center}.checkbox input{width:auto;accent-color:var(--mint)}[hidden]{display:none!important}
+
+output.notice{display:block}

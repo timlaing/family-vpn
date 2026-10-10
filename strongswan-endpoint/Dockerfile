@@ -1,11 +1,12 @@
 FROM debian:trixie-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    strongswan-charon strongswan-swanctl strongswan-pki \
-    libstrongswan-standard-plugins libstrongswan-extra-plugins libcharon-extra-plugins libcharon-extauth-plugins \
-    iptables iproute2 openssl python3 python3-venv ca-certificates \
+    ca-certificates iproute2 iptables libcharon-extauth-plugins \
+    libcharon-extra-plugins libstrongswan-extra-plugins libstrongswan-standard-plugins \
+    openssl python3 python3-venv strongswan-charon strongswan-pki strongswan-swanctl \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements-control.lock /requirements-control.lock
-RUN python3 -m venv /opt/control && /opt/control/bin/pip install --no-cache-dir --require-hashes -r /requirements-control.lock
+RUN python3 -m venv /opt/control \
+    && /opt/control/bin/pip install --no-cache-dir --require-hashes -r /requirements-control.lock
 COPY reloader.py reload_requests.py /usr/local/bin/
 COPY strongswan.conf /etc/strongswan.conf
 COPY entrypoint.sh /usr/local/bin/vpn-entrypoint

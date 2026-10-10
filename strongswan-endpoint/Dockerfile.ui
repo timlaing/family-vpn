@@ -1,5 +1,5 @@
 FROM debian:trixie-slim
-RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv openssl ca-certificates \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl python3 python3-venv \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m venv /opt/venv
 COPY requirements.lock /requirements.lock
@@ -8,5 +8,10 @@ WORKDIR /app
 COPY configure.py authentication.py reload_requests.py swanctl.conf.template web.py ./
 COPY templates ./templates
 COPY static ./static
+RUN useradd --uid 10001 --create-home endpoint \
+    && mkdir -p /data /authority \
+    && chown endpoint:endpoint /data /authority \
+    && chmod 700 /data /authority
+USER endpoint
 EXPOSE 8080
 CMD ["/opt/venv/bin/gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "1", "--access-logfile", "-", "web:create_app()"]

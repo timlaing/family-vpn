@@ -44,7 +44,11 @@ assert 'Managed by your RADIUS server' in client.open(base+'/accounts').read().d
 post('/advanced',dict(csrf_token=csrf('/advanced'),mode='local'))
 assert 'smoke-device' in client.open(base+'/accounts').read().decode()
 PYTHON
+# Simulate and migrate private volumes from the older root-running UI.
+docker exec --user root "$name" chown -R 0:0 /data /authority
+docker exec --user root "$name" chown -R 10001:10001 /data /authority
 docker restart "$name" >/dev/null
+docker exec "$name" /opt/venv/bin/python -c 'import os; assert os.geteuid() == 10001'
 docker run -d --name "$name-vpn" --cap-add NET_ADMIN --cap-add NET_RAW \
   --sysctl net.ipv4.ip_forward=1 -e VPN_CONFIGURATION_DIR=/data -e VPN_CONTROL_DIR=/control \
   -v "$name-data:/data:ro" -v "$name-control:/control" "$vpn_image" >/dev/null
@@ -84,6 +88,6 @@ for action in ('disable', 'enable', 'password', 'delete'):
     applied()
 assert 'No device accounts yet' in client.open(base+'/accounts').read().decode()
 PYTHON
-test "$daemon_pid" = "$(docker exec "$name-vpn" /opt/control/bin/python -c 'from pathlib import Path; print(next(p.parent.name for p in Path("/proc").glob("[0-9]*/comm") if p.read_text().strip() == "charon"))' )"
+[[ "$daemon_pid" = "$(docker exec "$name-vpn" /opt/control/bin/python -c 'from pathlib import Path; print(next(p.parent.name for p in Path("/proc").glob("[0-9]*/comm") if p.read_text().strip() == "charon"))' )" ]]
 docker exec "$name-vpn" /opt/control/bin/python -c 'import vici; assert not vici.Session().get_shared()["keys"]'
 echo 'Browser setup, persistence, automatic account reloads and stale credential removal verified'

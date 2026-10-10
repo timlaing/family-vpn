@@ -76,4 +76,5 @@ def test_invalid_requests_and_inactive_local_backend_do_not_control_sessions(tmp
     with pytest.raises(ValueError):
         reloader.apply_request(tmp_path, {"username": "alice;unsafe", "action": "disable"}, run=forbidden)
     result = reloader.apply_request(tmp_path, {"username": "alice", "action": "disable"}, run=forbidden, terminate=forbidden, radius=True)
-    assert result["status"] == "applied" and result["disconnected"] == 0
+    assert result["status"] == "applied"
+    assert result["disconnected"] == 0

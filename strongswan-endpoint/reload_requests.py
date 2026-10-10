@@ -7,7 +7,7 @@ import uuid
 
 from authentication import atomic
 
-REQUEST_NAME = re.compile(r"[0-9]{1,24}_[a-f0-9]{32}\.json")
+REQUEST_NAME = re.compile(r"\d{1,24}_[a-f0-9]{32}\.json")
 
 
 def requests(data):

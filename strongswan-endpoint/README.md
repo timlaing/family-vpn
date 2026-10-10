@@ -18,6 +18,17 @@ For a new installation, use the standalone management Compose file instead of th
 5. Download the **public CA certificate** from the interface and upload it to the Family VPN dashboard. Complete the routing and device checks below.
 6. Use **Device accounts** to add an account, disable/enable access, change its password or delete it. Disabled accounts retain their password but are excluded from the gateway authentication file. Changing a disabled account’s password does not enable it. All accounts may be disabled/deleted; in that case no new device can authenticate. Account changes reload credentials automatically within a few seconds. The page reports pending, applied or retrying status. Disabling/deleting an active account or changing its password also terminates that account’s sessions; unrelated established tunnels remain connected. Editing an inactive account or saving unchanged credentials does not trigger a reload.
 
+The management image runs as the unprivileged `endpoint` user (UID/GID 10001). Fresh named volumes receive the correct ownership automatically. If upgrading an installation created by an older root-running management image, stop the management service and migrate only its two private volumes before starting the rebuilt image:
+
+```bash
+docker compose -f compose.dashboard.yaml stop configuration
+docker compose -f compose.dashboard.yaml build
+docker compose -f compose.dashboard.yaml run --rm --user root --entrypoint chown configuration -R 10001:10001 /data /authority
+docker compose -f compose.dashboard.yaml up -d
+```
+
+This preserves passwords and keys. The gateway stays root because it manages kernel IPsec policies and firewall rules; its private CA signing key is never mounted. Reload acknowledgements are readable by UID 10001 without granting the management container access to the VICI socket.
+
 Three named volumes survive container replacement: `vpn_configuration` holds gateway settings, VPN credentials and certificates; `vpn_authority` holds the CA signing key and hashed administrator credential/session key. `vpn_control` stores reload acknowledgements; it is writable only by the VPN container and read-only in the management container. The configuration volume is read-only in the VPN container. Reload requests contain account names/actions, never passwords. The gateway clears and reloads credentials through `swanctl`, then uses its private VICI socket to terminate matching EAP sessions. Neither the Docker socket nor the VICI socket is shared with the web container. Failed reloads stay visible and retry automatically; queued changes survive container outages. No Docker socket is mounted. Back up the configuration and authority volumes securely; VPN account passwords must be retained in private files for EAP authentication. Never use `docker compose down -v` unless deliberately deleting all configuration and keys.
 
 The UI uses the Family VPN shield and network graphics, with separate Endpoint, Device accounts and Advanced pages. It supports initial gateway provisioning and account management. Gateway address/network changes and certificate renewal remain manual operations; it refuses to recreate an existing CA. Existing CLI installations are not automatically migrated into the named volumes: keep using the original Compose file until a deliberate backup and migration is completed. The browser workflow retains the CA key in its separate volume for later manual renewal, rather than moving it offline.

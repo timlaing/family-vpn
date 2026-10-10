@@ -15,7 +15,7 @@ if (reloadNotice) {
     } catch {
       reloadNotice.textContent = "Account changes saved. Waiting for the VPN gateway to apply them.";
     }
-    if (!applied && ++attempts < 120) setTimeout(checkReload, 1000);
+    if (!applied && ++attempts < 120) setTimeout(() => { void checkReload(); }, 1000);
   }
-  checkReload();
+  await checkReload();
 }

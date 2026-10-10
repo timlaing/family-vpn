@@ -160,7 +160,8 @@ def test_radius_configuration_secret_privacy_and_local_account_gating(management
     page = client.get("/advanced").text
     assert '<h1>Advanced settings</h1>' in page
     assert 'aria-current="page">Advanced</a>' in page
-    assert 'name="server"' in page and 'RADIUS server address' in page
+    assert 'name="server"' in page
+    assert 'RADIUS server address' in page
     assert client.get("/authentication").location == "/advanced"
     assert 'RADIUS server address' not in client.get("/").text
     config = directory / "data/swanctl/swanctl.conf"
@@ -172,7 +173,8 @@ def test_radius_configuration_secret_privacy_and_local_account_gating(management
     assert "auth = eap-mschapv2" in config.read_text()
     assert update(mode="radius", server="192.168.10.54", secret="synthetic-radius-secret", auth_port="18120", acct_port="18130", nas_identifier="family-vpn", accounting="on").status_code == 302
     assert "auth = eap-radius" in config.read_text()
-    assert "auth_port = 18120" in radius.read_text() and "accounting = yes" in radius.read_text()
+    assert "auth_port = 18120" in radius.read_text()
+    assert "accounting = yes" in radius.read_text()
     assert radius.stat().st_mode & 0o777 == 0o600
     for path in ("/", "/advanced", "/accounts"):
         assert "synthetic-radius-secret" not in client.get(path).text
@@ -185,7 +187,8 @@ def test_radius_configuration_secret_privacy_and_local_account_gating(management
     assert update(mode="radius", server='radius.example.org"injection', secret="new-radius-secret").status_code == 200
     assert radius.read_bytes() == old
     assert update(mode="local").status_code == 302
-    assert "auth = eap-mschapv2" in config.read_text() and not radius.exists()
+    assert "auth = eap-mschapv2" in config.read_text()
+    assert not radius.exists()
     assert "local-device" in client.get("/accounts").text
 
 
@@ -199,7 +202,8 @@ def test_account_reload_queue_status_and_noop_edits(management):
         return client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username="device", action=action, password=password))
     assert change("add").location.endswith("changed=1")
     pending = sorted((directory / "data/reloads").glob("*.json"))
-    assert len(pending) == 1 and json.loads(pending[0].read_text()) == {"username": "device", "action": "add"}
+    assert len(pending) == 1
+    assert json.loads(pending[0].read_text()) == {"username": "device", "action": "add"}
     assert client.get("/reload-status").json["status"] == "pending"
     assert change("enable").location.endswith("changed=not-needed")
     assert change("password").location.endswith("changed=not-needed")

@@ -5,10 +5,13 @@ from pathlib import Path
 import re
 
 
-def atomic(path, contents):
+def atomic(path, contents, owner=None):
     temporary = path.with_suffix(".tmp")
     temporary.write_text(contents)
     temporary.chmod(0o600)
+    if owner is not None:
+        import os
+        os.chown(temporary, owner, owner)
     temporary.replace(path)
 
 

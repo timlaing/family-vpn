@@ -1,5 +1,7 @@
 # Unreleased
 
+- Run the endpoint dashboard as a non-root user, collect strongSwan test coverage and resolve endpoint analysis findings.
+
 - Move standalone endpoint RADIUS setup to the Advanced page.
 
 - Automatically reload standalone gateway credentials after account changes, report pending/error/applied status, and revoke affected sessions without restarting other established tunnels.
