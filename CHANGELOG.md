@@ -1,3 +1,8 @@
+# Unreleased
+
+- Add a standalone strongSwan browser setup/account interface with persistent Docker volumes, protected administrator login and public CA download.
+- Keep CA signing keys outside the VPN container and test browser provisioning, volume persistence and CLI compatibility in CI.
+
 # 0.6.0
 
 - Add a guided published-app setup flow, copy-ready reverse-proxy configuration, and one-use HTTPS connectivity checks.

@@ -2,7 +2,29 @@
 
 A separate **Linux Docker Engine** IKEv2/EAP-MSCHAPv2 endpoint for Family VPN. It uses the existing application's AES-256/SHA-256/MODP2048 IKE and AES-256-GCM/MODP2048 ESP profile. The dashboard and push relay remain separate services. Docker Desktop is suitable for image/configuration checks, not the documented production gateway: use a reachable Linux host with kernel XFRM/IPsec, UDP 500/4500 and Docker bridge forwarding enabled.
 
-## 1. Create the endpoint configuration
+## Browser configuration with persistent Docker volumes
+
+For a new installation, use the standalone management Compose file instead of the CLI/bind-mount instructions below. This remains a separate Docker package, not a Home Assistant app.
+
+1. Create a private `.env` file (`chmod 600 .env`) with `VPN_ADMIN_PASSWORD=` followed by a unique password of at least 16 characters. This bootstraps the administrator credential on first startup; subsequent starts use its persisted password hash. Do not commit this file.
+2. Start both containers:
+
+   ```sh
+   docker compose -f compose.dashboard.yaml up -d --build
+   ```
+
+3. Open `http://localhost:8080`. For a remote Linux host, use `ssh -L 8080:127.0.0.1:8080 user@docker-host` and open the same URL locally. The interface binds to localhost by default; do not forward port 8080 from your router.
+4. Sign in and enter the gateway hostname, VPN pool, DNS resolver, LAN networks, permitted private destinations and first device account. The VPN container waits until setup completes, then starts automatically.
+5. Download the **public CA certificate** from the interface and upload it to the Family VPN dashboard. Complete the routing and device checks below.
+6. Add, change or remove device accounts through the interface. Apply account changes with `docker compose -f compose.dashboard.yaml restart vpn`. This disconnects existing tunnels, including revoked accounts.
+
+Two named volumes survive container replacement: `vpn_configuration` holds gateway settings, VPN credentials and certificates; `vpn_authority` holds the CA signing key and hashed administrator credential/session key. Only the configuration volume is mounted, read-only, into the VPN container. No Docker socket is mounted. Back up both volumes securely; VPN account passwords must be retained in private files for EAP authentication. Never use `docker compose down -v` unless deliberately deleting all configuration and keys.
+
+The UI supports initial gateway provisioning and account management. Gateway address/network changes and certificate renewal remain manual operations; it refuses to recreate an existing CA. Existing CLI installations are not automatically migrated into the named volumes: keep using the original Compose file until a deliberate backup and migration is completed. The browser workflow retains the CA key in its separate volume for later manual renewal, rather than moving it offline.
+
+If deliberately exposing management on a private interface, set `VPN_MANAGEMENT_BIND` to that interface's IP and use an authenticated HTTPS proxy/network restriction. Set `VPN_COOKIE_SECURE=1` in the configuration service environment when accessing exclusively through HTTPS. The administrator session uses HttpOnly/SameSite cookies and Flask-WTF CSRF protection; failed logins are limited. Never publish this interface directly to the internet.
+
+## 1. Create the endpoint configuration (CLI alternative)
 
 Choose a DNS hostname resolving to the Linux gateway's public address. Choose a VPN pool that overlaps neither your LAN nor Docker networks, a reachable DNS resolver, and explicit private destinations devices may access. Start with only the DNS resolver and dashboard/proxy addresses.
 

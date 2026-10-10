@@ -104,3 +104,7 @@ jobs:
         run: docker build --pull -t family-vpn-strongswan:test strongswan-endpoint
       - name: Check isolated IKEv2 configuration
         run: bash Tools/smoke_strongswan.sh family-vpn-strongswan:test
+      - name: Build standalone configuration interface
+        run: docker build --pull -f strongswan-endpoint/Dockerfile.ui -t family-vpn-configuration:test strongswan-endpoint
+      - name: Check browser provisioning and persistent volumes
+        run: bash Tools/smoke_strongswan_ui.sh family-vpn-configuration:test family-vpn-strongswan:test

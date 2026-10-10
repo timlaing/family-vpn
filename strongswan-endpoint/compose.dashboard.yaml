@@ -1,0 +1,45 @@
+# Standalone management interface; this is not a Home Assistant app.
+services:
+  configuration:
+    build:
+      context: .
+      dockerfile: Dockerfile.ui
+    restart: unless-stopped
+    environment:
+      VPN_COOKIE_SECURE: ${VPN_COOKIE_SECURE:-0}
+      VPN_ADMIN_PASSWORD: ${VPN_ADMIN_PASSWORD:?Set an initial administrator password in .env}
+    ports:
+      - "${VPN_MANAGEMENT_BIND:-127.0.0.1}:8080:8080"
+    volumes:
+      - vpn_configuration:/data
+      - vpn_authority:/authority
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+  vpn:
+    build: .
+    image: family-vpn-strongswan:local
+    restart: unless-stopped
+    cap_add: [NET_ADMIN, NET_RAW]
+    ports: ["500:500/udp", "4500:4500/udp"]
+    sysctls:
+      net.ipv4.ip_forward: "1"
+      net.ipv4.conf.all.accept_redirects: "0"
+      net.ipv4.conf.all.send_redirects: "0"
+    environment:
+      VPN_CONFIGURATION_DIR: /data
+    volumes:
+      - vpn_configuration:/data:ro
+    tmpfs: [/run]
+    networks:
+      vpn:
+        ipv4_address: ${VPN_CONTAINER_ADDRESS:-10.88.0.2}
+volumes:
+  vpn_configuration:
+  vpn_authority:
+networks:
+  vpn:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${VPN_DOCKER_SUBNET:-10.88.0.0/24}

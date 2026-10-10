@@ -1,6 +1,12 @@
 #!/bin/sh
 set -eu
 # All rules stay in this container's network namespace.
+if [ -n "${VPN_CONFIGURATION_DIR:-}" ]; then
+    while [ ! -f "$VPN_CONFIGURATION_DIR/ready" ]; do sleep 2; done
+    . "$VPN_CONFIGURATION_DIR/gateway.env"
+    rm -rf /etc/swanctl
+    ln -s "$VPN_CONFIGURATION_DIR/swanctl" /etc/swanctl
+fi
 : "${VPN_POOL_CIDR:?Run configure.py first}"
 : "${VPN_LAN_CIDRS:?Set explicit private destination networks}"
 : "${VPN_ALLOWED_LAN_CIDRS:?Set private networks devices may access}"

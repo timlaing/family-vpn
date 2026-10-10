@@ -1,0 +1,11 @@
+FROM debian:trixie-slim
+RUN apt-get update && apt-get install -y --no-install-recommends python3 python3-venv openssl ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m venv /opt/venv
+COPY requirements.lock /requirements.lock
+RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes -r /requirements.lock
+WORKDIR /app
+COPY configure.py swanctl.conf.template web.py ./
+COPY templates ./templates
+EXPOSE 8080
+CMD ["/opt/venv/bin/gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "1", "--access-logfile", "-", "web:app"]
