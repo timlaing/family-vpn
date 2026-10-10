@@ -77,3 +77,5 @@ sudo journalctl -u strongswan.service --since '10 minutes ago'
 ```
 
 The responder waits for the app; do not initiate a road-warrior connection from the server. Verify server identity, EAP success, virtual IP, traffic counters, DNS and protected REST access, then the full acceptance checklist. Sanitize logs before sharing them: usernames and IPs may appear. `swanctl --load-all` validates/loading configuration; it does not prove Apple interoperability. Configuration option details: [swanctl reference](https://docs.strongswan.org/docs/latest/swanctl/swanctlConf.html).
+
+For a self-contained Linux deployment with certificate/account generation, firewall setup and Compose, use the [strongSwan endpoint package](../strongswan-endpoint/README.md).

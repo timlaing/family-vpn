@@ -91,3 +91,16 @@ jobs:
       - name: Exercise synthetic Supervisor gateway
         if: matrix.flavour == 'addon'
         run: bash Tools/smoke_ingress.sh vpnweb:test
+
+  strongswan:
+    name: strongSwan endpoint smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build endpoint
+        run: docker build --pull -t family-vpn-strongswan:test strongswan-endpoint
+      - name: Check isolated IKEv2 configuration
+        run: bash Tools/smoke_strongswan.sh family-vpn-strongswan:test

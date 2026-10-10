@@ -1,0 +1,45 @@
+# Replace illustrative addresses and install your own certificate/key.
+connections {
+    family-vpn {
+        version = 2
+        local_addrs = %any
+        remote_addrs = %any
+        proposals = aes256-sha256-prfsha256-modp2048
+        rekey_time = 23h
+        reauth_time = 0s
+        over_time = 1h
+        mobike = yes
+        fragmentation = yes
+        send_cert = always
+        dpd_delay = 10s
+        pools = family-vpn-pool
+        local {
+            auth = pubkey
+            id = VPN_HOSTNAME
+            certs = vpn-server.pem
+        }
+        remote {
+            auth = eap-mschapv2
+            eap_id = %any
+        }
+        children {
+            full-tunnel {
+                local_ts = 0.0.0.0/0
+                remote_ts = dynamic
+                esp_proposals = aes256gcm16-modp2048
+                rekey_time = 110m
+                life_time = 120m
+                dpd_action = clear
+                start_action = none
+            }
+        }
+    }
+}
+pools {
+    family-vpn-pool {
+        addrs = VPN_POOL_RANGE
+        dns = VPN_DNS
+    }
+}
+# Create the referenced file locally, mode 0600. Never commit actual passwords.
+include conf.d/family-vpn-secrets.conf
