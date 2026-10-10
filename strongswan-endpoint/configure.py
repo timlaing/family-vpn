@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import subprocess
+from authentication import configure_authentication
 
 
 def validate(server, pool, dns, username, lan, allowed):
@@ -39,7 +40,7 @@ def create(output, server, pool, dns, username, password, lan, allowed, certific
     output = Path(output)
     if output.exists() and any(output.iterdir()): raise ValueError('Output is not empty; preserve existing keys and configure additional accounts manually')
     os.umask(0o077)
-    for folder in ('swanctl/x509','swanctl/x509ca','swanctl/private','swanctl/conf.d','swanctl/x509ocsp','swanctl/x509aa','swanctl/x509ac','swanctl/x509crl','swanctl/pubkey','swanctl/rsa','swanctl/ecdsa','swanctl/pkcs8','swanctl/pkcs12','ca'):
+    for folder in ('swanctl/x509','swanctl/x509ca','swanctl/private','swanctl/conf.d','swanctl/x509ocsp','swanctl/x509aa','swanctl/x509ac','swanctl/x509crl','swanctl/pubkey','swanctl/rsa','swanctl/ecdsa','swanctl/pkcs8','swanctl/pkcs12','ca','authentication'):
         (output/folder).mkdir(parents=True,exist_ok=True)
     def openssl(*args):
         subprocess.run(['openssl',*map(str,args)],check=True,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
@@ -58,6 +59,7 @@ def create(output, server, pool, dns, username, password, lan, allowed, certific
     account = '    eap-device {\n        id = "'+username+'"\n        secret = "'+password+'"\n    }\n' if username is not None else ''
     (output/'swanctl/conf.d/family-vpn-secrets.conf').write_text('secrets {\n'+account+'}\n')
     (output/'gateway.env').write_text('VPN_POOL_CIDR='+str(network)+'\nVPN_LAN_CIDRS='+lan+'\nVPN_ALLOWED_LAN_CIDRS='+allowed+'\n')
+    configure_authentication(output, 'local')
     print('Created endpoint configuration. Upload only swanctl/x509ca/family-vpn-ca.pem to the dashboard. Keep ca/ offline; do not mount it into the gateway.')
 
 
@@ -67,14 +69,30 @@ def main():
     parser.add_argument('--server',required=True)
     parser.add_argument('--pool',default='10.20.30.0/24')
     parser.add_argument('--dns',required=True)
-    parser.add_argument('--username',required=True)
+    parser.add_argument('--username', help='Required for local account authentication')
+    parser.add_argument('--auth', choices=('local', 'radius'), default='local')
+    parser.add_argument('--radius-server')
+    parser.add_argument('--radius-auth-port', type=int, default=1812)
+    parser.add_argument('--radius-acct-port', type=int, default=1813)
+    parser.add_argument('--radius-nas-identifier', default='family-vpn')
+    parser.add_argument('--radius-accounting', action='store_true')
     parser.add_argument('--lan',required=True,help='Space-separated private LAN CIDRs')
     parser.add_argument('--allow-lan',required=True,help='Space-separated private destinations permitted to VPN devices')
     args=parser.parse_args()
     try:
-        password=getpass.getpass('VPN device password (at least 16 characters): ')
-        if password != getpass.getpass('Confirm password: '): raise ValueError('Passwords do not match')
-        create(args.output,args.server,args.pool,args.dns,args.username,password,args.lan,args.allow_lan)
+        if args.auth == 'local':
+            if not args.username: raise ValueError('--username is required for local authentication')
+            password=getpass.getpass('VPN device password (at least 16 characters): ')
+            if password != getpass.getpass('Confirm password: '): raise ValueError('Passwords do not match')
+            create(args.output,args.server,args.pool,args.dns,args.username,password,args.lan,args.allow_lan)
+        else:
+            from authentication import radius_settings
+            secret=getpass.getpass('RADIUS shared secret (at least 16 characters): ')
+            radius_settings({}, args.radius_server or '', secret, args.radius_auth_port,
+                            args.radius_acct_port, args.radius_nas_identifier, args.radius_accounting)
+            create(args.output,args.server,args.pool,args.dns,None,None,args.lan,args.allow_lan)
+            configure_authentication(args.output,'radius',args.radius_server,secret,args.radius_auth_port,
+                                     args.radius_acct_port,args.radius_nas_identifier,args.radius_accounting)
     except (ValueError,subprocess.CalledProcessError) as exc: parser.error(str(exc))
 
 

@@ -13,13 +13,7 @@ from flask import Flask, abort, redirect, render_template, request, send_file, s
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 from configure import create
-
-
-def atomic(path, contents):
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(contents)
-    temporary.chmod(0o600)
-    temporary.replace(path)
+from authentication import atomic, configure_authentication, public_settings, read_settings
 
 
 def create_app(data=None, authority=None):
@@ -41,6 +35,10 @@ def create_app(data=None, authority=None):
                       SESSION_COOKIE_SECURE=os.environ.get("VPN_COOKIE_SECURE") == "1")
     CSRFProtect(app)
     failures = {}
+
+    @app.context_processor
+    def authentication_context():
+        return {"authentication": public_settings(data)}
 
     @app.after_request
     def private_response(response):
@@ -130,6 +128,7 @@ def create_app(data=None, authority=None):
                     create(generated, username=None, password=None, **values)
                     shutil.copytree(generated / "ca", authority / "ca")
                     shutil.copytree(generated / "swanctl", data / "swanctl")
+                    shutil.copytree(generated / "authentication", data / "authentication")
                     shutil.copyfile(generated / "gateway.env", data / "gateway.env")
                 atomic(settings_file, json.dumps(values))
                 atomic(data / "accounts.json", json.dumps({}))
@@ -139,6 +138,7 @@ def create_app(data=None, authority=None):
                 if not (data / "ready").exists():
                     shutil.rmtree(data / "swanctl", ignore_errors=True)
                     shutil.rmtree(authority / "ca", ignore_errors=True)
+                    shutil.rmtree(data / "authentication", ignore_errors=True)
                     for path in (data / "gateway.env", settings_file, data / "accounts.json"):
                         path.unlink(missing_ok=True)
                 error = str(exc)
@@ -149,6 +149,10 @@ def create_app(data=None, authority=None):
     def accounts():
         if not (data / "ready").exists():
             return redirect(url_for("index"))
+        if read_settings(data)["mode"] == "radius":
+            if request.method == "POST":
+                abort(409, "Manage device accounts on the RADIUS server")
+            return render_template("endpoint.html", page="accounts", accounts={}, settings=True)
         account_file = data / "accounts.json"
         stored = json.loads(account_file.read_text())
         # Preserve installations created before account state was introduced.
@@ -184,6 +188,24 @@ def create_app(data=None, authority=None):
         atomic(data / "swanctl/conf.d/family-vpn-secrets.conf", contents)
         atomic(account_file, json.dumps(values))
         return redirect(url_for("accounts", changed="1"))
+
+    @app.route("/authentication", methods=["GET", "POST"])
+    def authentication_settings():
+        if not (data / "ready").exists():
+            return redirect(url_for("index"))
+        error = None
+        if request.method == "POST":
+            try:
+                configure_authentication(
+                    data, request.form.get("mode", ""), server=request.form.get("server", "").strip(),
+                    secret=request.form.get("secret", ""), auth_port=request.form.get("auth_port", "1812"),
+                    acct_port=request.form.get("acct_port", "1813"),
+                    nas_identifier=request.form.get("nas_identifier", "family-vpn"),
+                    accounting=request.form.get("accounting") == "on")
+                return redirect(url_for("authentication_settings", changed="1"))
+            except ValueError as exc:
+                error = str(exc)
+        return render_template("endpoint.html", page="authentication", settings=True, error=error)
 
     @app.get("/ca.pem")
     def certificate():

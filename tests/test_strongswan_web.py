@@ -8,6 +8,7 @@ import sys
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent / "strongswan-endpoint"
+sys.path.insert(0, str(ROOT))
 spec = importlib.util.spec_from_file_location("configure", ROOT / "configure.py")
 configure = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(configure)
@@ -146,3 +147,37 @@ def test_legacy_credentials_and_accounts_are_preserved(management):
     (directory / "authority/session-key").unlink()
     restarted = web.create_app(directory / "data", directory / "authority")
     assert restarted.config["SECRET_KEY"] == app.config["SECRET_KEY"]
+
+
+def test_radius_configuration_secret_privacy_and_local_account_gating(management):
+    app, directory = management
+    client = app.test_client()
+    sign_in(client)
+    assert client.get("/authentication").location == "/"
+    client.post("/", data=dict(csrf_token=token(client), server="vpn.example.org", pool="10.20.30.0/24",
+                              dns="192.168.10.53", lan="192.168.10.0/24", allowed="192.168.10.53/32"))
+    client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username="local-device", password="synthetic-vpn-password"))
+    config = directory / "data/swanctl/swanctl.conf"
+    radius = directory / "data/authentication/radius.conf"
+    def update(**values):
+        return client.post("/authentication", data=dict(csrf_token=token(client, "/authentication"), **values))
+    assert update(mode="radius", server="192.168.10.54", secret="short").status_code == 200
+    assert not radius.exists()
+    assert "auth = eap-mschapv2" in config.read_text()
+    assert update(mode="radius", server="192.168.10.54", secret="synthetic-radius-secret", auth_port="18120", acct_port="18130", nas_identifier="family-vpn", accounting="on").status_code == 302
+    assert "auth = eap-radius" in config.read_text()
+    assert "auth_port = 18120" in radius.read_text() and "accounting = yes" in radius.read_text()
+    assert radius.stat().st_mode & 0o777 == 0o600
+    for path in ("/", "/authentication", "/accounts"):
+        assert "synthetic-radius-secret" not in client.get(path).text
+    assert "Managed by your RADIUS server" in client.get("/accounts").text
+    assert 'name="username"' not in client.get("/accounts").text
+    assert client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username="local-device", action="disable")).status_code == 409
+    assert update(mode="radius", server="192.168.10.54", secret="", nas_identifier="family-vpn").status_code == 302
+    assert "synthetic-radius-secret" in radius.read_text()
+    old = radius.read_bytes()
+    assert update(mode="radius", server='radius.example.org"injection', secret="new-radius-secret").status_code == 200
+    assert radius.read_bytes() == old
+    assert update(mode="local").status_code == 302
+    assert "auth = eap-mschapv2" in config.read_text() and not radius.exists()
+    assert "local-device" in client.get("/accounts").text

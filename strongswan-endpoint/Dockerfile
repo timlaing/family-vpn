@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY strongswan.conf /etc/strongswan.conf
 COPY entrypoint.sh /usr/local/bin/vpn-entrypoint
 COPY configure.py /usr/local/bin/configure-vpn
+COPY authentication.py /usr/local/bin/authentication.py
 COPY swanctl.conf.template /usr/local/bin/swanctl.conf.template
 RUN chmod 755 /usr/local/bin/vpn-entrypoint /usr/local/bin/configure-vpn
 EXPOSE 500/udp 4500/udp

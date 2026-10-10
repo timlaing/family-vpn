@@ -24,6 +24,43 @@ The UI uses the Family VPN shield and network graphics, with separate Endpoint a
 
 If deliberately exposing management on a private interface, set `VPN_MANAGEMENT_BIND` to that interface's IP and use an authenticated HTTPS proxy/network restriction. Set `VPN_COOKIE_SECURE=1` in the configuration service environment when accessing exclusively through HTTPS. The administrator session uses HttpOnly/SameSite cookies and Flask-WTF CSRF protection; failed logins are limited. Never publish this interface directly to the internet.
 
+## External RADIUS authentication
+
+After configuring the gateway, open **Authentication** and select **External RADIUS server**. Supply:
+
+| Setting | Required value |
+| --- | --- |
+| Server address | Reachable RADIUS IPv4 address or DNS hostname |
+| Authentication port | UDP 1812 by default |
+| Shared secret | Same strong secret configured for the gateway's RADIUS client entry; at least 16 printable characters, no quotes/backslashes |
+| NAS identifier | `family-vpn` by default; use the identifier expected by your policy |
+| Accounting | Optional; enable only if the server accepts accounting packets |
+| Accounting port | UDP 1813 by default; used when accounting is enabled |
+
+Save, then run `docker compose -f compose.dashboard.yaml restart vpn`. The shared secret is stored in private configuration files on the configuration volume, never displayed or logged by the interface. Leave the secret field blank to retain it; enter a new value to replace it.
+
+Configure the external server (for example FreeRADIUS or Windows NPS) to accept **EAP-MSCHAPv2 over RADIUS**, including `EAP-Message`, `Message-Authenticator` and the MS-MPPE send/receive key attributes in Access-Accept. A server that only accepts PAP, CHAP or a bare MS-CHAP request is insufficient: strongSwan forwards the EAP exchange. The server must have compatible password material for MSCHAPv2 (for example a cleartext password, NT hash or supported directory backend); an ordinary one-way password hash is not sufficient.
+
+Register the gateway as a RADIUS client using its **observed source IP** and matching shared secret. Under Docker bridge networking, an external server generally sees the Docker host's egress address, not the VPN client's pool address; confirm from your server logs. Permit outbound UDP authentication/accounting traffic and its replies between gateway and server. Do not publish UDP 1812/1813 on the VPN container or router: this gateway is the RADIUS client, not the server. Protect this traffic on a trusted private network or a separate encrypted transport tunnel; the configured UDP RADIUS transport is not RadSec/TLS.
+
+In RADIUS mode, the **Device accounts** page explains that accounts, disable/enable actions, password changes and deletion are handled on the external server. The interface does not administer remote accounts. Existing local accounts remain stored but are inactive. There is **no automatic local fallback** on RADIUS errors or rejection. Switching back to Local accounts restores the previous local account states after restarting the VPN container.
+
+The endpoint's configured VPN pool, DNS and destination allowlist still apply. Do not issue RADIUS address or DNS overrides that conflict with these routes and firewall rules. Disabling/deleting a RADIUS account may leave an already connected tunnel active: terminate the session on the gateway or restart it. Dynamic authorization/CoA and RadSec are not configured by this interface.
+
+Test a valid RADIUS account, incorrect password, disabled account and an unavailable RADIUS server. Confirm rejection never falls back to a local account. If accounting is enabled, verify Start/Stop packets on the server. Configuration/plugin smoke tests do not prove your external server's EAP policy or an Apple device's tunnel works.
+
+The CLI alternative supports the same backend and prompts privately for the shared secret:
+
+```sh
+python3 configure.py --auth radius --radius-server radius.example.org \
+  --server vpn.example.org --dns 192.168.10.53 \
+  --lan '192.168.10.0/24' --allow-lan '192.168.10.53/32 192.168.10.20/32'
+```
+
+Optional CLI flags: `--radius-auth-port`, `--radius-acct-port`, `--radius-nas-identifier`, and `--radius-accounting`. No `--username` is required in RADIUS mode. The original Compose file mounts `runtime/authentication` read-only alongside `runtime/swanctl`; the CA signing key remains outside the VPN container.
+
+References: [strongSwan EAP-RADIUS](https://docs.strongswan.org/docs/latest/plugins/eap-radius.html) and [plugin configuration options](https://docs.strongswan.org/docs/latest/config/strongswanConf.html#charon-plugins-eap-radius), and [FreeRADIUS MS-CHAP password requirements](https://www.freeradius.org/documentation/freeradius-server/4.0.0/howto/modules/mschap/index.html).
+
 ## 1. Create the endpoint configuration (CLI alternative)
 
 Choose a DNS hostname resolving to the Linux gateway's public address. Choose a VPN pool that overlaps neither your LAN nor Docker networks, a reachable DNS resolver, and explicit private destinations devices may access. Start with only the DNS resolver and dashboard/proxy addresses.

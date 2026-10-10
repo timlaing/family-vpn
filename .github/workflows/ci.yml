@@ -104,6 +104,8 @@ jobs:
         run: docker build --pull -t family-vpn-strongswan:test strongswan-endpoint
       - name: Check isolated IKEv2 configuration
         run: bash Tools/smoke_strongswan.sh family-vpn-strongswan:test
+      - name: Check external RADIUS plugin configuration
+        run: bash Tools/smoke_strongswan_radius.sh family-vpn-strongswan:test
       - name: Build standalone configuration interface
         run: docker build --pull -f strongswan-endpoint/Dockerfile.ui -t family-vpn-configuration:test strongswan-endpoint
       - name: Check browser provisioning and persistent volumes

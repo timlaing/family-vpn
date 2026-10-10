@@ -6,6 +6,8 @@ if [ -n "${VPN_CONFIGURATION_DIR:-}" ]; then
     . "$VPN_CONFIGURATION_DIR/gateway.env"
     rm -rf /etc/swanctl
     ln -s "$VPN_CONFIGURATION_DIR/swanctl" /etc/swanctl
+    rm -rf /etc/family-vpn-auth
+    ln -s "$VPN_CONFIGURATION_DIR/authentication" /etc/family-vpn-auth
 fi
 : "${VPN_POOL_CIDR:?Run configure.py first}"
 : "${VPN_LAN_CIDRS:?Set explicit private destination networks}"
@@ -28,6 +30,12 @@ iptables -A FAMILY_VPN -s "$VPN_POOL_CIDR" -m policy --dir in --pol ipsec -j ACC
 iptables -A FAMILY_VPN -s "$VPN_POOL_CIDR" -j DROP
 iptables -A FAMILY_VPN -d "$VPN_POOL_CIDR" -j DROP
 iptables -t nat -A FAMILY_VPN_NAT -s "$VPN_POOL_CIDR" -m policy --dir out --pol none -j MASQUERADE
+# Snapshot authentication for this process; apply changes by restarting.
+umask 077
+: > /run/family-vpn-auth.conf
+if [ -f /etc/family-vpn-auth/radius.conf ]; then
+    cat /etc/family-vpn-auth/radius.conf > /run/family-vpn-auth.conf
+fi
 /usr/lib/ipsec/charon &
 daemon=$!
 cleanup() { kill "$daemon" 2>/dev/null || true; wait "$daemon" 2>/dev/null || true; }

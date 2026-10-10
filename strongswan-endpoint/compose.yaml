@@ -16,6 +16,7 @@ services:
     env_file: runtime/gateway.env
     volumes:
       - ./runtime/swanctl:/etc/swanctl:ro
+      - ./runtime/authentication:/etc/family-vpn-auth:ro
     tmpfs:
       - /run
     networks:

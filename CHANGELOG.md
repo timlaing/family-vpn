@@ -1,5 +1,7 @@
 # Unreleased
 
+- Support external EAP-RADIUS authentication in the standalone endpoint UI and CLI, with optional accounting, private shared-secret storage and no local fallback.
+
 - Set the standalone endpoint administrator password through first-launch setup; preserve existing credentials.
 - Add Family VPN shield/network graphics and a separate device accounts page with disabling, enabling, deletion and password changes.
 

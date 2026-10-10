@@ -9,6 +9,7 @@ trap cleanup EXIT
 python3 - "$root" "$data" <<'PYTHON'
 import importlib.util,sys
 from pathlib import Path
+sys.path.insert(0,str(Path(sys.argv[1])/'strongswan-endpoint'))
 spec=importlib.util.spec_from_file_location('endpoint',Path(sys.argv[1])/'strongswan-endpoint/configure.py')
 module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
 module.create(Path(sys.argv[2])/'runtime','vpn.example.org','10.20.30.0/24','192.168.10.53','synthetic-device','synthetic-vpn-password','192.168.10.0/24','192.168.10.53/32 192.168.10.20/32')

@@ -37,6 +37,11 @@ assert 'Enabled' in page
 assert 'smoke-device' in page
 assert 'synthetic-vpn-password' not in page
 assert client.open(base+'/ca.pem').read().startswith(b'-----BEGIN CERTIFICATE-----')
+page=post('/authentication',dict(csrf_token=csrf('/authentication'),mode='radius',server='192.0.2.54',secret='synthetic-radius-secret',auth_port='1812',acct_port='1813',nas_identifier='family-vpn'))
+assert 'synthetic-radius-secret' not in page
+assert 'Managed by your RADIUS server' in client.open(base+'/accounts').read().decode()
+post('/authentication',dict(csrf_token=csrf('/authentication'),mode='local'))
+assert 'smoke-device' in client.open(base+'/accounts').read().decode()
 PYTHON
 docker restart "$name" >/dev/null
 docker run -d --name "$name-vpn" --cap-add NET_ADMIN --cap-add NET_RAW \

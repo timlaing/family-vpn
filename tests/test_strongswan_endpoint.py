@@ -2,9 +2,11 @@
 import importlib.util
 from pathlib import Path
 import subprocess
+import sys
 import pytest
 
 ROOT=Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "strongswan-endpoint"))
 spec=importlib.util.spec_from_file_location('endpoint',ROOT/'strongswan-endpoint/configure.py')
 endpoint=importlib.util.module_from_spec(spec)
 spec.loader.exec_module(endpoint)
@@ -38,3 +40,44 @@ def test_generated_certificates_and_secrets_are_private_and_not_overwritten(tmp_
     original=secrets.read_bytes()
     with pytest.raises(ValueError):endpoint.create(output,'vpn.example.org','10.20.30.0/24','192.168.10.53','device','synthetic-test-password','192.168.10.0/24','192.168.10.53/32')
     assert secrets.read_bytes()==original
+
+
+def test_radius_validation_and_rendering_preserve_certificate_and_local_accounts(tmp_path):
+    from authentication import configure_authentication, radius_settings
+    for invalid in [
+        {"server": "https://radius.example.org"}, {"server": "radius.example.org\nunsafe"},
+        {"secret": 'unsafe"radius-secret'}, {"secret": "short"},
+        {"auth_port": 0}, {"acct_port": 65536}, {"auth_port": "bad"},
+        {"nas_identifier": 'unsafe"nas'},
+    ]:
+        fields = dict(server="192.168.10.54", secret="synthetic-radius-secret", auth_port=1812,
+                      acct_port=1813, nas_identifier="family-vpn", accounting=False)
+        fields.update(invalid)
+        with pytest.raises(ValueError):
+            radius_settings({}, **fields)
+    output = tmp_path / "runtime"
+    endpoint.create(output, "vpn.example.org", "10.20.30.0/24", "192.168.10.53", "device", "synthetic-vpn-password", "192.168.10.0/24", "192.168.10.53/32")
+    cert = (output / "swanctl/x509/vpn-server.pem").read_bytes()
+    credentials = (output / "swanctl/conf.d/family-vpn-secrets.conf").read_bytes()
+    configure_authentication(output, "radius", "radius.example.org", "synthetic-radius-secret")
+    assert "auth = eap-radius" in (output / "swanctl/swanctl.conf").read_text()
+    assert "accounting = no" in (output / "authentication/radius.conf").read_text()
+    assert (output / "swanctl/x509/vpn-server.pem").read_bytes() == cert
+    assert (output / "swanctl/conf.d/family-vpn-secrets.conf").read_bytes() == credentials
+    configure_authentication(output, "local")
+    assert not (output / "authentication/radius.conf").exists()
+    assert "auth = eap-mschapv2" in (output / "swanctl/swanctl.conf").read_text()
+
+
+def test_radius_cli_prompts_for_secret_without_local_account(tmp_path, monkeypatch, capsys):
+    output = tmp_path / "runtime"
+    monkeypatch.setattr(sys, "argv", ["configure.py", "--auth", "radius", "--radius-server", "radius.example.org",
+                                    "--server", "vpn.example.org", "--dns", "192.168.10.53",
+                                    "--lan", "192.168.10.0/24", "--allow-lan", "192.168.10.53/32",
+                                    "--output", str(output)])
+    monkeypatch.setattr(endpoint.getpass, "getpass", lambda prompt: "synthetic-radius-secret")
+    endpoint.main()
+    assert "auth = eap-radius" in (output / "swanctl/swanctl.conf").read_text()
+    assert "synthetic-radius-secret" in (output / "authentication/radius.conf").read_text()
+    assert "synthetic-radius-secret" not in capsys.readouterr().out
+    assert (output / "swanctl/conf.d/family-vpn-secrets.conf").read_text() == "secrets {\n}\n"
