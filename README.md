@@ -6,6 +6,15 @@ Family VPN combines native iOS/iPadOS/macOS apps in `MyVPN/` with a Python/Flask
 
 See [Apple device setup and use](docs/APPLE_APPS.md) to register the app, approve certificate trust, install the VPN and use administrator controls.
 
+## Repository components
+
+| Component | Purpose | Documentation |
+| --- | --- | --- |
+| Apple apps (`MyVPN/`) | Native iOS, iPadOS and macOS VPN clients, enrollment and administrator controls. | [README](MyVPN/README.md) |
+| Dashboard and Home Assistant app (`family_vpn/`) | Device provisioning, commands, status reports, APNs delivery and optional relay hosting. | [README](family_vpn/README.md) |
+| Cloudflare Worker (`cloudflare-worker/`) | HTTPS proxy for the hosted push relay, with optional private Worker authentication. | [README](cloudflare-worker/README.md) |
+| strongSwan endpoint (`strongswan-endpoint/`) | Standalone Docker VPN gateway and browser configuration/account interface. | [README](strongswan-endpoint/README.md) |
+
 ## Home Assistant installation
 
 [![Add Family VPN to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftimlaing%2Ffamily-vpn)
