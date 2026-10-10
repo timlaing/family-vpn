@@ -14,7 +14,7 @@ select{font:inherit;padding:10px;background:var(--bg);color:var(--text);border:1
 .provisioning form { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .provisioning label { display: flex; flex-direction: column; gap: 8px; min-width: 0; font-size: 14px; }
 .provisioning input, .provisioning textarea { display: block; width: 100%; min-width: 0; padding: 12px; background: var(--bg); color: var(--text); border: 1px solid #38515e; border-radius: 9px; font: inherit; }
-.provisioning textarea { resize: vertical; min-height: 140px; }
+.provisioning textarea { resize: vertical; min-height: 140px; overflow-wrap: anywhere; }
 .provisioning textarea[name=ca_pem] { font-family: ui-monospace, SFMono-Regular, monospace; font-size: 13px; }
 .provisioning input:focus-visible, .provisioning textarea:focus-visible { outline: 3px solid var(--mint); outline-offset: 3px; }
 .provisioning form p { grid-column: 1 / -1; margin: 0; font-size: 14px; }
@@ -79,6 +79,6 @@ input[type=file]::file-selector-button { padding: 8px 12px; border: 0; border-ra
 .setup-steps .current .step-marker{border:2px solid var(--mint);color:var(--mint);box-shadow:0 0 0 5px #74f1cc12}
 .visually-hidden{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 @media(max-width:480px){.setup-steps li{font-size:11px;padding:0 3px}.setup-steps li>span:last-child{overflow-wrap:anywhere}}
-.enrollment-qr{background:white;padding:16px;border-radius:12px;max-width:360px;margin:24px auto}.enrollment-qr svg{width:100%;height:auto;display:block}.proxy-output{font:12px/1.5 ui-monospace,monospace}.setup-link{font-size:18px;font-weight:650}.provisioning textarea{width:100%;overflow-wrap:anywhere}
+.enrollment-qr{background:white;padding:16px;border-radius:12px;max-width:360px;margin:24px auto}.enrollment-qr svg{width:100%;height:auto;display:block}.proxy-output{font:12px/1.5 ui-monospace,monospace}.setup-link{font-size:18px;font-weight:650}
 
 .setup-intro~.provisioning{margin:24px auto}.device-enrollment{margin-inline:auto}.provisioning>ol{padding-left:22px}.provisioning>ol li{margin-bottom:10px}
