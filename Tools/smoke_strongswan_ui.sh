@@ -46,7 +46,9 @@ assert 'smoke-device' in client.open(base+'/accounts').read().decode()
 PYTHON
 # Simulate and migrate private volumes from the older root-running UI.
 docker exec --user root "$name" chown -R 0:0 /data /authority
-docker exec --user root "$name" chown -R 10001:10001 /data /authority
+docker run --rm --user root --cap-drop ALL --cap-add CHOWN --cap-add DAC_OVERRIDE \
+  -v "$name-data:/data" -v "$name-ca:/authority" --entrypoint chown \
+  "$ui_image" -R 10001:10001 /data /authority
 docker restart "$name" >/dev/null
 docker exec "$name" /opt/venv/bin/python -c 'import os; assert os.geteuid() == 10001'
 docker run -d --name "$name-vpn" --cap-add NET_ADMIN --cap-add NET_RAW \

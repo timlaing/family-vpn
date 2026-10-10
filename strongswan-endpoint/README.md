@@ -23,7 +23,7 @@ The management image runs as the unprivileged `endpoint` user (UID/GID 10001). F
 ```bash
 docker compose -f compose.dashboard.yaml stop configuration
 docker compose -f compose.dashboard.yaml build
-docker compose -f compose.dashboard.yaml run --rm --user root --entrypoint chown configuration -R 10001:10001 /data /authority
+docker compose -f compose.dashboard.yaml run --rm --user root --cap-add CHOWN --cap-add DAC_OVERRIDE --entrypoint chown configuration -R 10001:10001 /data /authority
 docker compose -f compose.dashboard.yaml up -d
 ```
 
