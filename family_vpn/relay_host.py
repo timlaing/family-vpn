@@ -35,7 +35,7 @@ class RelayRouter:
         self.dashboard, self.relay = dashboard, relay
 
     def __call__(self, environ, start_response):
-        if environ.get('SERVER_PORT') == '8500' and environ.get('PATH_INFO') in {'/endpoints','/rotate','/push'}:
+        if environ.get('SERVER_PORT') == '8500' and environ.get('PATH_INFO') in {'/endpoints','/rotate','/push','/ping'}:
             return self.relay(environ,start_response)
         return self.dashboard(environ,start_response)
 

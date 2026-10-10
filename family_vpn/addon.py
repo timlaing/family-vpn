@@ -147,11 +147,13 @@ class AddonConfiguration:
         import re
         topic = form.get('bundle_id',settings.apns_topic).strip()
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{1,255}',topic): raise ValueError('Provide a valid bundle ID')
+        candidate['apns_key_id'] = form.get('key_id',settings.apns_key_id).strip()
+        candidate['apns_team_id'] = form.get('team_id',settings.apns_team_id).strip()
         candidate['apns_topic'] = topic
         candidate['apns_environment'] = 'sandbox' if 'sandbox.push.apple.com' in candidate['relay_url'] else 'production'
         self.validate(candidate)
         if upload and upload.filename:
-            credentials = self.read_credentials(upload,team_id=settings.apns_team_id)
+            credentials = self.read_credentials(upload,team_id=form.get('team_id',settings.apns_team_id).strip(),key_id=form.get('key_id',settings.apns_key_id).strip())
             candidate.update(apns_key_file=str(self.data/'custom-apns.p8'),apns_key_id=credentials['key_id'],apns_team_id=credentials['team_id'])
             self.validate(candidate)
             self.private_file('custom-apns.p8',credentials['private_key'])
@@ -169,6 +171,7 @@ class AddonConfiguration:
             candidate['relay_registered_server'] = ''
             candidate['relay_rotated_at'] = 0
         if choice == 'custom': self.custom_push(candidate, form, settings, upload)
+        if form.get('hosting') == 'no': candidate['host_enabled'] = False
         self.validate(candidate)
         self.persist(candidate)
         for field,value in candidate.items(): setattr(settings,field,value)
@@ -270,6 +273,16 @@ class AddonConfiguration:
             settings.host_proxy_token = self.secret('relay-proxy-token',proxy)
         self.persist(values)
         for field,value in values.items(): setattr(settings,field,value)
+
+    def enable_host_from_direct(self, form, settings):
+        from .relay_protocol import https_url
+        url = https_url(form.get('host_url','').strip())
+        if not url: raise ValueError('Provide the public relay HTTPS address')
+        values = dict(form,host_enabled='true',host_url=url,host_topic=settings.apns_topic,
+            host_key_id=settings.apns_key_id,host_team_id=settings.apns_team_id,
+            host_push_url='https://api.sandbox.push.apple.com' if settings.apns_environment == 'sandbox' else 'https://api.push.apple.com',
+            host_private_key=Path(settings.apns_key_file).read_text())
+        self.update_host(values,settings)
 
     def host_settings(self, settings):
         values = self.host_metadata()

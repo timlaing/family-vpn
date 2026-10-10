@@ -1,0 +1,10 @@
+{% extends 'base.html' %}{% block content %}
+{% include 'navigation.html' %}
+<section class="card provisioning relay-operator"><h2>Hosted relay details</h2><p>This relay uses the Apple credentials saved on the Direct APNs page.</p>
+{% if error %}<p class="warning" role="alert">{{ error }}</p>{% endif %}
+<form method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
+<label>Public relay URL<input type="url" name="host_url" value="{{ settings.host_url }}" placeholder="https://push.example.org" required><small>The HTTPS origin dashboards connect to, directly or through your Worker. Configure DNS and forwarding to this installation’s REST interface.</small></label>
+<label>Worker token (optional)<input type="password" name="proxy_token" autocomplete="new-password" placeholder="{{ 'Stored · leave blank to retain' if settings.host_proxy_token else 'Match your Worker secret' }}"><small>If set, incoming relay requests must include the matching X-Relay-Proxy-Token header. Leave blank to retain a saved token.</small></label>
+<label>Requests per endpoint per minute<input type="number" name="host_limit" min="1" max="100" value="{{ settings.host_limit }}" required></label>
+<button>Save and enable hosted relay</button></form>
+<p class="setup-next"><a class="back-button" href="{{ url_for('advanced') }}">← Back to Direct APNs</a></p></section>{% endblock %}

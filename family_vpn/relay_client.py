@@ -15,8 +15,29 @@ class RelaySender:
     def __init__(self, settings):
         self.settings = settings
         self.last_result = 'not_contacted'
+        self.probe = None
+        self.ping_at = 0
+        self.callback_at = 0
+        self.connectivity = 'Not checked'
         self.manager = None
         self.lock = threading.RLock()
+
+    def ping(self):
+        import uuid
+        self.probe = str(uuid.uuid4())
+        self.ping_at = time.time()
+        self.callback_at = 0
+        body = body_bytes({'server':self.settings.relay_server,'probe':self.probe})
+        try:
+            with httpx.Client(timeout=25,follow_redirects=False) as client:
+                response = client.post(https_url(self.settings.relay_url)+'/ping',content=body,
+                    headers=signed_headers(self.settings.relay_secret,'/ping',body))
+            self.connectivity = 'Reachable · callback verified' if response.status_code == 200 and self.callback_at else 'Reachable · callback failed' if response.status_code == 200 else 'Relay rejected the check'
+        except (httpx.RequestError,ValueError):
+            self.connectivity = 'Unable to reach relay'
+        finally:
+            self.probe = None
+        return self.connectivity
 
     def register(self):
         settings = self.settings

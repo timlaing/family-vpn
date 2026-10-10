@@ -131,6 +131,7 @@ class RelayViews:
         app.after_request(self.private_response)
         app.add_url_rule('/endpoints', endpoint='enroll', view_func=self.enroll, methods=['POST'])
         app.add_url_rule('/rotate', endpoint='rotate', view_func=self.rotate, methods=['POST'])
+        app.add_url_rule('/ping', endpoint='ping', view_func=self.ping, methods=['POST'])
         app.add_url_rule('/push', endpoint='push', view_func=self.push, methods=['POST'])
         app.add_url_rule('/health', endpoint='health', view_func=self.health, methods=['GET'])
 
@@ -220,6 +221,22 @@ class RelayViews:
         delivered = self.callback_sender(endpoint['callback'],endpoint['secret'],
             {'server':server,'kind':'push_result','device':value['device'],'token':value['token'],'result':result})
         return jsonify(result=result, callback='delivered' if delivered else 'failed')
+
+    def ping(self):
+        value = self.payload({'server','probe'})
+        import uuid
+        try:
+            server = server_key(value['server'])
+            if str(uuid.UUID(value['probe'])) != value['probe']: raise ValueError()
+        except (ValueError,TypeError,AttributeError): abort(400)
+        endpoint = self.store.endpoint(server)
+        if endpoint is None: return jsonify(error='endpoint_missing'),404
+        nonce = self.authenticate(endpoint)
+        blocked = self.store.claim(server,nonce,endpoint['quota'])
+        if blocked: abort(blocked)
+        delivered = self.callback_sender(endpoint['callback'],endpoint['secret'],
+            {'server':server,'kind':'ping','probe':value['probe']})
+        return jsonify(callback='delivered' if delivered else 'failed')
 
     def health(self): return jsonify(status='ok')
 

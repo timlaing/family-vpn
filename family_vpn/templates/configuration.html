@@ -5,13 +5,16 @@
 {% if error %}<p class="warning" role="alert">{{ error }}</p>{% endif %}
 {% if settings.push_choice=='custom' %}
 <form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="push_choice" value="custom">
-<label>Key file<input type="file" name="key_file" accept=".json,.p8"><small>APNs JSON with key_id, team_id and private_key. Leave empty to retain the saved key.</small></label>
+<label>Apple Key ID<input name="key_id" value="{{ settings.apns_key_id }}" minlength="10" maxlength="10" pattern="[A-Z0-9]{10}" required></label>
+<label>Apple Team ID<input name="team_id" value="{{ settings.apns_team_id }}" minlength="10" maxlength="10" pattern="[A-Z0-9]{10}" required></label>
+<label>APNs private key (.p8)<input type="file" name="key_file" accept=".p8,.pem"><small>Upload your Apple private key. Leave empty to retain the saved key.</small></label>
 <label>Bundle ID<input name="bundle_id" value="{{ settings.apns_topic }}" required maxlength="256"></label>
 <label>Push URL<select name="push_url"><option value="https://api.push.apple.com" {{ 'selected' if settings.relay_url=='https://api.push.apple.com' else '' }}>https://api.push.apple.com · Production</option><option value="https://api.sandbox.push.apple.com" {{ 'selected' if settings.relay_url=='https://api.sandbox.push.apple.com' else '' }}>https://api.sandbox.push.apple.com · Development</option></select></label>
-<button>Save and return to registration</button></form>
+<fieldset><legend>Host a relay on this installation?</legend><div class="push-choices">
+<label class="push-choice"><input type="radio" name="hosting" value="no" {{ 'checked' if not settings.host_enabled else '' }}><span><strong>Without hosted relay</strong><small>Send notifications only for this dashboard.</small></span></label>
+<label class="push-choice"><input type="radio" name="hosting" value="yes" {{ 'checked' if settings.host_enabled else '' }}><span><strong>With hosted relay</strong><small>Use these Apple credentials to deliver notifications for other dashboards too. Configure the relay address and limits next.</small></span></label>
+</div></fieldset><button>Save and continue</button></form>
 {% endif %}
-<dl class="push-summary"><dt>Endpoint</dt><dd>{{ settings.relay_server or 'Provisioning required' }}</dd><dt>Registration</dt><dd>{{ 'Registered' if settings.relay_registered_server and settings.relay_registered_server==settings.relay_server else 'Direct Apple APNs' if settings.push_mode=='direct' and settings.apns_ready else 'Not registered' }}</dd>{% if settings.push_choice=='primary' %}<dt>Last key rotation</dt><dd>{{ settings.relay_rotated_at|when if settings.relay_rotated_at else 'Not rotated yet' }}</dd><dt>Last relay result</dt><dd>{{ relay_result|replace('_',' ') }}</dd>{% endif %}</dl>
-{% if settings.push_choice=='primary' %}<form action="{{ url_for('relay_rotate') }}" method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="secondary" {{ 'disabled' if not settings.relay_server or not settings.callback_url else '' }}>Force rotate key</button></form><p>Registered keys rotate automatically every 24 hours while this app can reach the relay.</p>{% endif %}
-<p class="setup-next"><a href="{{ url_for('push_setup') }}">Choose push delivery / register endpoint</a></p>
-</section>
-{% endblock %}
+{% if settings.push_choice=='primary' %}<form action="{{ url_for('relay_rotate') }}" method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="secondary" {{ 'disabled' if not settings.apns_ready else '' }}>Force rotate key</button></form>{% endif %}
+<p class="setup-next"><a class="back-button" href="{{ url_for('push_setup') }}">← Back to push setup</a></p>
+</section>{% endblock %}

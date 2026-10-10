@@ -7,7 +7,7 @@ export default {
       });
     }
     const incoming = new URL(request.url);
-    if (!["/endpoints", "/rotate", "/push"].includes(incoming.pathname)) {
+    if (!["/endpoints", "/rotate", "/push", "/ping"].includes(incoming.pathname)) {
       return new Response("Not Found", { status: 404 });
     }
     if (!env.UPSTREAM_URL) {

@@ -191,19 +191,19 @@ class Dispatcher:
     def __init__(self, database, sender, settings, commands):
         self.database, self.sender, self.settings = database, sender, settings
         self.commands = commands
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.running = False
         self.executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="apns")
         self.stop_event = threading.Event()
         self.future = None
         self.maintenance = None
 
-    def trigger(self, identifier=None, commands_only=False):
+    def trigger(self, identifier=None, commands_only=False, requested_command=None):
         if self.settings.demo: return False
         with self.lock:
             if self.running: return False
             self.running = True
-            self.future = self.executor.submit(self.run, identifier, commands_only)
+            self.future = self.executor.submit(self.run, identifier, commands_only, requested_command)
         return True
 
     def deliver(self, row, command):
@@ -228,12 +228,12 @@ class Dispatcher:
                                  (time.time(), result, result, row["id"], row["token"]))
             if updated.rowcount: self.database.event(db, row["id"], "push", result)
 
-    def run(self, identifier=None, commands_only=False):
+    def run(self, identifier=None, commands_only=False, requested_command=None):
         try:
             with self.database.connect() as db:
                 rows = db.execute("SELECT id,token FROM devices WHERE token IS NOT NULL" + (" AND id=?" if identifier else ""), (identifier,) if identifier else ()).fetchall()
             for row in rows:
-                command = self.commands.next_delivery(row["id"])
+                command = requested_command or self.commands.next_delivery(row["id"])
                 if command is None and commands_only: continue
                 self.record_delivery(row, self.deliver(row, command))
         finally:
@@ -311,11 +311,14 @@ class DashboardViews:
         app.add_url_rule('/api/push', endpoint='push', view_func=self.push, methods=['POST'])
         app.add_url_rule('/push', endpoint='push_form', view_func=self.push_form, methods=['POST'])
         app.add_url_rule('/configuration', endpoint='configuration', view_func=self.configuration, methods=['GET', 'POST'])
+        app.add_url_rule('/push-status', endpoint='push_status', view_func=self.configuration, methods=['GET'])
         app.add_url_rule('/advanced', endpoint='advanced', view_func=self.configuration, methods=['GET', 'POST'])
         app.add_url_rule('/relay-register', endpoint='relay_register', view_func=self.relay_register, methods=['POST'])
         app.add_url_rule('/push-setup', endpoint='push_setup', view_func=self.push_setup, methods=['GET','POST'])
         app.add_url_rule('/relay-rotate', endpoint='relay_rotate', view_func=self.relay_rotate, methods=['POST'])
         app.add_url_rule('/policy-settings', endpoint='policy_settings', view_func=self.policy_settings, methods=['POST'])
+        app.add_url_rule('/push-connectivity', endpoint='push_connectivity', view_func=self.push_connectivity, methods=['POST'])
+        app.add_url_rule('/relay-details', endpoint='relay_details', view_func=self.relay_details, methods=['GET','POST'])
         app.add_url_rule('/relay-operator', endpoint='relay_operator', view_func=self.relay_operator, methods=['GET','POST'])
         app.add_url_rule('/relay-results', endpoint='relay_results', view_func=self.relay_results, methods=['POST'])
         app.add_url_rule('/health', endpoint='health', view_func=self.health, methods=['GET'])
@@ -347,7 +350,7 @@ class DashboardViews:
 
 
     def security(self):
-        if request.path in {"/vpn-provisioning", "/advanced", "/configuration", "/relay-operator"}: request.max_content_length = 32768
+        if request.path in {"/vpn-provisioning", "/advanced", "/configuration", "/relay-operator", "/relay-details"}: request.max_content_length = 32768
         if request.content_length is not None and request.content_length > (request.max_content_length or self.app.config["MAX_CONTENT_LENGTH"]): abort(413)
         if self.settings.demo and request.method != "GET": abort(403)
         if request.path in {"/status", "/command-results", "/setup-probe", "/registrations"}: self.limit_public_report()
@@ -651,11 +654,40 @@ class DashboardViews:
         if request.method == 'POST':
             try:
                 self.update_configuration(manager)
-                return redirect(url_for('push_setup' if 'push_choice' in request.form else 'advanced'))
+                if request.form.get('hosting') == 'yes': return redirect(url_for('relay_details'))
+                return redirect(url_for('dashboard' if 'push_choice' in request.form else 'advanced'))
             except ValueError as exc: error = str(exc)
         relay = self.dispatcher.sender.relay if isinstance(self.dispatcher.sender,PushSender) else None
-        return render_template('configuration.html',settings=self.settings,error=error,
+        devices = self.database.public_devices()
+        eligible = [device for device in devices if device['registered_token']]
+        latest = max((device for device in devices if device['pushed']),key=lambda device:device['pushed'],default=None)
+        return render_template('push_status.html' if request.endpoint=='push_status' else 'configuration.html',settings=self.settings,error=error,latest_push=latest,relay=relay,can_ping=bool(eligible),
             relay_result=relay.last_result if relay else 'not_contacted')
+
+    def ping_direct_device(self):
+        eligible = [device for device in self.database.public_devices() if device['registered_token']]
+        if not eligible: abort(409)
+        device = secrets.choice(eligible)
+        with self.dispatcher.lock:
+            if self.dispatcher.running: abort(409)
+            command = None
+            if device['command_capable']:
+                request_id = self.commands.queue(device['id'],'refresh_status')
+                with self.database.connect() as db:
+                    command = db.execute('SELECT * FROM commands WHERE request_id=?',(request_id,)).fetchone()
+            if not self.dispatcher.trigger(device['id'],requested_command=command): abort(409)
+
+    def push_connectivity(self):
+        from .relay_client import PushSender
+        self.addon_manager()
+        if not self.settings.apns_ready: abort(409)
+        if self.settings.push_mode == 'direct':
+            self.ping_direct_device()
+        else:
+            sender = self.dispatcher.sender
+            if not isinstance(sender,PushSender): abort(409)
+            sender.relay.ping()
+        return redirect(url_for('push_status'))
 
     def push_setup(self):
         manager = self.addon_manager()
@@ -710,6 +742,18 @@ class DashboardViews:
         except ValueError: return 'Use a policy interval between 1800 and 3600 seconds',400
         return redirect(url_for('administration'))
 
+    def relay_details(self):
+        manager = self.addon_manager()
+        if self.settings.push_choice != 'custom' or not self.settings.apns_ready:
+            return redirect(url_for('advanced'))
+        error = None
+        if request.method == 'POST':
+            try:
+                manager.enable_host_from_direct(request.form,self.settings)
+                return redirect(url_for('relay_operator'))
+            except ValueError as exc: error = str(exc)
+        return render_template('relay_details.html',settings=self.settings,error=error), 400 if error else 200
+
     def relay_operator(self):
         manager = self.addon_manager()
         error = None
@@ -725,6 +769,11 @@ class DashboardViews:
 
     def validate_relay_result(self, value):
         from .relay_protocol import server_key
+        if value.get('kind') == 'ping':
+            from .relay_client import PushSender
+            sender = self.dispatcher.sender
+            if not isinstance(sender,PushSender) or not sender.relay.probe or value != {'server':server_key(self.settings.relay_server),'kind':'ping','probe':sender.relay.probe}: abort(400)
+            return
         if value == {"server":server_key(self.settings.relay_server), "kind":"registration"}:
             return
         try:
@@ -751,6 +800,7 @@ class DashboardViews:
                 updated = db.execute("UPDATE devices SET pushed=?,push_result=?,token=CASE WHEN ?='invalid_token' THEN NULL ELSE token END WHERE id=? AND token=?",
                     (time.time(),value["result"],value["result"],value["device"],value["token"]))
                 if updated.rowcount: self.database.event(db,value["device"],"relay_push",value["result"])
+        if value['kind'] == 'ping': self.dispatcher.sender.relay.callback_at = time.time()
         return "",204
 
     def health(self): return jsonify(status="ok")

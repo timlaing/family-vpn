@@ -130,8 +130,9 @@ def test_hosted_relay_is_guarded_and_no_saved_secrets_are_rendered(tmp_path):
         assert b'name="relay_callback"' not in page
         assert b'Force rotate key' not in page
         assert b'<h2>Push delivery</h2>' not in page
-        delivery = ingress('/advanced').data
-        assert b'Force rotate key' in delivery
+        delivery = ingress('/push-status').data
+        assert b'Check relay and callback' in delivery
+        assert b'name="key_file"' not in delivery
         assert b'name="host_key_id"' not in delivery
         assert client.get('/relay-operator',base_url='http://localhost:8500').status_code == 404
         assert manager.load().host_proxy_token == 'p'*32
@@ -305,3 +306,51 @@ def test_host_public_url_persisted_and_validated(tmp_path):
         with pytest.raises(ValueError):
             manager.update_host({'host_enabled':'true', 'host_url':url}, settings)
         assert manager.load().host_url == 'https://push.example.org'
+
+
+def test_direct_push_accepts_separate_identifiers_and_renamed_private_key(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    _, value = key_upload()
+    upload = FileStorage(stream=io.BytesIO(value['private_key'].encode()), filename='publisher.p8')
+    form = {'push_choice':'custom','push_url':'https://api.push.apple.com',
+            'key_id':value['key_id'],'team_id':value['team_id']}
+    manager.update_push(form, settings, upload)
+    loaded = manager.load()
+    assert loaded.apns_ready
+    assert loaded.apns_key_id == value['key_id']
+    assert loaded.apns_team_id == value['team_id']
+    assert (tmp_path/'custom-apns.p8').read_text() == value['private_key'].strip()
+    manager.update_push(form, settings)
+    assert manager.load().apns_ready
+
+
+def test_optional_host_reuses_direct_credentials(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    manager.update_push({'push_choice':'custom','push_url':'https://api.push.apple.com'},settings,upload)
+    manager.enable_host_from_direct({'host_url':'https://relay.example.org','host_limit':'12'},settings)
+    assert manager.load().host_enabled
+    assert manager.load().host_url == 'https://relay.example.org'
+    assert manager.load().host_limit == 12
+    assert manager.host_settings(settings).apns_key_id == value['key_id']
+    manager.update_push({'push_choice':'custom','push_url':'https://api.push.apple.com','hosting':'no'},settings)
+    assert not manager.load().host_enabled
+
+
+def test_relay_ping_authentication_callback_replay_and_quota(tmp_path):
+    callbacks = []
+    relay = create_relay(str(tmp_path/'ping.sqlite'),'e'*32,'m'*32,Sender(),
+        callback_sender=lambda url, secret, body: callbacks.append(body) or True)
+    client = relay.test_client()
+    assert register(client).status_code == 201
+    callbacks.clear()
+    body = body_bytes({'server':'vpn.example.org','probe':str(uuid.uuid4())})
+    headers = signed_headers('t'*32,'/ping',body)
+    assert client.post('/ping',data=body,content_type='application/json').status_code == 401
+    response = client.post('/ping',data=body,headers=headers)
+    assert response.json == {'callback':'delivered'}
+    assert callbacks[0]['kind'] == 'ping'
+    assert client.post('/ping',data=body,headers=headers).status_code == 409
+    for _ in range(9):
+        assert client.post('/ping',data=body,headers=signed_headers('t'*32,'/ping',body)).status_code == 200
+    assert client.post('/ping',data=body,headers=signed_headers('t'*32,'/ping',body)).status_code == 429

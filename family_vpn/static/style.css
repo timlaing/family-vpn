@@ -85,3 +85,11 @@ input[type=file]::file-selector-button { background: #203c48; color: var(--text)
 .setup-alert h3{font-size:18px;margin-bottom:6px}
 .setup-alert p{color:inherit;margin:0;overflow-wrap:anywhere}
 .setup-alert-icon{font-size:25px;line-height:1.2;color:#ffb7a8}
+
+.back-button { display: inline-flex; padding: 10px 16px; border: 1px solid #38515e; border-radius: 9px; text-decoration: none; font-weight: 600; }
+.relay-operator details { margin: 8px 0 20px; }
+.relay-operator details summary { cursor: pointer; color: var(--mint); }
+.relay-operator details label { margin-top: 16px; }
+
+.advanced fieldset { border: 0; padding: 0; margin: 20px 0; }
+.advanced legend { margin-bottom: 12px; font-weight: 600; }

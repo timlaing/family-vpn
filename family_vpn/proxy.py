@@ -49,7 +49,7 @@ location = {prefix}{route} {{
 }}
 '''
     if host_relay:
-        for route in ('endpoints','rotate','push'):
+        for route in ('endpoints','rotate','push','ping'):
             result += f'''\n# Hosted relay: Worker credential plus endpoint HMAC (where applicable).
 location = {prefix}{route} {{
     limit_except POST {{ deny all; }}
