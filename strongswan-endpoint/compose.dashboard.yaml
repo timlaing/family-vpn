@@ -12,6 +12,7 @@ services:
     volumes:
       - vpn_configuration:/data
       - vpn_authority:/authority
+      - vpn_control:/control:ro
     cap_drop: [ALL]
     security_opt:
       - no-new-privileges:true
@@ -27,8 +28,10 @@ services:
       net.ipv4.conf.all.send_redirects: "0"
     environment:
       VPN_CONFIGURATION_DIR: /data
+      VPN_CONTROL_DIR: /control
     volumes:
       - vpn_configuration:/data:ro
+      - vpn_control:/control
     tmpfs: [/run]
     networks:
       vpn:
@@ -36,6 +39,7 @@ services:
 volumes:
   vpn_configuration:
   vpn_authority:
+  vpn_control:
 networks:
   vpn:
     driver: bridge

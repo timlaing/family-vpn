@@ -1,5 +1,7 @@
 # Unreleased
 
+- Automatically reload standalone gateway credentials after account changes, report pending/error/applied status, and revoke affected sessions without restarting other established tunnels.
+
 - Support external EAP-RADIUS authentication in the standalone endpoint UI and CLI, with optional accounting, private shared-secret storage and no local fallback.
 
 - Set the standalone endpoint administrator password through first-launch setup; preserve existing credentials.

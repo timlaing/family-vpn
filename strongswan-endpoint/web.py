@@ -9,19 +9,21 @@ import shutil
 import tempfile
 import time
 
-from flask import Flask, abort, redirect, render_template, request, send_file, session, url_for
+from flask import Flask, abort, redirect, render_template, request, send_file, session, url_for, jsonify
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 from configure import create
 from authentication import atomic, configure_authentication, public_settings, read_settings
+from reload_requests import queue_reload, reload_status
 
 
-def create_app(data=None, authority=None):
+def create_app(data=None, authority=None, control=None):
     os.umask(0o077)
     data = Path(data or os.environ.get("VPN_DATA", "/data"))
     authority = Path(authority or os.environ.get("VPN_AUTHORITY", "/authority"))
     data.mkdir(parents=True, exist_ok=True)
     authority.mkdir(parents=True, exist_ok=True)
+    control = Path(control or os.environ.get("VPN_CONTROL_DIR", "/control"))
     admin = authority / "administrator.json"
     # Persist CSRF/session signing before the administrator has been created.
     session_key = authority / "session-key"
@@ -38,7 +40,7 @@ def create_app(data=None, authority=None):
 
     @app.context_processor
     def authentication_context():
-        return {"authentication": public_settings(data)}
+        return {"authentication": public_settings(data), "reload": reload_status(data, control)}
 
     @app.after_request
     def private_response(response):
@@ -184,10 +186,19 @@ def create_app(data=None, authority=None):
                 values[username]["password"] = password
         contents = "secrets {\n" + "".join(
             f'    eap-{index} {{\n        id = "{name}"\n        secret = "{account["password"]}"\n    }}\n'
-            for index, (name, account) in enumerate(sorted(values.items())) if account["enabled"]) + "}\n"
-        atomic(data / "swanctl/conf.d/family-vpn-secrets.conf", contents)
+            for index, (name, account) in enumerate(
+                (item for item in sorted(values.items()) if item[1]["enabled"]))) + "}\n"
+        secrets_file = data / "swanctl/conf.d/family-vpn-secrets.conf"
+        needs_reload = secrets_file.read_text() != contents
+        atomic(secrets_file, contents)
         atomic(account_file, json.dumps(values))
-        return redirect(url_for("accounts", changed="1"))
+        if needs_reload:
+            queue_reload(data, control, username, action)
+        return redirect(url_for("accounts", changed="1" if needs_reload else "not-needed"))
+
+    @app.get("/reload-status")
+    def account_reload_status():
+        return jsonify(reload_status(data, control))
 
     @app.route("/authentication", methods=["GET", "POST"])
     def authentication_settings():

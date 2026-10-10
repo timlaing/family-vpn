@@ -38,7 +38,15 @@ if [ -f /etc/family-vpn-auth/radius.conf ]; then
 fi
 /usr/lib/ipsec/charon &
 daemon=$!
-cleanup() { kill "$daemon" 2>/dev/null || true; wait "$daemon" 2>/dev/null || true; }
+reloader=
+cleanup() {
+    if [ -n "$reloader" ]; then
+        kill "$reloader" 2>/dev/null || true
+        wait "$reloader" 2>/dev/null || true
+    fi
+    kill "$daemon" 2>/dev/null || true
+    wait "$daemon" 2>/dev/null || true
+}
 trap cleanup EXIT
 trap 'exit 0' TERM INT
 ready=false
@@ -49,4 +57,12 @@ for attempt in 1 2 3 4 5 6 7 8 9 10; do
 done
 [ "$ready" = true ] || exit 1
 swanctl --load-all
+if [ -n "${VPN_CONTROL_DIR:-}" ]; then
+    /opt/control/bin/python /usr/local/bin/reloader.py --data "$VPN_CONFIGURATION_DIR" --control "$VPN_CONTROL_DIR" &
+    reloader=$!
+fi
+while kill -0 "$daemon" 2>/dev/null; do
+    if [ -n "$reloader" ] && ! kill -0 "$reloader" 2>/dev/null; then exit 1; fi
+    sleep 1
+done
 wait "$daemon"

@@ -20,7 +20,7 @@ spec.loader.exec_module(web)
 
 @pytest.fixture
 def management(tmp_path):
-    app = web.create_app(tmp_path / "data", tmp_path / "authority")
+    app = web.create_app(tmp_path / "data", tmp_path / "authority", tmp_path / "control")
     app.config["TESTING"] = True
     # importlib does not give Flask the source root for template discovery.
     app.template_folder = str(ROOT / "templates")
@@ -75,7 +75,7 @@ def test_setup_accounts_certificate_and_restart_persistence(management):
     accounts = json.loads((directory / "data/accounts.json").read_text())
     assert list(accounts) == ["device-two"]
     assert (directory / "data/accounts.json").stat().st_mode & 0o777 == 0o600
-    again = web.create_app(directory / "data", directory / "authority")
+    again = web.create_app(directory / "data", directory / "authority", directory / "control")
     again.template_folder = str(ROOT / "templates")
     fresh = again.test_client()
     sign_in(fresh)
@@ -145,7 +145,7 @@ def test_legacy_credentials_and_accounts_are_preserved(management):
     assert json.loads(account_file.read_text())["legacy"] == {"enabled": False, "password": "legacy-account-password"}
     # Legacy installations did not have a separate session-key file.
     (directory / "authority/session-key").unlink()
-    restarted = web.create_app(directory / "data", directory / "authority")
+    restarted = web.create_app(directory / "data", directory / "authority", directory / "control")
     assert restarted.config["SECRET_KEY"] == app.config["SECRET_KEY"]
 
 
@@ -181,3 +181,26 @@ def test_radius_configuration_secret_privacy_and_local_account_gating(management
     assert update(mode="local").status_code == 302
     assert "auth = eap-mschapv2" in config.read_text() and not radius.exists()
     assert "local-device" in client.get("/accounts").text
+
+
+def test_account_reload_queue_status_and_noop_edits(management):
+    app, directory = management
+    client = app.test_client()
+    sign_in(client)
+    client.post("/", data=dict(csrf_token=token(client), server="vpn.example.org", pool="10.20.30.0/24",
+                              dns="192.168.10.53", lan="192.168.10.0/24", allowed="192.168.10.53/32"))
+    def change(action, password="synthetic-vpn-password"):
+        return client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username="device", action=action, password=password))
+    assert change("add").location.endswith("changed=1")
+    pending = sorted((directory / "data/reloads").glob("*.json"))
+    assert len(pending) == 1 and json.loads(pending[0].read_text()) == {"username": "device", "action": "add"}
+    assert client.get("/reload-status").json["status"] == "pending"
+    assert change("enable").location.endswith("changed=not-needed")
+    assert change("password").location.endswith("changed=not-needed")
+    assert len(list((directory / "data/reloads").glob("*.json"))) == 1
+    assert change("disable").location.endswith("changed=1")
+    assert change("password", "changed-inactive-password").location.endswith("changed=not-needed")
+    assert change("delete").location.endswith("changed=not-needed")
+    assert len(list((directory / "data/reloads").glob("*.json"))) == 2
+    assert "synthetic-vpn-password" not in client.get("/reload-status").text
+    assert 'restart vpn' not in client.get("/accounts").text

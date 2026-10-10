@@ -47,11 +47,13 @@
     </form>
     <script src="{{ url_for('static', filename='authentication.js') }}" defer></script>
   {% elif page == 'accounts' %}
-    {% if request.args.get('changed') %}<p class="notice" role="status">Account changes saved. Restart the VPN container to apply them and disconnect existing sessions:<br><code>docker compose -f compose.dashboard.yaml restart vpn</code></p>{% endif %}
+    {% if request.args.get('changed') == 'not-needed' %}<p class="notice" role="status">Account saved. No active VPN credentials changed, so a reload was not needed.</p>{% endif %}
+    {% if reload.status in ['pending', 'error'] or request.args.get('changed') == '1' %}<p id="account-reload" class="notice" role="status" aria-live="polite" data-status-url="{{ url_for('account_reload_status') }}">{{ reload.message }}</p>{% endif %}
+    <script src="{{ url_for('static', filename='reload.js') }}" defer></script>
     {% if authentication.mode == 'radius' %}
     <h2>Managed by your RADIUS server</h2><p>Accounts, enabling/disabling access and password changes are managed on <strong>{{ authentication.server }}</strong>. This interface does not create or modify remote RADIUS accounts.</p><p>Local accounts are retained but inactive while external RADIUS is selected. Existing tunnels remain connected until terminated or the gateway is restarted.</p><a class="button" href="{{ url_for('authentication_settings') }}">RADIUS configuration</a>
     {% else %}
-    <h2>Device access</h2>
+    <h2>Device access</h2><p>Changes apply automatically. Disabling, deleting or changing an active account's password disconnects its sessions; other established tunnels remain connected.</p>
     {% if accounts %}
     <div class="table-scroll"><table><thead><tr><th>Account</th><th>Status</th><th>Manage access</th></tr></thead><tbody>
     {% for name, account in accounts|dictsort %}<tr><td>{{ name }}</td><td><span class="badge {% if account.enabled %}enabled{% endif %}">{{ 'Enabled' if account.enabled else 'Disabled' }}</span></td><td>
