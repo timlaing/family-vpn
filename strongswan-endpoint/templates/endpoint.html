@@ -1,17 +1,58 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Family VPN Endpoint</title>
-<style>body{font:17px system-ui;background:#0b1830;color:#edf4ff;margin:0}main{max-width:680px;margin:4vh auto;padding:28px;background:#142746;border-radius:20px}h1{font-size:30px}label{display:block;margin:18px 0 6px}input{box-sizing:border-box;width:100%;padding:12px;border:1px solid #6581a6;border-radius:8px;background:#0b1830;color:white;font:inherit}button,a.button{display:inline-block;background:#69d4ba;color:#082020;border:0;border-radius:8px;padding:12px;margin-top:18px;font:inherit;cursor:pointer}table{width:100%;border-collapse:collapse}td{border-bottom:1px solid #6581a6;padding:10px;overflow-wrap:anywhere}.notice{background:#243e63;padding:14px;border-radius:8px}code{overflow-wrap:anywhere}@media(max-width:720px){main{margin:0;border-radius:0;padding:20px}}</style></head><body><main>
-<h1>🛡 Family VPN Endpoint</h1><p>Standalone IKEv2 gateway configuration</p>
-{% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
-{% if login %}<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Administrator password</label><input name="password" type="password" required autocomplete="current-password"><button>Sign in</button></form>
-{% elif not settings %}<h2>Set up your endpoint</h2><p>Choose a hostname, VPN address pool and the private networks devices may access. These settings create the gateway certificate and first VPN account.</p>
-<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-{% for name,label,placeholder in [('server','VPN hostname','vpn.example.org'),('pool','VPN IPv4 pool','10.20.30.0/24'),('dns','DNS resolver','192.168.10.53'),('lan','LAN networks (space-separated CIDRs)','192.168.10.0/24'),('allowed','Permitted private destinations (CIDRs)','192.168.10.53/32'),('username','First VPN account','device-one')] %}<label>{{ label }}</label><input name="{{ name }}" placeholder="{{ placeholder }}" value="{{ request.form.get(name, '') }}" required>{% endfor %}
-<label>VPN account password (at least 16 characters)</label><input type="password" name="password" minlength="16" required autocomplete="new-password"><button>Create endpoint</button></form>
-{% else %}<h2>Endpoint configured</h2><p><strong>{{ settings.server }}</strong> · {{ settings.pool }}</p><p>DNS: {{ settings.dns }}<br>LAN: {{ settings.lan }}<br>Permitted destinations: {{ settings.allowed }}</p><a class="button" href="{{ url_for('certificate') }}">Download public CA certificate</a>
-<p>Upload this public certificate to the Family VPN dashboard. Private keys and passwords are never displayed.</p>
-{% if request.args.get('changed') %}<p class="notice">Accounts saved. Restart the VPN container to apply changes and terminate existing sessions: <code>docker compose -f compose.dashboard.yaml restart vpn</code>.</p>{% endif %}
-<h2>VPN accounts</h2><table><thead><tr><th>Account</th><th>Action</th></tr></thead><tbody>{% for name in accounts %}<tr><td>{{ name }}</td><td><form action="{{ url_for('accounts') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="username" value="{{ name }}"><button name="action" value="delete">Delete</button></form></td></tr>{% endfor %}</tbody></table>
-<h3>Add an account or replace its password</h3><form action="{{ url_for('accounts') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Account name</label><input name="username" required><label>VPN password</label><input name="password" type="password" minlength="16" required autocomplete="new-password"><button>Save account</button></form>
-{% endif %}{% if not login %}<form action="{{ url_for('logout') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Sign out</button></form>{% endif %}
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Family VPN · Endpoint</title>
+  <link rel="icon" href="{{ url_for('static', filename='icon.png') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='endpoint.css') }}">
+</head>
+<body><main>
+  <header><img class="brand-icon" src="{{ url_for('static', filename='icon.png') }}" alt="Family VPN shield"><div><div class="brand-name">Family VPN</div><p>Private network · VPN endpoint</p></div></header>
+  <section class="hero">
+    <span class="eyebrow">Your infrastructure. Your control.</span>
+    <h1>{% if page == 'initialize' %}Welcome to Family VPN{% elif page == 'login' %}Welcome back{% elif page == 'accounts' %}Device accounts{% elif settings %}Your VPN endpoint{% else %}Set up your endpoint{% endif %}</h1>
+    <p>{% if page == 'initialize' %}Create your administrator password to start configuring your private VPN gateway.{% elif page == 'login' %}Sign in to manage your gateway and device access.{% elif page == 'accounts' %}Give each device its own account. Control access without sharing credentials.{% else %}A private IKEv2 gateway for your family, backed by your own infrastructure.{% endif %}</p>
+  </section>
+  {% if page not in ['initialize', 'login'] %}
+  <nav aria-label="Endpoint navigation"><a href="{{ url_for('index') }}" {% if page == 'endpoint' %}aria-current="page"{% endif %}>Endpoint</a>{% if settings %}<a href="{{ url_for('accounts') }}" {% if page == 'accounts' %}aria-current="page"{% endif %}>Device accounts</a>{% endif %}</nav>
+  {% endif %}
+  <section class="card">
+  {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
+  {% if page == 'initialize' %}
+    <h2>Create administrator password</h2><p>This password protects the endpoint interface. VPN device passwords are configured separately.</p>
+    <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <label for="admin-password">Administrator password</label><input id="admin-password" name="password" type="password" minlength="16" maxlength="256" required autocomplete="new-password">
+      <label for="confirmation">Confirm password</label><input id="confirmation" name="confirmation" type="password" minlength="16" maxlength="256" required autocomplete="new-password">
+      <button>Create administrator</button>
+    </form>
+  {% elif page == 'login' %}
+    <h2>Administrator sign in</h2><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="password">Administrator password</label><input id="password" name="password" type="password" required autocomplete="current-password"><button>Sign in</button></form>
+  {% elif page == 'accounts' %}
+    {% if request.args.get('changed') %}<p class="notice" role="status">Account changes saved. Restart the VPN container to apply them and disconnect existing sessions:<br><code>docker compose -f compose.dashboard.yaml restart vpn</code></p>{% endif %}
+    <h2>Device access</h2>
+    {% if accounts %}
+    <div class="table-scroll"><table><thead><tr><th>Account</th><th>Status</th><th>Manage access</th></tr></thead><tbody>
+    {% for name, account in accounts|dictsort %}<tr><td>{{ name }}</td><td><span class="badge {% if account.enabled %}enabled{% endif %}">{{ 'Enabled' if account.enabled else 'Disabled' }}</span></td><td>
+      <div class="account-actions"><form action="{{ url_for('accounts') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="username" value="{{ name }}"><button class="secondary" name="action" value="{{ 'disable' if account.enabled else 'enable' }}">{{ 'Disable' if account.enabled else 'Enable' }}</button></form>
+      <details><summary>Change password</summary><form action="{{ url_for('accounts') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="username" value="{{ name }}"><label for="password-{{ loop.index }}">New VPN password</label><input id="password-{{ loop.index }}" name="password" type="password" minlength="16" maxlength="256" required autocomplete="new-password"><button name="action" value="password">Save password</button></form></details>
+      <details class="delete-account"><summary>Delete</summary><p>Permanently remove {{ name }}? The device will need a new account to reconnect.</p><form action="{{ url_for('accounts') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="username" value="{{ name }}"><button class="danger" name="action" value="delete">Delete account</button></form></details></div>
+    </td></tr>{% endfor %}
+    </tbody></table></div>
+    {% else %}<p class="notice">No device accounts yet. Add the first account below to allow a device to connect.</p>{% endif %}
+    <h3>Add a device account</h3><form action="{{ url_for('accounts') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="username">Account name</label><input id="username" name="username" pattern="[A-Za-z0-9_.@-]{1,64}" maxlength="64" required autocomplete="off"><label for="new-password">VPN password</label><input id="new-password" name="password" type="password" minlength="16" maxlength="256" required autocomplete="new-password"><button name="action" value="add">Add account</button></form>
+  {% elif not settings %}
+    <h2>Gateway configuration</h2><p>Choose a hostname, VPN address pool and permitted private destinations. Add device accounts on the next page.</p>
+    <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for name,label,placeholder in [('server','VPN hostname','vpn.example.org'),('pool','VPN IPv4 pool','10.20.30.0/24'),('dns','DNS resolver','192.168.10.53'),('lan','LAN networks (space-separated CIDRs)','192.168.10.0/24'),('allowed','Permitted private destinations (CIDRs)','192.168.10.53/32')] %}<label for="{{ name }}">{{ label }}</label><input id="{{ name }}" name="{{ name }}" placeholder="{{ placeholder }}" value="{{ request.form.get(name, '') }}" required>{% endfor %}
+    <button>Create endpoint and continue</button></form>
+  {% else %}
+    <h2>Endpoint configured</h2><dl><dt>Gateway</dt><dd>{{ settings.server }}</dd><dt>VPN pool</dt><dd>{{ settings.pool }}</dd><dt>DNS resolver</dt><dd>{{ settings.dns }}</dd><dt>LAN networks</dt><dd>{{ settings.lan }}</dd><dt>Permitted destinations</dt><dd>{{ settings.allowed }}</dd><dt>Device accounts</dt><dd>{{ account_count }}</dd></dl>
+    {% if account_count == 0 %}<p class="notice">Add a device account before connecting your first device.</p>{% endif %}
+    <a class="button" href="{{ url_for('certificate') }}">Download public CA certificate</a><p>Upload this certificate to the Family VPN dashboard. Private keys and passwords are never displayed.</p>
+    <a class="button secondary" href="{{ url_for('accounts') }}">Manage device accounts</a>
+  {% endif %}
+  </section>
+  {% if page not in ['initialize', 'login'] %}<form class="logout" action="{{ url_for('logout') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Sign out</button></form>{% endif %}
+  <footer>Family VPN · Standalone strongSwan gateway · Keep management access private.</footer>
 </main></body></html>

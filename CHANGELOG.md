@@ -1,5 +1,8 @@
 # Unreleased
 
+- Set the standalone endpoint administrator password through first-launch setup; preserve existing credentials.
+- Add Family VPN shield/network graphics and a separate device accounts page with disabling, enabling, deletion and password changes.
+
 - Add a standalone strongSwan browser setup/account interface with persistent Docker volumes, protected administrator login and public CA download.
 - Keep CA signing keys outside the VPN container and test browser provisioning, volume persistence and CLI compatibility in CI.
 

@@ -10,7 +10,7 @@ cleanup() {
 trap cleanup EXIT
 docker volume create "$name-data" >/dev/null
 docker volume create "$name-ca" >/dev/null
-docker run -d --name "$name" -e VPN_ADMIN_PASSWORD=synthetic-administrator-password \
+docker run -d --name "$name" \
   -v "$name-data:/data" -v "$name-ca:/authority" "$ui_image" >/dev/null
 for attempt in {1..30}; do
   if docker exec "$name" /opt/venv/bin/python -c 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:8080/login")' >/dev/null 2>&1; then break; fi
@@ -28,9 +28,13 @@ def csrf(path):
     return re.search(r'name="csrf_token" value="([^"]+)"',client.open(base+path).read().decode())[1]
 def post(path,values):
     return client.open(base+path,urlencode(values).encode()).read().decode()
-post('/login',dict(csrf_token=csrf('/login'),password='synthetic-administrator-password'))
-page=post('/',dict(csrf_token=csrf('/'),server='vpn.example.org',pool='10.20.30.0/24',dns='192.168.10.53',lan='192.168.10.0/24',allowed='192.168.10.53/32',username='smoke-device',password='synthetic-vpn-password'))
-assert 'Endpoint configured' in page
+post('/initialize',dict(csrf_token=csrf('/initialize'),password='synthetic-administrator-password',confirmation='synthetic-administrator-password'))
+page=post('/',dict(csrf_token=csrf('/'),server='vpn.example.org',pool='10.20.30.0/24',dns='192.168.10.53',lan='192.168.10.0/24',allowed='192.168.10.53/32'))
+assert 'Device access' in page
+assert 'No device accounts yet' in page
+page=post('/accounts',dict(csrf_token=csrf('/accounts'),username='smoke-device',password='synthetic-vpn-password',action='add'))
+assert 'Enabled' in page
+assert 'smoke-device' in page
 assert 'synthetic-vpn-password' not in page
 assert client.open(base+'/ca.pem').read().startswith(b'-----BEGIN CERTIFICATE-----')
 PYTHON

@@ -7,5 +7,6 @@ RUN /opt/venv/bin/pip install --no-cache-dir --require-hashes -r /requirements.l
 WORKDIR /app
 COPY configure.py swanctl.conf.template web.py ./
 COPY templates ./templates
+COPY static ./static
 EXPOSE 8080
-CMD ["/opt/venv/bin/gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "1", "--access-logfile", "-", "web:app"]
+CMD ["/opt/venv/bin/gunicorn", "--bind", "0.0.0.0:8080", "--workers", "1", "--threads", "1", "--access-logfile", "-", "web:create_app()"]

@@ -33,8 +33,8 @@ def validate(server, pool, dns, username, lan, allowed):
 
 
 def create(output, server, pool, dns, username, password, lan, allowed, certificate_days=365):
-    network = validate(server,pool,dns,username,lan,allowed)
-    if len(password) < 16 or len(password) > 256 or any(ord(c)<33 or ord(c)>126 or c in {chr(34),chr(92)} for c in password):
+    network = validate(server,pool,dns,username if username is not None else "unused",lan,allowed)
+    if username is not None and (password is None or len(password) < 16 or len(password) > 256 or any(ord(c)<33 or ord(c)>126 or c in {chr(34),chr(92)} for c in password)):
         raise ValueError('Use a 16-256 character printable password without quotes or backslashes')
     output = Path(output)
     if output.exists() and any(output.iterdir()): raise ValueError('Output is not empty; preserve existing keys and configure additional accounts manually')
@@ -55,7 +55,8 @@ def create(output, server, pool, dns, username, password, lan, allowed, certific
     config = Path(__file__).with_name('swanctl.conf.template').read_text()
     config = config.replace('VPN_HOSTNAME',server).replace('VPN_POOL_RANGE',str(network.network_address+1)+'-'+str(network.broadcast_address-1)).replace('VPN_DNS',dns)
     (output/'swanctl/swanctl.conf').write_text(config)
-    (output/'swanctl/conf.d/family-vpn-secrets.conf').write_text('secrets {\n    eap-device {\n        id = "'+username+'"\n        secret = "'+password+'"\n    }\n}\n')
+    account = '    eap-device {\n        id = "'+username+'"\n        secret = "'+password+'"\n    }\n' if username is not None else ''
+    (output/'swanctl/conf.d/family-vpn-secrets.conf').write_text('secrets {\n'+account+'}\n')
     (output/'gateway.env').write_text('VPN_POOL_CIDR='+str(network)+'\nVPN_LAN_CIDRS='+lan+'\nVPN_ALLOWED_LAN_CIDRS='+allowed+'\n')
     print('Created endpoint configuration. Upload only swanctl/x509ca/family-vpn-ca.pem to the dashboard. Keep ca/ offline; do not mount it into the gateway.')
 

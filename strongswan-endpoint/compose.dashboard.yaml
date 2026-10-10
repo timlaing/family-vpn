@@ -7,7 +7,6 @@ services:
     restart: unless-stopped
     environment:
       VPN_COOKIE_SECURE: ${VPN_COOKIE_SECURE:-0}
-      VPN_ADMIN_PASSWORD: ${VPN_ADMIN_PASSWORD:?Set an initial administrator password in .env}
     ports:
       - "${VPN_MANAGEMENT_BIND:-127.0.0.1}:8080:8080"
     volumes:

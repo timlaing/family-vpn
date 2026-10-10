@@ -18,8 +18,7 @@ spec.loader.exec_module(web)
 
 
 @pytest.fixture
-def management(tmp_path, monkeypatch):
-    monkeypatch.setenv("VPN_ADMIN_PASSWORD", "synthetic-administrator-password")
+def management(tmp_path):
     app = web.create_app(tmp_path / "data", tmp_path / "authority")
     app.config["TESTING"] = True
     # importlib does not give Flask the source root for template discovery.
@@ -28,11 +27,15 @@ def management(tmp_path, monkeypatch):
 
 
 def token(client, path="/"):
-    response = client.get(path)
+    response = client.get(path, follow_redirects=True)
     return re.search(r'name="csrf_token" value="([^"]+)"', response.text)[1]
 
 
 def sign_in(client):
+    if client.get("/login").location == "/initialize":
+        return client.post("/initialize", data={"csrf_token": token(client, "/initialize"),
+                                              "password": "synthetic-administrator-password",
+                                              "confirmation": "synthetic-administrator-password"})
     return client.post("/login", data={"csrf_token": token(client, "/login"),
                                      "password": "synthetic-administrator-password"})
 
@@ -40,7 +43,9 @@ def sign_in(client):
 def test_login_csrf_rate_limit_and_secret_redaction(management):
     app, _ = management
     client = app.test_client()
-    assert client.get("/ca.pem").status_code == 302
+    assert client.get("/ca.pem").location == "/initialize"
+    sign_in(client)
+    client.post("/logout", data={"csrf_token": token(client)})
     assert client.post("/login", data={"password": "wrong"}).status_code == 400
     csrf = token(client, "/login")
     for _ in range(10):
@@ -53,9 +58,10 @@ def test_setup_accounts_certificate_and_restart_persistence(management):
     client = app.test_client()
     assert sign_in(client).status_code == 302
     payload = dict(csrf_token=token(client), server="vpn.example.org", pool="10.20.30.0/24",
-                   dns="192.168.10.53", username="device-one", password="synthetic-vpn-password",
+                   dns="192.168.10.53",
                    lan="192.168.10.0/24", allowed="192.168.10.53/32")
-    assert client.post("/", data=payload).status_code == 302
+    assert client.post("/", data=payload).location == "/accounts"
+    assert client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username="device-one", password="synthetic-vpn-password")).status_code == 302
     assert (directory / "authority/ca/ca-key.pem").exists()
     assert not (directory / "data/ca").exists()
     assert (directory / "data/ready").exists()
@@ -72,5 +78,71 @@ def test_setup_accounts_certificate_and_restart_persistence(management):
     again.template_folder = str(ROOT / "templates")
     fresh = again.test_client()
     sign_in(fresh)
-    assert "device-two" in fresh.get("/").text
-    assert fresh.post("/accounts", data=dict(csrf_token=token(fresh), username="device-two", action="delete")).status_code == 400
+    assert "device-two" in fresh.get("/accounts").text
+    assert "device-two" not in fresh.get("/").text
+    assert fresh.post("/accounts", data=dict(csrf_token=token(fresh), username="device-two", action="delete")).status_code == 302
+
+
+def test_first_launch_password_is_required_confirmed_and_cannot_be_replaced(management):
+    app, directory = management
+    client = app.test_client()
+    assert not (directory / "authority/administrator.json").exists()
+    assert client.get("/accounts").location == "/initialize"
+    assert client.post("/initialize", data={"password": "short"}).status_code == 400
+    csrf = token(client, "/initialize")
+    assert "16–256" in client.post("/initialize", data=dict(csrf_token=csrf, password="short", confirmation="short")).text
+    assert "do not match" in client.post("/initialize", data=dict(csrf_token=csrf, password="synthetic-administrator-password", confirmation="different")).text
+    sign_in(client)
+    admin = directory / "authority/administrator.json"
+    original = admin.read_bytes()
+    assert b"synthetic-administrator-password" not in original
+    assert admin.stat().st_mode & 0o777 == 0o600
+    assert client.post("/initialize", data=dict(csrf_token=token(client), password="replacement-password", confirmation="replacement-password")).status_code == 409
+    assert admin.read_bytes() == original
+    assert client.get("/accounts").location == "/"
+    assert 'name="username"' not in client.get("/").text
+
+
+def test_account_actions_exclude_disabled_accounts_and_preserve_state(management):
+    app, directory = management
+    client = app.test_client()
+    sign_in(client)
+    client.post("/", data=dict(csrf_token=token(client), server="vpn.example.org", pool="10.20.30.0/24",
+                              dns="192.168.10.53", lan="192.168.10.0/24", allowed="192.168.10.53/32"))
+    def action(name, operation, password="synthetic-vpn-password"):
+        return client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username=name, action=operation, password=password))
+    assert action("device", "add").status_code == 302
+    assert action("device", "add").status_code == 409
+    secrets_file = directory / "data/swanctl/conf.d/family-vpn-secrets.conf"
+    assert 'id = "device"' in secrets_file.read_text()
+    assert action("device", "disable").status_code == 302
+    assert 'id = "device"' not in secrets_file.read_text()
+    assert action("device", "password", "replacement-vpn-password").status_code == 302
+    account = json.loads((directory / "data/accounts.json").read_text())["device"]
+    assert account == {"enabled": False, "password": "replacement-vpn-password"}
+    assert "replacement-vpn-password" not in client.get("/accounts").text
+    assert action("device", "enable").status_code == 302
+    assert "replacement-vpn-password" in secrets_file.read_text()
+    assert action("device", "password", "short").status_code == 400
+    assert action("missing", "disable").status_code == 404
+    assert action("device", "unknown").status_code == 400
+    assert action("device", "delete").status_code == 302
+    assert json.loads((directory / "data/accounts.json").read_text()) == {}
+    assert 'id = "device"' not in secrets_file.read_text()
+
+
+def test_legacy_credentials_and_accounts_are_preserved(management):
+    app, directory = management
+    client = app.test_client()
+    sign_in(client)
+    client.post("/", data=dict(csrf_token=token(client), server="vpn.example.org", pool="10.20.30.0/24",
+                              dns="192.168.10.53", lan="192.168.10.0/24", allowed="192.168.10.53/32"))
+    account_file = directory / "data/accounts.json"
+    account_file.write_text(json.dumps({"legacy": "legacy-account-password"}))
+    assert "legacy" in client.get("/accounts").text
+    assert client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username="legacy", action="disable")).status_code == 302
+    assert json.loads(account_file.read_text())["legacy"] == {"enabled": False, "password": "legacy-account-password"}
+    # Legacy installations did not have a separate session-key file.
+    (directory / "authority/session-key").unlink()
+    restarted = web.create_app(directory / "data", directory / "authority")
+    assert restarted.config["SECRET_KEY"] == app.config["SECRET_KEY"]
