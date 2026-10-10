@@ -32,7 +32,10 @@ class RelaySender:
             with httpx.Client(timeout=25,follow_redirects=False) as client:
                 response = client.post(https_url(self.settings.relay_url)+'/ping',content=body,
                     headers=signed_headers(self.settings.relay_secret,'/ping',body))
-            self.connectivity = 'Reachable · callback verified' if response.status_code == 200 and self.callback_at else 'Reachable · callback failed' if response.status_code == 200 else 'Relay rejected the check'
+            if response.status_code != 200:
+                self.connectivity = 'Relay rejected the check'
+            else:
+                self.connectivity = 'Reachable · callback verified' if self.callback_at else 'Reachable · callback failed'
         except (httpx.RequestError,ValueError):
             self.connectivity = 'Unable to reach relay'
         finally:

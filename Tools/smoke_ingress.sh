@@ -78,7 +78,8 @@ for attempt in range(30):
         with client.open(base+prefix+'/',timeout=2) as response:
             assert response.status==200
             html=response.read().decode()
-            assert prefix+'/advanced' in html
+            assert prefix+'/provisioning' in html
+            assert 'Push delivery</a>' not in html
             assert response.headers.get('X-Frame-Options') is None
         break
     except (OSError,urllib.error.URLError): time.sleep(1)

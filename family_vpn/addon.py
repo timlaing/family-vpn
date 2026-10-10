@@ -5,6 +5,9 @@ import secrets
 from pathlib import Path
 from .app import Settings
 
+APNS_SANDBOX_URL = 'https://api.sandbox.push.apple.com'
+APNS_PRODUCTION_URL = 'https://api.push.apple.com'
+
 RELAY_RESULTS_PATH = "/relay-results"
 HOST_CREDENTIALS_FILE = "host-credentials.json"
 HOST_KEY_FILE = "host-apns.p8"
@@ -163,7 +166,7 @@ class AddonConfiguration:
         choice = form.get('push_choice', settings.push_choice)
         if choice not in {'primary','custom'}: raise ValueError('Select Primary or Custom')
         url = 'https://push.family-vpn.workers.dev' if choice == 'primary' else https_url(form.get('push_url',settings.relay_url))
-        direct = url in {'https://api.push.apple.com','https://api.sandbox.push.apple.com'}
+        direct = url in {APNS_PRODUCTION_URL,APNS_SANDBOX_URL}
         if choice == 'custom' and not direct: raise ValueError('Custom push supports direct Apple APNs URLs only')
         candidate = {field:getattr(settings,field) for field in FIELDS}
         candidate.update(push_choice=choice, push_mode='direct' if direct else 'relay',relay_url=url)
@@ -255,7 +258,7 @@ class AddonConfiguration:
         from .relay_service import valid_token
         import re
         url = https_url(form.get('host_push_url',settings.host_push_url))
-        if url not in {'https://api.push.apple.com','https://api.sandbox.push.apple.com'}: raise ValueError('Select an Apple APNs HTTPS URL')
+        if url not in {APNS_PRODUCTION_URL,APNS_SANDBOX_URL}: raise ValueError('Select an Apple APNs HTTPS URL')
         topic = form.get('host_topic',settings.host_topic).strip()
         if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9.-]{1,255}',topic): raise ValueError('Invalid bundle ID')
         proxy = form.get('proxy_token','').strip()
@@ -280,7 +283,7 @@ class AddonConfiguration:
         if not url: raise ValueError('Provide the public relay HTTPS address')
         values = dict(form,host_enabled='true',host_url=url,host_topic=settings.apns_topic,
             host_key_id=settings.apns_key_id,host_team_id=settings.apns_team_id,
-            host_push_url='https://api.sandbox.push.apple.com' if settings.apns_environment == 'sandbox' else 'https://api.push.apple.com',
+            host_push_url=APNS_SANDBOX_URL if settings.apns_environment == 'sandbox' else APNS_PRODUCTION_URL,
             host_private_key=Path(settings.apns_key_file).read_text())
         self.update_host(values,settings)
 
