@@ -19,3 +19,5 @@ All subnet ranges in documentation and proxy examples are illustrative. Replace 
 ## VPN endpoint setup
 
 See the [endpoint setup guide](https://github.com/timlaing/family-vpn/blob/main/docs/VPN_ENDPOINT_SETUP.md), with MikroTik RouterOS and strongSwan settings based on the inspected IKEv2/EAP deployment. Configure your gateway and authentication backend before enrolling devices.
+
+For updated published apps, use the dashboard **Add device** flow with a single-use setup QR/link instead of manually retrieving the enrollment bearer. See [quick start](QUICK_START.md). Each invitation expires after ten minutes and grants a device-scoped enrollment credential for future token updates; the reusable bearer remains available only for legacy/manual clients.

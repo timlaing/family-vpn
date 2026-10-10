@@ -92,7 +92,7 @@ with client.open(base+prefix+'/configuration',data=urllib.parse.urlencode(form).
     assert b'Force rotate key' in response.read()
 with client.open(base+prefix+'/',timeout=2) as response:
     csrf=re.search(r'name="csrf" value="([^"]+)"',response.read().decode()).group(1)
-form={'csrf':csrf,'server':'vpn.example.org','trusted_ssid':'Synthetic Wi-Fi'}
+form={'csrf':csrf,'rest_url':'https://dashboard.example.org/family-vpn','server':'vpn.example.org','trusted_ssid':'Synthetic Wi-Fi'}
 with client.open(base+prefix+'/vpn-provisioning',data=urllib.parse.urlencode(form).encode(),timeout=2) as response:
     assert response.url.endswith('/provisioning')
     assert b'Synthetic Wi-Fi' in response.read()
@@ -101,7 +101,7 @@ with client.open(base+prefix+'/administrator-password',data=urllib.parse.urlenco
     assert b'Set up push delivery' in response.read()
 with client.open(base+prefix+'/',timeout=2) as response:
     html=response.read()
-    assert b'Set up push delivery' in html
+    assert b'Check setup and enable notifications' in html
     assert b'Save VPN provisioning' not in html
 print('Synthetic Supervisor gateway, prefixed assets/cookies, configuration, provisioning and gated push setup passed')
 PY

@@ -67,7 +67,7 @@ NPM must see the real registration/VPN source addresses. If another proxy or NAT
 | api/devices, api/push, api/commands | VPN clients; admin authentication required | Matching /api route |
 | GET health | VPN clients; no bearer | /health |
 
-Verify allowed and denied source paths before enrolling a real device: registration works only from the registration LAN; public POST reports require valid scoped credentials; pending-command/configuration and administrator routes reject non-VPN sources. From an allowed VPN source, `/health` returns `{"status":"ok"}`. The REST listener rejects dashboard and configuration routes. Set the native registration endpoint to `https://YOUR_HOST/family-vpn/registrations`; the app derives sibling endpoints on the same origin and prefix.
+Verify allowed and denied source paths before enrolling a real device: registration works only from the registration LAN; public POST reports require valid scoped credentials; pending-command/configuration and administrator routes reject non-VPN sources. From an allowed VPN source, `/health` returns `{"status":"ok"}`. The REST listener rejects dashboard and configuration routes. For legacy manual enrollment, set the native registration endpoint to `https://YOUR_HOST/family-vpn/registrations`; the app derives sibling endpoints on the same origin and prefix.
 
 After a manual APNs command, verify its acknowledgement and a subsequent report from a physical device. Synthetic/unit/container checks do not establish your Supervisor installation, NPM routing, APNs delivery or real tunnel recovery.
 
@@ -88,3 +88,7 @@ Use **Push setup** to select the primary published-app relay or direct Apple APN
 ## Primary and custom push setup
 
 After VPN provisioning and administrator setup, choose Primary or Custom in Push setup. Primary registers the endpoint with the hosted relay. Custom supports direct Apple APNs only and opens a three-field credential upload, bundle ID and push URL form. Set the public REST base once in provisioning; callbacks derive from it. Policy scheduling is in Administration. The publisher can host the primary relay on this same app using the collapsed Advanced operator panel, with a private Worker credential and APNs key upload. See [push delivery and hosted relay](https://github.com/timlaing/family-vpn/blob/main/docs/PUSH_RELAY.md) for updated setup and key lifecycle.
+
+## Guided setup and adding devices
+
+The dashboard opens its Setup guide until provisioning, administrator setup and push delivery are complete. The guide generates reverse-proxy locations and checks the public HTTPS address before enabling primary-relay notifications. Use Add device for a ten-minute, single-use QR code/setup link; no reusable enrollment bearer needs to be retrieved or typed. Updated native apps support scan/open/paste enrollment and keep their device-scoped credential in Keychain. See [quick start](https://github.com/timlaing/family-vpn/blob/main/docs/QUICK_START.md). The public POST setup-probe route accepts only a short-lived, one-use probe bearer generated during a dashboard check.

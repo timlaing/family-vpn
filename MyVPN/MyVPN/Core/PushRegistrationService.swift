@@ -10,6 +10,7 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
 
 @MainActor enum PushRegistrationService {
     static let store = CredentialStore()
+    private static var enrolling = false
     static func configure(endpoint: String, secret: String) throws {
         guard let url = URL(string: endpoint), url.scheme == "https", url.host != nil, url.user == nil, url.password == nil, url.query == nil, url.fragment == nil, secret.count >= 32 else { throw AppError.message("Use an HTTPS registration URL and a strong enrollment secret.") }
         _ = try WatchdogStatus.endpoint(from: url)
@@ -23,10 +24,20 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         if try store.read("watchdog-id") == nil { try store.put("watchdog-id", data: Data(UUID().uuidString.lowercased().utf8)) }
     }
     static func enroll(endpoint: String, secret: String) async throws {
+        guard !enrolling else { throw AppError.message("Registration is already in progress.") }
+        enrolling = true
+        defer { enrolling = false }
         let accounts = ["watchdog-endpoint", "watchdog-secret", "watchdog-id", "watchdog-status-secret", "watchdog-command-key", "watchdog-command-epoch", "watchdog-command-ledger", "watchdog-registered-token", "administrator", "vpn-provision"]
         var previous: [String: Data] = [:]
         for account in accounts { if let value = try store.read(account) { previous[account] = value } }
-        do { try configure(endpoint: endpoint, secret: secret); try await register() }
+        do {
+            try configure(endpoint: endpoint, secret: secret)
+            try await register()
+            // A token arriving during single-use redemption is sent with the new device credential.
+            if let token = try store.read("watchdog-apns-token"), try store.read("watchdog-registered-token") != token {
+                try await register(token: token)
+            }
+        }
         catch {
             let original = error
             do {
@@ -40,6 +51,7 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
     }
     static func receivedAPNsToken(_ token: Data) async throws {
         try store.put("watchdog-apns-token", data: token)
+        if enrolling { return }
         if try store.read("watchdog-registered-token") == token, try store.read("watchdog-status-secret") != nil { return }
         try await register(token: token)
     }
@@ -73,6 +85,15 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         guard try store.read("watchdog-endpoint") == endpointData,
               try store.read("watchdog-secret") == secretData,
               try store.read("watchdog-id") == idData else { throw AppError.message("Enrollment changed while registration was in progress. Register again.") }
+        if let credential = registration.enrollmentToken {
+            guard credential.hasPrefix("device_"), credential.utf8.count == 50,
+                credential.dropFirst(7).utf8.allSatisfy({ (65...90).contains($0) || (97...122).contains($0) || (48...57).contains($0) || $0 == 45 || $0 == 95 }) else {
+                throw AppError.message("The dashboard did not provide a device enrollment credential. Generate a replacement setup code.")
+            }
+        }
+        if secret.hasPrefix("invite_") && registration.enrollmentToken == nil {
+            throw AppError.message("The dashboard did not provide a device enrollment credential. Generate a replacement setup code.")
+        }
         // Remove the previous trust first; incomplete enrollment never authorizes remote actions.
         try store.delete("watchdog-command-key")
         try store.put("watchdog-command-epoch", data: Data(epoch.utf8))
@@ -81,15 +102,17 @@ private final class RegistrationSessionDelegate: NSObject, URLSessionTaskDelegat
         try store.put("watchdog-status-secret", data: Data(registration.statusToken.utf8))
         try AdminAuthenticator().provision(provision)
         try store.put("vpn-provision", data: JSONEncoder().encode(config))
+        if let credential = registration.enrollmentToken { try store.put("watchdog-secret", data: Data(credential.utf8)) }
         if let token { try store.put("watchdog-registered-token", data: token) }
     }
     private struct RegistrationReply: Decodable {
         let vpn: VPNProvision?
+        let enrollmentToken: String?
         let statusToken: String
         let commandKey: String?
         let commandEpoch: String?
         let administrator: AdministratorProvision?
-        enum CodingKeys: String, CodingKey { case vpn, administrator, statusToken = "status_token", commandKey = "command_key", commandEpoch = "command_epoch" }
+        enum CodingKeys: String, CodingKey { case vpn, administrator, enrollmentToken = "enrollment_token", statusToken = "status_token", commandKey = "command_key", commandEpoch = "command_epoch" }
     }
     static func trustedCommand(_ envelope: RemoteCommandEnvelope) throws -> RemoteCommand {
         guard let key = try store.read("watchdog-command-key"),

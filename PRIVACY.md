@@ -47,3 +47,5 @@ Dashboard data is held in the operator's database and backups. Operational histo
 For questions about the software or this policy, contact **tim@laingcorp.co.uk**. For questions about your VPN traffic, dashboard records or deployment access, contact the administrator who enrolled your device.
 
 This policy may be updated as the software changes. The effective date above identifies the current version. Source code and policy history are available at https://github.com/timlaing/family-vpn.
+
+Device setup links contain a short-lived, single-use enrollment credential. The dashboard stores its hash and expiry, replacing unused invitations when an administrator generates another code. A successful redemption creates a credential scoped to that device installation; only its hash is stored server-side, and the native app stores the credential in Keychain. Setup links should be kept private. Temporary HTTPS connectivity checks likewise use short-lived, single-use hashed credentials.

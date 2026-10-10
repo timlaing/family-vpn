@@ -1,3 +1,10 @@
+# 0.6.0
+
+- Add a guided published-app setup flow, copy-ready reverse-proxy configuration, and one-use HTTPS connectivity checks.
+- Enroll devices with ten-minute single-use QR codes/setup links and device-scoped registration credentials.
+- Support native setup links, iOS QR scanning, and explicit dashboard confirmation with manual enrollment retained for older deployments.
+- Add a separate Linux strongSwan Docker/Compose endpoint with private certificate/account generation and deployment instructions.
+
 # 0.5.2
 
 - Enable automatic policy checks by default; start their interval only after a push-capable device registers and push delivery is ready.

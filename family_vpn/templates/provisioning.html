@@ -2,10 +2,11 @@
   <h2>{{ 'VPN provisioning' if vpn_provision else 'Set up your VPN' }}</h2>
   <p>{{ 'Update the connection settings provided to your devices.' if vpn_provision else 'Enter your VPN gateway settings below. Save them, then set up the device administrator password.' }}</p>
   <form action="{{ url_for('configure_vpn_provisioning') }}" method="post" enctype="multipart/form-data">
+    {% if wizard|default(false) %}<input type="hidden" name="wizard" value="true">{% endif %}
     <input type="hidden" name="csrf" value="{{ csrf_token() }}">
-    {% if request.environ.get('vpnweb.ingress') %}<label>Public REST interface address<input name="rest_url" type="url" required placeholder="https://dashboard.example.org/family-vpn" value="{{ settings.rest_url }}"><small>Used for device enrollment, reports and relay callbacks. Enter the base address without /registrations.</small></label>{% endif %}
+    {% if request.environ.get('vpnweb.ingress') %}<label>Public dashboard address<input name="rest_url" type="url" required maxlength="512" placeholder="https://dashboard.example.org/family-vpn" value="{{ settings.rest_url }}"><small>Used for device enrollment, reports and relay callbacks. Enter the base address without /registrations.</small></label>{% endif %}
     <label>VPN gateway<input name="server" required maxlength="253" placeholder="vpn.example.org" value="{{ vpn_provision.server if vpn_provision else '' }}"><small>The hostname or IP address of your VPN server.</small></label>
-    <label>Server certificate identity<input name="remote_identifier" maxlength="253" placeholder="Defaults to gateway" value="{{ vpn_provision.remoteIdentifier if vpn_provision else '' }}"><small>Leave blank if the server certificate uses the gateway name.</small></label>
+    <details><summary>Advanced server identity</summary><label>Server certificate identity<input name="remote_identifier" maxlength="253" placeholder="Defaults to gateway" value="{{ vpn_provision.remoteIdentifier if vpn_provision else '' }}"><small>Leave blank if the server certificate uses the gateway name.</small></label></details>
     <fieldset class="wifi-list">
       <legend>Trusted Wi-Fi networks</legend>
       <p>Add networks where devices can use Wi-Fi without connecting to the VPN. Leave the list empty to use the VPN on every network.</p>
@@ -26,7 +27,7 @@
       {% if vpn_provision and vpn_provision.caCertificate %}<label class="checkbox-label"><input type="checkbox" name="remove_ca" value="true">Remove the configured CA certificate</label>{% endif %}
       <p>Your devices will need to approve a private CA in system Settings after registration.</p>
     </fieldset>
-    <button {% if demo %}disabled{% endif %}>Save VPN provisioning</button>
+    <button {% if demo %}disabled{% endif %}>{{ 'Save and continue' if wizard|default(false) else 'Save VPN provisioning' }}</button>
   </form>
   {% if vpn_provision %}<p class="setup-next"><a href="{{ url_for('administration') }}">Continue to Administration</a></p>{% endif %}
 </section>

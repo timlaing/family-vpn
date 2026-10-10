@@ -331,7 +331,7 @@ class DashboardViews:
         if request.path in {"/vpn-provisioning", "/advanced", "/configuration", "/relay-operator"}: request.max_content_length = 32768
         if request.content_length is not None and request.content_length > (request.max_content_length or self.app.config["MAX_CONTENT_LENGTH"]): abort(413)
         if self.settings.demo and request.method != "GET": abort(403)
-        if request.path in {"/status", "/command-results"}: self.limit_public_report()
+        if request.path in {"/status", "/command-results", "/setup-probe", "/registrations"}: self.limit_public_report()
         if request.environ.get(INGRESS_FLAG):
             session["admin"] = True
 
@@ -376,13 +376,15 @@ class DashboardViews:
         ready = provisioned and administered
         push_ready = self.settings.demo or not self.app.extensions.get('addon_configuration') or self.settings.apns_ready
         devices = self.settings.demo or bool(self.database.public_devices())
-        return {"available_pages": {"provisioning": True, "configuration": True, "advanced": True, "push_setup": ready,
+        return {"available_pages": {"setup": True, "add_device": ready and push_ready, "provisioning": True, "configuration": True, "advanced": True, "push_setup": ready,
             "administration": provisioned, "dashboard": ready and push_ready, "activity": ready and push_ready and devices}}
 
     def dashboard(self):
         if not self.settings.demo and not session.get("admin"): return redirect(url_for("login"))
         available = self.navigation_state()["available_pages"]
         page = request.endpoint
+        if page == 'dashboard' and self.app.extensions.get('addon_configuration') and not available['dashboard']:
+            return redirect(url_for('setup'))
         if page == 'dashboard' and available['push_setup'] and not available[page]:
             return redirect(url_for('push_setup'))
         if page == "dashboard" and not available[page]:
@@ -405,6 +407,7 @@ class DashboardViews:
             if manager and 'rest_url' in request.form:
                 from .relay_protocol import https_url
                 rest_url = https_url(request.form['rest_url'].strip())
+                if len(rest_url) > 512: raise ValueError('Use a dashboard address of at most 512 characters')
             ca = self.vpn_provisioning.certificate_pem(request.files.get("ca_file"), request.form.get("ca_pem", ""), request.form.get("remove_ca") == "true")
             value = self.vpn_provisioning.save(request.form.get("server"), request.form.get("remote_identifier"), ssids, ca)
             from .relay_protocol import server_key
@@ -412,13 +415,14 @@ class DashboardViews:
             self.settings.rest_url = rest_url
             if manager: manager.save_settings(self.settings)
         except ValueError as exc: return str(exc), 400
-        return redirect(url_for("provisioning"))
+        return redirect(url_for("setup" if request.form.get("wizard") == "true" else "provisioning"))
 
 
     def administrator_password(self):
         if not session.get("admin"): abort(401)
         try: self.administrator.set_password(request.form.get("password"),request.form.get("confirmation"))
         except ValueError: return "Use matching administrator passwords of at least 12 characters (maximum 1024 UTF-8 bytes).",400
+        if request.form.get('wizard') == 'true': return redirect(url_for('setup'))
         if self.app.extensions.get('addon_configuration') and not self.settings.apns_ready:
             return redirect(url_for('push_setup'))
         return redirect(url_for("administration"))
@@ -436,7 +440,9 @@ class DashboardViews:
         return device, token
 
     def register(self):
-        if not equal(self.bearer(), self.settings.enrollment_secret): abort(401)
+        bearer = self.bearer()
+        if not bearer or not (equal(bearer,self.settings.enrollment_secret) or bearer.startswith(('invite_','device_'))): abort(401)
+        if bearer.startswith('invite_') and (request.headers.get('X-FamilyVPN-Command-Protocol') != '1' or request.headers.get('X-FamilyVPN-Administrator-Protocol') != '1' or request.headers.get('X-FamilyVPN-VPN-Protocol') != '2'): abort(400)
         device, token = self.registration_payload()
         provision = self.administrator.enrollment() if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" else None
         if request.headers.get("X-FamilyVPN-Administrator-Protocol") == "1" and provision is None:
@@ -446,13 +452,18 @@ class DashboardViews:
             return jsonify(error="Configure the VPN gateway and trusted Wi-Fi in the dashboard before enrollment"),409
         status_token = secrets.token_urlsafe(32)
         with self.database.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            try: enrollment_token = self.app.extensions['enrollment'].authorize(db,self.bearer(),device,self.settings.enrollment_secret)
+            except ValueError: abort(401)
             db.execute("INSERT INTO devices(id,token,status_hash,registered) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET token=COALESCE(excluded.token,devices.token),status_hash=excluded.status_hash,registered=excluded.registered",
                        (device, token, digest(status_token), time.time()))
+            if enrollment_token:
+                db.execute('UPDATE devices SET enrollment_hash=? WHERE id=?',(digest(enrollment_token),device))
             epoch = str(uuid.uuid4()) if request.headers.get("X-FamilyVPN-Command-Protocol") == "1" else None
             db.execute("UPDATE devices SET command_epoch=?,administrator_capable=?,vpn_capable=? WHERE id=?", (epoch,int(provision is not None),int(request.headers.get("X-FamilyVPN-VPN-Protocol") == "2"),device))
             db.execute("UPDATE commands SET state='superseded' WHERE device=? AND state='pending'",(device,))
             self.database.event(db, device, "registration", "registered")
-        return jsonify(status_token=status_token, **({"command_key": self.commands.public_key, "command_epoch": epoch} if epoch else {}), **({"administrator":provision} if provision else {}), **({"vpn":vpn} if vpn else {})), 201
+        return jsonify(status_token=status_token, **({"enrollment_token":enrollment_token} if enrollment_token else {}), **({"command_key": self.commands.public_key, "command_epoch": epoch} if epoch else {}), **({"administrator":provision} if provision else {}), **({"vpn":vpn} if vpn else {})), 201
 
 
     def status(self):
@@ -734,10 +745,14 @@ def create_app(settings=None, sender=None):
         db.execute("CREATE TABLE IF NOT EXISTS relay_callbacks (nonce TEXT PRIMARY KEY, at REAL NOT NULL)")
     dispatcher = Dispatcher(database, sender or PushSender(settings), settings, commands)
     app.extensions.update(database=database, dispatcher=dispatcher, settings=settings, commands=commands, administrator=administrator)
-    DashboardViews(app)
+    from .enrollment import Enrollment
+    from .setup import SetupViews
+    app.extensions['enrollment'] = Enrollment(database)
+    views = DashboardViews(app)
+    SetupViews(app,views)
     csrf = CSRFProtect(app)
     # Bearer/HMAC-authenticated REST writes are exempt; browser forms remain protected.
-    for endpoint in ("register", "status", "command_results", "create_command", "push", "relay_results"):
+    for endpoint in ("register", "status", "command_results", "create_command", "push", "relay_results", "setup_probe"):
         csrf.exempt(app.view_functions[endpoint])  # noqa: S4502
     app.register_error_handler(CSRFError, lambda error: ("CSRF validation failed", 403))
     if not settings.demo:

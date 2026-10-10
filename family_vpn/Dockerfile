@@ -1,7 +1,7 @@
 FROM python:3.14-slim
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 VPNWEB_DATABASE=/data/vpnweb.sqlite
 WORKDIR /app
-ARG BUILD_VERSION=0.5.2
+ARG BUILD_VERSION=0.6.0
 ARG BUILD_ARCH=amd64
 LABEL io.hass.type="app" io.hass.version=$BUILD_VERSION io.hass.arch=$BUILD_ARCH
 COPY requirements.lock ./
@@ -10,7 +10,7 @@ RUN python -m pip install --no-cache-dir --only-binary=:all: --no-deps --require
     && groupadd --gid 10001 vpnweb \
     && useradd --uid 10001 --gid vpnweb --no-create-home vpnweb \
     && mkdir /data && chown vpnweb:vpnweb /data
-COPY __init__.py addon.py administrator.py app.py commands.py ingress.py provisioning.py relay_protocol.py relay_client.py relay_service.py relay_host.py wsgi.py ./family_vpn/
+COPY __init__.py addon.py administrator.py app.py commands.py ingress.py provisioning.py relay_protocol.py relay_client.py relay_service.py relay_host.py enrollment.py setup.py proxy.py wsgi.py ./family_vpn/
 COPY templates/ ./family_vpn/templates/
 COPY static/ ./family_vpn/static/
 ENV VPNWEB_HOME_ASSISTANT=true

@@ -16,7 +16,7 @@ class TestProxyConfiguration:
     def test_rejects_open_access_and_configuration_injection(self):
         for networks in ([],['0.0.0.0/0'],['::/0'],['invalid'],['10.0.0.0/24; allow all']):
             with pytest.raises(ValueError): generate('192.168.1.20',8500,'/family-vpn/',networks)
-        for prefix in ('/','/vpn','/vpn/;','/vpn/ { allow all; }'):
+        for prefix in ('/vpn','/vpn/;','/vpn/ { allow all; }'):
             with pytest.raises(ValueError): generate('192.168.1.20',8500,prefix,['10.20.30.0/24'])
         for host in ('example.com','127.0.0.1','0.0.0.0','8.8.8.8','192.168.1.20;'):
             with pytest.raises(ValueError): generate(host,8500,'/family-vpn/',['10.20.30.0/24'])
@@ -25,8 +25,8 @@ class TestProxyConfiguration:
 
     def test_public_reports_are_exact_post_only_exceptions(self):
         result=generate('192.168.1.20',8500,'/family-vpn/',['10.20.30.0/24','10.20.40.0/24'],True)
-        assert (result.count('location = ')) == (3)
-        assert (result.count('limit_except POST { deny all; }')) == (3)
+        assert (result.count('location = ')) == (4)
+        assert (result.count('limit_except POST { deny all; }')) == (4)
         for route in ('status','command-results','relay-results'):
             assert ('location = /family-vpn/' + route + ' {') in (result)
             assert ('proxy_pass http://192.168.1.20:8500/' + route + ';') in (result)

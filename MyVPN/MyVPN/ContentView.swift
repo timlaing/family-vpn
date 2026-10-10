@@ -1,4 +1,7 @@
 import SwiftUI
+#if os(iOS)
+import VisionKit
+#endif
 
 private func suspensionLabel(_ minutes: Int) -> String {
     switch minutes {
@@ -16,6 +19,12 @@ struct ContentView: View {
     @State private var administrator = ""
     @State private var endpoint = ""
     @State private var enrollmentSecret = ""
+    @State private var setupLink = ""
+    @State private var enrollmentOffer: EnrollmentLink?
+    @State private var confirmEnrollment = false
+    #if os(iOS)
+    @State private var scannerOpen = false
+    #endif
     @State private var trusted = ""
     @State private var customExpiry = Date().addingTimeInterval(3600)
     @State private var adminOpen = false
@@ -50,6 +59,31 @@ struct ContentView: View {
         mainScreen
         #endif
         }
+        .onOpenURL { url in receiveSetupLink(url.absoluteString) }
+        .alert("Register with this dashboard?", isPresented: $confirmEnrollment) {
+            Button("Register") {
+                guard let offer = enrollmentOffer else { return }
+                enrollmentOffer = nil
+                run { try await vpn.enroll(endpoint: offer.endpoint, secret: offer.token); setupLink = "" }
+            }
+            Button("Cancel", role: .cancel) { enrollmentOffer = nil; setupLink = "" }
+        } message: { Text("Connect to \(enrollmentOffer?.dashboard ?? "") only if this is your dashboard. This retrieves its VPN and administrator configuration.") }
+        #if os(iOS)
+        .sheet(isPresented: $scannerOpen) {
+            NavigationStack {
+                if DataScannerViewController.isSupported && DataScannerViewController.isAvailable {
+                    EnrollmentScanner(scanned: { value in scannerOpen = false; receiveSetupLink(value) }, unavailable: { scannerOpen = false; vpn.error = "Camera scanning is unavailable. Paste the dashboard setup link instead." })
+                        .navigationTitle("Scan setup code")
+                        .toolbar { Button("Cancel") { scannerOpen = false } }
+                } else {
+                    VStack(spacing: 20) {
+                        Text("Camera scanning is unavailable. Paste the setup link from your dashboard instead.")
+                        Button("Done") { scannerOpen = false }
+                    }.padding()
+                }
+            }
+        }
+        #endif
         .onReceive(NotificationCenter.default.publisher(for: .vpnCredentialsRequested)) { _ in
             guard vpn.policy.installed, !vpn.busy, !adminOpen, !credentialsOpen, vpn.screenshotPage == nil else { return }
             run { try await DeviceAuthentication.authorize(); credentialsOpen = true }
@@ -138,15 +172,32 @@ struct ContentView: View {
         if vpn.policy.installed { return "Your family’s private connection." }
         return vpn.administratorReady ? "Registration complete. Add your VPN account to finish setup." : "Register with your dashboard to get started."
     }
+    private func receiveSetupLink(_ text: String) {
+        guard !vpn.busy else { return }
+        do {
+            enrollmentOffer = try EnrollmentLink.parse(text)
+            confirmEnrollment = true
+        } catch { vpn.error = error.localizedDescription }
+    }
     private var registration: some View {
-        Section("Dashboard registration") {
-            Text("Set up your environment and device administrator password in the dashboard, then register from its allowed registration network.")
-            TextField("HTTPS registration endpoint", text: $endpoint)
-            SecureField("Enrollment secret", text: $enrollmentSecret)
-            Button("Register this installation") {
-                run { try await vpn.enroll(endpoint: endpoint, secret: enrollmentSecret); enrollmentSecret = "" }
-            }.buttonStyle(.borderedProminent).controlSize(.large)
-            Text("Device authentication is required. Registration securely retrieves your VPN gateway, trusted Wi-Fi and administrator configuration.").font(.footnote)
+        Section("Connect to your dashboard") {
+            Text("In your dashboard, choose Add device. Connect to its enrollment network, then scan the code or paste its setup link here.")
+            #if os(iOS)
+            Button { scannerOpen = true } label: { Label("Scan setup code", systemImage: "qrcode.viewfinder") }
+                .buttonStyle(.borderedProminent).controlSize(.large)
+            #endif
+            TextField("Paste device setup link", text: $setupLink)
+                .autocorrectionDisabled()
+            Button("Use setup link") { receiveSetupLink(setupLink) }
+                .disabled(setupLink.isEmpty)
+            DisclosureGroup("Manual registration for older dashboards") {
+                TextField("HTTPS registration endpoint", text: $endpoint)
+                SecureField("Enrollment secret", text: $enrollmentSecret)
+                Button("Register this installation") {
+                    run { try await vpn.enroll(endpoint: endpoint, secret: enrollmentSecret); enrollmentSecret = "" }
+                }
+            }
+            Text("The setup code expires after 10 minutes and works once. Registration retrieves your VPN gateway, trusted Wi-Fi and administrator configuration.").font(.footnote)
         }
     }
     private var initialAccount: some View {

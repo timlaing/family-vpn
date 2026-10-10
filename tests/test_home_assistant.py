@@ -28,8 +28,11 @@ class TestHomeAssistant:
         self.app.extensions['dispatcher'].close()
         self.directory.cleanup()
     def ingress(self, path='/', method='get', **kwargs):
-        return getattr(self.client, method)(PREFIX+path, base_url='http://localhost:8099',
+        response = getattr(self.client, method)(PREFIX+path, base_url='http://localhost:8099',
             headers={'X-Ingress-Path':PREFIX}, environ_overrides={'REMOTE_ADDR':'172.30.32.2'}, **kwargs)
+        if path == '/' and response.status_code == 302 and response.location.endswith('/setup'):
+            return self.ingress('/setup')
+        return response
     def test_only_supervisor_peer_can_enter_and_headers_cannot_spoof_it(self):
         response = self.client.get('/', base_url='http://localhost:8099', headers={'X-Ingress-Path':PREFIX,'X-Forwarded-For':'172.30.32.2'})
         assert (response.status_code) == (403)
@@ -163,18 +166,18 @@ class TestHomeAssistant:
 
     def test_setup_gates_menu_and_direct_links(self):
         page = self.ingress()
-        assert b'Save VPN provisioning' in page.data
+        assert b'Save and continue' in page.data
         for target in ('administration', 'activity'):
             assert self.ingress('/'+target).status_code == 302
             assert ('href="'+PREFIX+'/'+target+'"').encode() not in page.data
         assert self.ingress('/configuration').status_code == 200
         self.app.extensions['vpn_provisioning'].save('vpn.example.org', '', [])
-        assert b'Set device administrator password' in self.ingress().data
+        self.settings.rest_url = 'https://dashboard.example.org/family-vpn'
+        assert b'Set the device administrator password' in self.ingress().data
         assert self.ingress('/administration').status_code == 200
         assert self.ingress('/activity').status_code == 302
         self.app.extensions['administrator'].set_password('dashboard-test-password', 'dashboard-test-password')
-        assert self.ingress().status_code == 302
-        assert self.ingress().location.endswith('/push-setup')
+        assert b'Check setup and enable notifications' in self.ingress().data
         assert b'Register endpoint' in self.ingress('/push-setup').data
         self.settings.relay_server = self.settings.relay_registered_server = 'vpn.example.org'
         self.settings.rest_url = 'https://dashboard.example.org/family-vpn'
