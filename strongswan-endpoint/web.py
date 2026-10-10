@@ -201,7 +201,11 @@ def create_app(data=None, authority=None, control=None):
         return jsonify(reload_status(data, control))
 
     @app.route("/authentication", methods=["GET", "POST"])
-    def authentication_settings():
+    def legacy_authentication():
+        return redirect(url_for("advanced"), code=307)
+
+    @app.route("/advanced", methods=["GET", "POST"])
+    def advanced():
         if not (data / "ready").exists():
             return redirect(url_for("index"))
         error = None
@@ -213,10 +217,10 @@ def create_app(data=None, authority=None, control=None):
                     acct_port=request.form.get("acct_port", "1813"),
                     nas_identifier=request.form.get("nas_identifier", "family-vpn"),
                     accounting=request.form.get("accounting") == "on")
-                return redirect(url_for("authentication_settings", changed="1"))
+                return redirect(url_for("advanced", changed="1"))
             except ValueError as exc:
                 error = str(exc)
-        return render_template("endpoint.html", page="authentication", settings=True, error=error)
+        return render_template("endpoint.html", page="advanced", settings=True, error=error)
 
     @app.get("/ca.pem")
     def certificate():

@@ -153,14 +153,20 @@ def test_radius_configuration_secret_privacy_and_local_account_gating(management
     app, directory = management
     client = app.test_client()
     sign_in(client)
-    assert client.get("/authentication").location == "/"
+    assert client.get("/advanced").location == "/"
     client.post("/", data=dict(csrf_token=token(client), server="vpn.example.org", pool="10.20.30.0/24",
                               dns="192.168.10.53", lan="192.168.10.0/24", allowed="192.168.10.53/32"))
     client.post("/accounts", data=dict(csrf_token=token(client, "/accounts"), username="local-device", password="synthetic-vpn-password"))
+    page = client.get("/advanced").text
+    assert '<h1>Advanced settings</h1>' in page
+    assert 'aria-current="page">Advanced</a>' in page
+    assert 'name="server"' in page and 'RADIUS server address' in page
+    assert client.get("/authentication").location == "/advanced"
+    assert 'RADIUS server address' not in client.get("/").text
     config = directory / "data/swanctl/swanctl.conf"
     radius = directory / "data/authentication/radius.conf"
     def update(**values):
-        return client.post("/authentication", data=dict(csrf_token=token(client, "/authentication"), **values))
+        return client.post("/advanced", data=dict(csrf_token=token(client, "/advanced"), **values))
     assert update(mode="radius", server="192.168.10.54", secret="short").status_code == 200
     assert not radius.exists()
     assert "auth = eap-mschapv2" in config.read_text()
@@ -168,7 +174,7 @@ def test_radius_configuration_secret_privacy_and_local_account_gating(management
     assert "auth = eap-radius" in config.read_text()
     assert "auth_port = 18120" in radius.read_text() and "accounting = yes" in radius.read_text()
     assert radius.stat().st_mode & 0o777 == 0o600
-    for path in ("/", "/authentication", "/accounts"):
+    for path in ("/", "/advanced", "/accounts"):
         assert "synthetic-radius-secret" not in client.get(path).text
     assert "Managed by your RADIUS server" in client.get("/accounts").text
     assert 'name="username"' not in client.get("/accounts").text

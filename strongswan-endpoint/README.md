@@ -20,13 +20,13 @@ For a new installation, use the standalone management Compose file instead of th
 
 Three named volumes survive container replacement: `vpn_configuration` holds gateway settings, VPN credentials and certificates; `vpn_authority` holds the CA signing key and hashed administrator credential/session key. `vpn_control` stores reload acknowledgements; it is writable only by the VPN container and read-only in the management container. The configuration volume is read-only in the VPN container. Reload requests contain account names/actions, never passwords. The gateway clears and reloads credentials through `swanctl`, then uses its private VICI socket to terminate matching EAP sessions. Neither the Docker socket nor the VICI socket is shared with the web container. Failed reloads stay visible and retry automatically; queued changes survive container outages. No Docker socket is mounted. Back up the configuration and authority volumes securely; VPN account passwords must be retained in private files for EAP authentication. Never use `docker compose down -v` unless deliberately deleting all configuration and keys.
 
-The UI uses the Family VPN shield and network graphics, with separate Endpoint and Device accounts pages. It supports initial gateway provisioning and account management. Gateway address/network changes and certificate renewal remain manual operations; it refuses to recreate an existing CA. Existing CLI installations are not automatically migrated into the named volumes: keep using the original Compose file until a deliberate backup and migration is completed. The browser workflow retains the CA key in its separate volume for later manual renewal, rather than moving it offline.
+The UI uses the Family VPN shield and network graphics, with separate Endpoint, Device accounts and Advanced pages. It supports initial gateway provisioning and account management. Gateway address/network changes and certificate renewal remain manual operations; it refuses to recreate an existing CA. Existing CLI installations are not automatically migrated into the named volumes: keep using the original Compose file until a deliberate backup and migration is completed. The browser workflow retains the CA key in its separate volume for later manual renewal, rather than moving it offline.
 
 If deliberately exposing management on a private interface, set `VPN_MANAGEMENT_BIND` to that interface's IP and use an authenticated HTTPS proxy/network restriction. Set `VPN_COOKIE_SECURE=1` in the configuration service environment when accessing exclusively through HTTPS. The administrator session uses HttpOnly/SameSite cookies and Flask-WTF CSRF protection; failed logins are limited. Never publish this interface directly to the internet.
 
 ## External RADIUS authentication
 
-After configuring the gateway, open **Authentication** and select **External RADIUS server**. Supply:
+After configuring the gateway, open **Advanced** and select **External RADIUS server**. Supply:
 
 | Setting | Required value |
 | --- | --- |

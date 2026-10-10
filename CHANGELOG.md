@@ -1,5 +1,7 @@
 # Unreleased
 
+- Move standalone endpoint RADIUS setup to the Advanced page.
+
 - Automatically reload standalone gateway credentials after account changes, report pending/error/applied status, and revoke affected sessions without restarting other established tunnels.
 
 - Support external EAP-RADIUS authentication in the standalone endpoint UI and CLI, with optional accounting, private shared-secret storage and no local fallback.

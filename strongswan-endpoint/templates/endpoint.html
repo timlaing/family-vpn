@@ -11,11 +11,11 @@
   <header><img class="brand-icon" src="{{ url_for('static', filename='icon.png') }}" alt="Family VPN shield"><div><div class="brand-name">Family VPN</div><p>Private network · VPN endpoint</p></div></header>
   <section class="hero">
     <span class="eyebrow">Your infrastructure. Your control.</span>
-    <h1>{% if page == 'initialize' %}Welcome to Family VPN{% elif page == 'login' %}Welcome back{% elif page == 'authentication' %}Authentication{% elif page == 'accounts' %}Device accounts{% elif settings %}Your VPN endpoint{% else %}Set up your endpoint{% endif %}</h1>
-    <p>{% if page == 'initialize' %}Create your administrator password to start configuring your private VPN gateway.{% elif page == 'login' %}Sign in to manage your gateway and device access.{% elif page == 'authentication' %}Choose how devices authenticate to your VPN gateway.{% elif page == 'accounts' %}Give each device its own account. Control access without sharing credentials.{% else %}A private IKEv2 gateway for your family, backed by your own infrastructure.{% endif %}</p>
+    <h1>{% if page == 'initialize' %}Welcome to Family VPN{% elif page == 'login' %}Welcome back{% elif page == 'advanced' %}Advanced settings{% elif page == 'accounts' %}Device accounts{% elif settings %}Your VPN endpoint{% else %}Set up your endpoint{% endif %}</h1>
+    <p>{% if page == 'initialize' %}Create your administrator password to start configuring your private VPN gateway.{% elif page == 'login' %}Sign in to manage your gateway and device access.{% elif page == 'advanced' %}Configure optional external authentication for your VPN gateway.{% elif page == 'accounts' %}Give each device its own account. Control access without sharing credentials.{% else %}A private IKEv2 gateway for your family, backed by your own infrastructure.{% endif %}</p>
   </section>
   {% if page not in ['initialize', 'login'] %}
-  <nav aria-label="Endpoint navigation"><a href="{{ url_for('index') }}" {% if page == 'endpoint' %}aria-current="page"{% endif %}>Endpoint</a>{% if settings %}<a href="{{ url_for('authentication_settings') }}" {% if page == 'authentication' %}aria-current="page"{% endif %}>Authentication</a><a href="{{ url_for('accounts') }}" {% if page == 'accounts' %}aria-current="page"{% endif %}>Device accounts</a>{% endif %}</nav>
+  <nav aria-label="Endpoint navigation"><a href="{{ url_for('index') }}" {% if page == 'endpoint' %}aria-current="page"{% endif %}>Endpoint</a>{% if settings %}<a href="{{ url_for('advanced') }}" {% if page == 'advanced' %}aria-current="page"{% endif %}>Advanced</a><a href="{{ url_for('accounts') }}" {% if page == 'accounts' %}aria-current="page"{% endif %}>Device accounts</a>{% endif %}</nav>
   {% endif %}
   <section class="card">
   {% if error %}<p class="notice error" role="alert">{{ error }}</p>{% endif %}
@@ -28,7 +28,7 @@
     </form>
   {% elif page == 'login' %}
     <h2>Administrator sign in</h2><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="password">Administrator password</label><input id="password" name="password" type="password" required autocomplete="current-password"><button>Sign in</button></form>
-  {% elif page == 'authentication' %}
+  {% elif page == 'advanced' %}
     {% set selected_mode = request.form.get('mode', authentication.mode) %}
     <h2>Device authentication</h2><p>Local accounts are stored on this gateway. External RADIUS uses accounts and access policies managed on your RADIUS server.</p>
     {% if request.args.get('changed') %}<p class="notice" role="status">Authentication settings saved. Restart the VPN container to apply the change:<br><code>docker compose -f compose.dashboard.yaml restart vpn</code></p>{% endif %}
@@ -51,7 +51,7 @@
     {% if reload.status in ['pending', 'error'] or request.args.get('changed') == '1' %}<p id="account-reload" class="notice" role="status" aria-live="polite" data-status-url="{{ url_for('account_reload_status') }}">{{ reload.message }}</p>{% endif %}
     <script src="{{ url_for('static', filename='reload.js') }}" defer></script>
     {% if authentication.mode == 'radius' %}
-    <h2>Managed by your RADIUS server</h2><p>Accounts, enabling/disabling access and password changes are managed on <strong>{{ authentication.server }}</strong>. This interface does not create or modify remote RADIUS accounts.</p><p>Local accounts are retained but inactive while external RADIUS is selected. Existing tunnels remain connected until terminated or the gateway is restarted.</p><a class="button" href="{{ url_for('authentication_settings') }}">RADIUS configuration</a>
+    <h2>Managed by your RADIUS server</h2><p>Accounts, enabling/disabling access and password changes are managed on <strong>{{ authentication.server }}</strong>. This interface does not create or modify remote RADIUS accounts.</p><p>Local accounts are retained but inactive while external RADIUS is selected. Existing tunnels remain connected until terminated or the gateway is restarted.</p><a class="button" href="{{ url_for('advanced') }}">Advanced · RADIUS configuration</a>
     {% else %}
     <h2>Device access</h2><p>Changes apply automatically. Disabling, deleting or changing an active account's password disconnects its sessions; other established tunnels remain connected.</p>
     {% if accounts %}
@@ -74,7 +74,7 @@
     <h2>Endpoint configured</h2><dl><dt>Gateway</dt><dd>{{ settings.server }}</dd><dt>VPN pool</dt><dd>{{ settings.pool }}</dd><dt>DNS resolver</dt><dd>{{ settings.dns }}</dd><dt>LAN networks</dt><dd>{{ settings.lan }}</dd><dt>Permitted destinations</dt><dd>{{ settings.allowed }}</dd><dt>Authentication</dt><dd>{{ 'External RADIUS' if authentication.mode == 'radius' else 'Local accounts' }}</dd><dt>Device accounts</dt><dd>{{ 'Managed by RADIUS' if authentication.mode == 'radius' else account_count }}</dd></dl>
     {% if account_count == 0 and authentication.mode != 'radius' %}<p class="notice">Add a device account before connecting your first device.</p>{% endif %}
     <a class="button" href="{{ url_for('certificate') }}">Download public CA certificate</a><p>Upload this certificate to the Family VPN dashboard. Private keys and passwords are never displayed.</p>
-    <a class="button secondary" href="{{ url_for('accounts') }}">Manage device accounts</a><a class="button secondary" href="{{ url_for('authentication_settings') }}">Authentication settings</a>
+    <a class="button secondary" href="{{ url_for('accounts') }}">Manage device accounts</a><a class="button secondary" href="{{ url_for('advanced') }}">Advanced settings</a>
   {% endif %}
   </section>
   {% if page not in ['initialize', 'login'] %}<form class="logout" action="{{ url_for('logout') }}" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="secondary">Sign out</button></form>{% endif %}
