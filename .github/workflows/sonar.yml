@@ -6,6 +6,10 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
+  workflow_call:
+    secrets:
+      SONAR_TOKEN:
+        required: true
   schedule:
     - cron: '35 6 * * 1'
 

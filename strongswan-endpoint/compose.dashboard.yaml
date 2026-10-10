@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.ui
+    image: ${VPN_CONFIGURATION_IMAGE:-family-vpn-configuration:local}
     restart: unless-stopped
     environment:
       VPN_COOKIE_SECURE: ${VPN_COOKIE_SECURE:-0}
@@ -18,7 +19,7 @@ services:
       - no-new-privileges:true
   vpn:
     build: .
-    image: family-vpn-strongswan:local
+    image: ${VPN_ENDPOINT_IMAGE:-family-vpn-strongswan:local}
     restart: unless-stopped
     cap_add: [NET_ADMIN, NET_RAW]
     ports: ["500:500/udp", "4500:4500/udp"]

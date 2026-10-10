@@ -2,6 +2,31 @@
 
 A separate **Linux Docker Engine** IKEv2/EAP-MSCHAPv2 endpoint for Family VPN. It uses the existing application's AES-256/SHA-256/MODP2048 IKE and AES-256-GCM/MODP2048 ESP profile. The dashboard and push relay remain separate services. Docker Desktop is suitable for image/configuration checks, not the documented production gateway: use a reachable Linux host with kernel XFRM/IPsec, UDP 500/4500 and Docker bridge forwarding enabled.
 
+## Published container images
+
+The **Publish strongSwan containers** GitHub Actions workflow publishes both images to GHCR after CI, lint, SonarQube and container smoke tests pass:
+
+| Image | Purpose |
+| --- | --- |
+| `ghcr.io/timlaing/family-vpn-strongswan` | IKEv2 gateway |
+| `ghcr.io/timlaing/family-vpn-strongswan-configuration` | Standalone configuration dashboard |
+
+Both support `linux/amd64` and `linux/arm64`. Publishing a `vMAJOR.MINOR.PATCH` repository tag creates the corresponding version tag and updates `latest`; prerelease tags do not update `latest`. Running the workflow manually on **main** publishes `edge`. Every publication also creates a `sha-<full commit SHA>` tag. No personal access token is needed; publishing uses GitHub's scoped workflow token. For public anonymous downloads, ensure both GHCR packages have public visibility in their GitHub package settings.
+
+To use published images, put these lines in a local `.env` beside the Compose file. Replace `edge` with a published release version or commit tag when deploying production:
+
+```dotenv
+VPN_ENDPOINT_IMAGE=ghcr.io/timlaing/family-vpn-strongswan:edge
+VPN_CONFIGURATION_IMAGE=ghcr.io/timlaing/family-vpn-strongswan-configuration:edge
+```
+
+```bash
+docker compose -f compose.dashboard.yaml pull
+docker compose -f compose.dashboard.yaml up -d --no-build
+```
+
+The first publication must complete before these tags can be pulled. Follow the browser setup below; existing installations retain their named volumes. Apply the one-time ownership migration below if upgrading from the older root-running dashboard image.
+
 ## Browser configuration with persistent Docker volumes
 
 For a new installation, use the standalone management Compose file instead of the CLI/bind-mount instructions below. This remains a separate Docker package, not a Home Assistant app.

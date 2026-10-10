@@ -1,7 +1,7 @@
 services:
   vpn:
     build: .
-    image: family-vpn-strongswan:local
+    image: ${VPN_ENDPOINT_IMAGE:-family-vpn-strongswan:local}
     restart: unless-stopped
     cap_add:
       - NET_ADMIN

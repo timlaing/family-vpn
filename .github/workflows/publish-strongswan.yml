@@ -1,0 +1,125 @@
+name: Publish strongSwan containers
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-strongswan-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.names.outputs.image }}
+      version: ${{ steps.names.outputs.version }}
+    steps:
+      - name: Validate publication reference
+        id: names
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            [[ "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] || { echo 'Use a semantic version tag'; exit 1; }
+            version="${GITHUB_REF_NAME#v}"
+          else
+            [[ "$GITHUB_REF" == refs/heads/main ]] || { echo 'Manual publishing requires main'; exit 1; }
+            version=edge
+          fi
+          echo "image=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+  lint:
+    needs: prepare
+    uses: ./.github/workflows/lint.yml
+  quality:
+    needs: prepare
+    uses: ./.github/workflows/sonar.yml
+    secrets:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+  build:
+    needs: [prepare, verify, lint, quality]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build and smoke-test both images
+        env:
+          IMAGE_BASE: ${{ needs.prepare.outputs.image }}
+          IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          BUILD_ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          gateway="${IMAGE_BASE}-strongswan:sha-${GITHUB_SHA}-${BUILD_ARCH}"
+          dashboard="${IMAGE_BASE}-strongswan-configuration:sha-${GITHUB_SHA}-${BUILD_ARCH}"
+          labels=(--label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY"
+                  --label "org.opencontainers.image.revision=$GITHUB_SHA"
+                  --label "org.opencontainers.image.version=$IMAGE_VERSION"
+                  --label 'org.opencontainers.image.licenses=MIT')
+          docker build --pull "${labels[@]}" -t "$gateway" strongswan-endpoint
+          docker build --pull "${labels[@]}" -f strongswan-endpoint/Dockerfile.ui -t "$dashboard" strongswan-endpoint
+          bash Tools/smoke_strongswan.sh "$gateway"
+          bash Tools/smoke_strongswan_radius.sh "$gateway"
+          bash Tools/smoke_strongswan_ui.sh "$dashboard" "$gateway"
+      - name: Publish tested architecture images
+        env:
+          IMAGE_BASE: ${{ needs.prepare.outputs.image }}
+          BUILD_ARCH: ${{ matrix.arch }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for suffix in strongswan strongswan-configuration; do
+            docker push "${IMAGE_BASE}-${suffix}:sha-${GITHUB_SHA}-${BUILD_ARCH}"
+          done
+
+  manifests:
+    needs: [prepare, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Publish multi-platform tags
+        env:
+          IMAGE_BASE: ${{ needs.prepare.outputs.image }}
+          IMAGE_VERSION: ${{ needs.prepare.outputs.version }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          trap 'docker logout ghcr.io >/dev/null 2>&1 || true' EXIT
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for suffix in strongswan strongswan-configuration; do
+            image="${IMAGE_BASE}-${suffix}"
+            tags=(-t "$image:sha-$GITHUB_SHA" -t "$image:$IMAGE_VERSION")
+            if [[ "$IMAGE_VERSION" != edge && "$IMAGE_VERSION" != *-* ]]; then
+              tags+=(-t "$image:latest")
+            fi
+            docker buildx imagetools create "${tags[@]}" \
+              "$image:sha-$GITHUB_SHA-amd64" "$image:sha-$GITHUB_SHA-arm64"
+            echo "Published $image:$IMAGE_VERSION and $image:sha-$GITHUB_SHA (linux/amd64, linux/arm64)" >> "$GITHUB_STEP_SUMMARY"
+          done

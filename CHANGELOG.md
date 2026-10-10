@@ -1,5 +1,7 @@
 # Unreleased
 
+- Publish tested AMD64/ARM64 strongSwan gateway and management images to GHCR on version tags or manual runs.
+
 - Run the endpoint dashboard as a non-root user, collect strongSwan test coverage and resolve endpoint analysis findings.
 
 - Move standalone endpoint RADIUS setup to the Advanced page.
