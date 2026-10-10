@@ -68,6 +68,17 @@ input[type=file]::file-selector-button { padding: 8px 12px; border: 0; border-ra
 
 .advanced,.relay-operator{max-width:760px;margin-inline:auto}
 
-.setup-intro{max-width:760px;margin:28px auto}.setup-steps{display:flex;flex-wrap:wrap;gap:12px;padding:0;list-style:none;counter-reset:setup}.setup-steps li{counter-increment:setup;color:var(--muted);border:1px solid #38515e;border-radius:12px;padding:10px}.setup-steps li:before{content:counter(setup) ". ";color:var(--mint)}.setup-steps [aria-current=step]{background:#74f1cc18;border-color:var(--mint);color:var(--text)}.enrollment-qr{background:white;padding:16px;border-radius:12px;max-width:360px;margin:24px auto}.enrollment-qr svg{width:100%;height:auto;display:block}.proxy-output{font:12px/1.5 ui-monospace,monospace}.setup-link{font-size:18px;font-weight:650}.provisioning textarea{width:100%;overflow-wrap:anywhere}
+.setup-intro{max-width:760px;margin:28px auto}.setup-progress-label{color:var(--mint);font-size:13px;font-weight:650;margin-bottom:14px}
+.setup-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;padding:0;list-style:none;margin:0 0 28px}
+.setup-steps li{position:relative;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;font-size:13px;color:var(--muted);padding:0 6px}
+.setup-steps li:not(:last-child)::after{content:"";position:absolute;top:16px;left:calc(50% + 20px);width:calc(100% - 40px);height:2px;background:#38515e}
+.step-marker{display:grid;place-items:center;width:34px;height:34px;border:1px solid #38515e;border-radius:50%;background:var(--bg);font-weight:700}
+.setup-steps .complete::after{background:var(--mint)}
+.setup-steps .complete .step-marker{background:var(--mint);border-color:var(--mint);color:#082b2e}
+.setup-steps .current{color:var(--text);font-weight:650}
+.setup-steps .current .step-marker{border:2px solid var(--mint);color:var(--mint);box-shadow:0 0 0 5px #74f1cc12}
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+@media(max-width:480px){.setup-steps li{font-size:11px;padding:0 3px}.setup-steps li>span:last-child{overflow-wrap:anywhere}}
+.enrollment-qr{background:white;padding:16px;border-radius:12px;max-width:360px;margin:24px auto}.enrollment-qr svg{width:100%;height:auto;display:block}.proxy-output{font:12px/1.5 ui-monospace,monospace}.setup-link{font-size:18px;font-weight:650}.provisioning textarea{width:100%;overflow-wrap:anywhere}
 
 .setup-intro~.provisioning{margin:24px auto}.device-enrollment{margin-inline:auto}.provisioning>ol{padding-left:22px}.provisioning>ol li{margin-bottom:10px}

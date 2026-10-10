@@ -1,5 +1,8 @@
 # Unreleased
 
+- Share Family VPN artwork throughout the native apps, show QR and inline setup-link actions, and simplify manual registration wording.
+- Improve dashboard setup progress, password-manager generation hints and icon-only navigation.
+
 - Publish tested AMD64/ARM64 strongSwan gateway and management images to GHCR on version tags or manual runs.
 
 - Run the endpoint dashboard as a non-root user, collect strongSwan test coverage and resolve endpoint analysis findings.
