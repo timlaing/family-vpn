@@ -9,7 +9,7 @@ RELAY_RESULTS_PATH = "/relay-results"
 HOST_CREDENTIALS_FILE = "host-credentials.json"
 HOST_KEY_FILE = "host-apns.p8"
 
-FIELDS = {"apns_key_id", "apns_team_id", "apns_topic", "apns_key_file", "apns_environment", "interval", "automatic", "push_mode", "relay_url", "relay_callback", "relay_limit", "relay_registered_server", "rest_url", "push_choice", "relay_rotated_at", "host_enabled", "host_topic", "host_push_url", "host_limit"}
+FIELDS = {"apns_key_id", "apns_team_id", "apns_topic", "apns_key_file", "apns_environment", "interval", "automatic", "push_mode", "relay_url", "relay_callback", "relay_limit", "relay_registered_server", "rest_url", "push_choice", "relay_rotated_at", "host_enabled", "host_topic", "host_url", "host_push_url", "host_limit"}
 
 class AddonConfiguration:
     def __init__(self, data="/data"):
@@ -81,10 +81,10 @@ class AddonConfiguration:
     def validate_urls(self, values):
         from .relay_protocol import https_url
         from urllib.parse import urlsplit
-        for field in ("relay_url", "relay_callback", "rest_url", "host_push_url"):
+        for field in ("relay_url", "relay_callback", "rest_url", "host_url", "host_push_url"):
             if not values[field]: continue
             https_url(values[field])
-            if field == "relay_url" and urlsplit(values[field]).path not in ("", "/"):
+            if field in {"relay_url", "host_url"} and urlsplit(values[field]).path not in ("", "/"):
                 raise ValueError("Host the relay at the HTTPS origin root")
 
     def validate_push(self, values):
@@ -261,7 +261,7 @@ class AddonConfiguration:
         enabled = form.get('host_enabled') == 'true'
         if enabled and not (credentials or self.has_host_credentials()): raise ValueError('Upload publisher APNs credentials first')
         values = {field:getattr(settings,field) for field in FIELDS}
-        values.update(host_enabled=enabled,host_topic=topic,host_push_url=url,host_limit=int(form.get('host_limit',settings.host_limit)))
+        values.update(host_enabled=enabled,host_topic=topic,host_url=form.get('host_url',settings.host_url).strip().rstrip('/'),host_push_url=url,host_limit=int(form.get('host_limit',settings.host_limit)))
         self.validate(values)
         if credentials:
             self.private_file(HOST_CREDENTIALS_FILE,json.dumps({field:credentials[field] for field in ('key_id','team_id')}))

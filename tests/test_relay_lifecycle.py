@@ -289,3 +289,14 @@ def test_hosted_saved_private_key_is_retained_when_only_identifiers_change(tmp_p
     assert host.apns_key_id == '9876543210'
     assert host.apns_team_id == 'ZYXWVUTSRQ'
     assert (tmp_path/'host-apns.p8').read_text() == value['private_key']
+
+
+def test_host_public_url_persisted_and_validated(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, _ = key_upload()
+    manager.update_host({'host_enabled':'true', 'host_url':'https://push.example.org/'}, settings, upload)
+    assert manager.load().host_url == 'https://push.example.org'
+    for url in ('http://push.example.org', 'https://push.example.org/path', 'https://user:password@push.example.org'):
+        with pytest.raises(ValueError):
+            manager.update_host({'host_enabled':'true', 'host_url':url}, settings)
+        assert manager.load().host_url == 'https://push.example.org'

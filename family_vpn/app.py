@@ -52,6 +52,7 @@ class Settings:
     relay_rotated_at: float = 0
     host_enabled: bool = False
     host_topic: str = DEFAULT_APNS_TOPIC
+    host_url: str = ""
     host_push_url: str = "https://api.push.apple.com"
     host_limit: int = 10
     host_proxy_token: str = field(default="", repr=False)

@@ -42,6 +42,7 @@ The `.p8` signing key does not expire. APNs JWT authentication tokens do: the ap
 
 1. Update the Family VPN app and complete its normal dashboard setup.
 2. Open **Advanced → Host a push relay on this installation**.
+   Set **Public relay URL** to the HTTPS origin other dashboards will use (for example `https://push.example.org`). This may be your Worker domain or a direct proxy domain; configure it to forward `/endpoints` and `/push` to this installation’s REST interface. This advertised address is separate from the Apple push URL and the dashboard callback address.
 3. Enter the publisher’s **Apple Key ID** and **Apple Team ID** separately. Upload Apple’s downloaded `.p8` private key, or expand **Paste the private key instead** and paste the complete PEM including its BEGIN/END lines. Set the published app bundle ID and choose the Apple push URL. No JSON file is needed for hosting. Leaving both private-key inputs empty retains an existing key; saved identifiers remain editable and the private key is never displayed. Older saved credentials and JSON uploads through the API remain compatible.
 4. Generate a separate random Worker credential of at least 32 characters. Enter it into the blank password field in this operator section. It is stored privately; leaving the field blank retains it. An externally configured `RELAY_PROXY_TOKEN` environment variable can also supply this credential. Do not include it in the repo.
 5. Set **Maximum requests per endpoint per minute** (default 10; configurable 1–100), enable the hosted relay and save.
