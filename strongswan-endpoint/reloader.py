@@ -66,19 +66,24 @@ def apply_request(data, request, run=subprocess.run, terminate=terminate_account
             "disconnected": disconnected, "updated_at": time.time()}
 
 
-def process_pending(data, control, apply=apply_request, now=time.time):
+def prepare_control(control, paths):
     control = Path(control)
     control.mkdir(mode=0o700, parents=True, exist_ok=True)
     owner = 10001 if os.geteuid() == 0 else None
     if owner is not None:
         os.chown(control, owner, owner)
-    paths = requests(data)
     active = {path.name for path in paths}
     for obsolete in control.glob("*.json"):
         if owner is not None:
             os.chown(obsolete, owner, owner)
         if obsolete.name not in active:
             obsolete.unlink()
+    return control, owner
+
+
+def process_pending(data, control, apply=apply_request, now=time.time):
+    paths = requests(data)
+    control, owner = prepare_control(control, paths)
     for path in paths:
         result = control / path.name
         previous = json.loads(result.read_text()) if result.exists() else {}
