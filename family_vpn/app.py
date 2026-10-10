@@ -316,7 +316,7 @@ class DashboardViews:
         app.add_url_rule('/push-setup', endpoint='push_setup', view_func=self.push_setup, methods=['GET','POST'])
         app.add_url_rule('/relay-rotate', endpoint='relay_rotate', view_func=self.relay_rotate, methods=['POST'])
         app.add_url_rule('/policy-settings', endpoint='policy_settings', view_func=self.policy_settings, methods=['POST'])
-        app.add_url_rule('/relay-operator', endpoint='relay_operator', view_func=self.relay_operator, methods=['POST'])
+        app.add_url_rule('/relay-operator', endpoint='relay_operator', view_func=self.relay_operator, methods=['GET','POST'])
         app.add_url_rule('/relay-results', endpoint='relay_results', view_func=self.relay_results, methods=['POST'])
         app.add_url_rule('/health', endpoint='health', view_func=self.health, methods=['GET'])
         app.add_template_filter(self.when, 'when')
@@ -395,7 +395,7 @@ class DashboardViews:
         ready = provisioned and administered
         push_ready = self.settings.demo or not self.app.extensions.get('addon_configuration') or self.settings.apns_ready
         devices = self.settings.demo or bool(self.database.public_devices())
-        return {"available_pages": {"setup": True, "add_device": ready and push_ready, "provisioning": True, "configuration": True, "advanced": True, "push_setup": ready,
+        return {"available_pages": {"setup": True, "add_device": ready and push_ready, "provisioning": True, "configuration": True, "advanced": True, "relay_operator": True, "push_setup": ready,
             "administration": provisioned, "dashboard": ready and push_ready, "activity": ready and push_ready and devices}}
 
     def dashboard(self):
@@ -654,11 +654,8 @@ class DashboardViews:
                 return redirect(url_for('push_setup' if 'push_choice' in request.form else 'advanced'))
             except ValueError as exc: error = str(exc)
         relay = self.dispatcher.sender.relay if isinstance(self.dispatcher.sender,PushSender) else None
-        hosted = self.app.extensions.get('hosted_relay')
         return render_template('configuration.html',settings=self.settings,error=error,
-            relay_result=relay.last_result if relay else 'not_contacted',
-            hosted_endpoints=hosted.extensions['relay_store'].summary() if hosted and self.settings.host_enabled else [],
-            host_key_configured=manager.has_host_credentials(), host_apns=manager.host_settings(self.settings))
+            relay_result=relay.last_result if relay else 'not_contacted')
 
     def push_setup(self):
         manager = self.addon_manager()
@@ -715,10 +712,16 @@ class DashboardViews:
 
     def relay_operator(self):
         manager = self.addon_manager()
-        try:
-            manager.update_host(request.form,self.settings,request.files.get('host_key_file'))
-        except ValueError as exc: return str(exc),400
-        return redirect(url_for('advanced'))
+        error = None
+        if request.method == 'POST':
+            try:
+                manager.update_host(request.form,self.settings,request.files.get('host_key_file'))
+                return redirect(url_for('relay_operator'))
+            except ValueError as exc: error = str(exc)
+        hosted = self.app.extensions.get('hosted_relay')
+        return render_template('relay_operator.html',settings=self.settings,error=error,
+            hosted_endpoints=hosted.extensions['relay_store'].summary() if hosted and self.settings.host_enabled else [],
+            host_key_configured=manager.has_host_credentials(),host_apns=manager.host_settings(self.settings)), 400 if error else 200
 
     def validate_relay_result(self, value):
         from .relay_protocol import server_key

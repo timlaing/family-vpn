@@ -120,7 +120,7 @@ def test_hosted_relay_is_guarded_and_no_saved_secrets_are_rendered(tmp_path):
         body = body_bytes({'server':'vpn.example.org','callback':'https://owner.example.org/relay-results','token':'t'*32,'limit':10})
         assert client.post('/endpoints',base_url='http://localhost:8500',data=body,headers={**signed_headers('t'*32,'/endpoints',body),'X-Relay-Proxy-Token':'p'*32}).status_code == 201
         assert client.post('/relay-operator',base_url='http://localhost:8500').status_code == 404
-        page = ingress('/advanced').data
+        page = ingress('/relay-operator').data
         for secret in (settings.host_proxy_token,settings.relay_secret,settings.admin_secret,settings.enrollment_secret,value['private_key']):
             assert secret.encode() not in page
         assert b'name="host_key_id" value="ABCDEFGHIJ"' in page
@@ -128,7 +128,12 @@ def test_hosted_relay_is_guarded_and_no_saved_secrets_are_rendered(tmp_path):
         assert b'name="host_private_key"' in page
         assert b'name="key_file"' not in page
         assert b'name="relay_callback"' not in page
-        assert b'Force rotate key' in page
+        assert b'Force rotate key' not in page
+        assert b'<h2>Push delivery</h2>' not in page
+        delivery = ingress('/advanced').data
+        assert b'Force rotate key' in delivery
+        assert b'name="host_key_id"' not in delivery
+        assert client.get('/relay-operator',base_url='http://localhost:8500').status_code == 404
         assert manager.load().host_proxy_token == 'p'*32
         assert client.post('/endpoints',base_url='http://localhost:8500',json={},headers={'X-Relay-Proxy-Token':'wrong'}).status_code == 401
         settings.host_proxy_token = ''

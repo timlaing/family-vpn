@@ -41,7 +41,7 @@ The `.p8` signing key does not expire. APNs JWT authentication tokens do: the ap
 ## Hosting the primary relay on Home Assistant
 
 1. Update the Family VPN app and complete its normal dashboard setup.
-2. Open **Advanced → Host a push relay on this installation**.
+2. Open **Host a push relay**.
    Set **Public relay URL** to the HTTPS origin other dashboards will use (for example `https://push.example.org`). This may be your Worker domain or a direct proxy domain; configure it to forward `/endpoints` and `/push` to this installation’s REST interface. This advertised address is separate from the Apple push URL and the dashboard callback address.
 3. Enter the publisher’s **Apple Key ID** and **Apple Team ID** separately. Upload Apple’s downloaded `.p8` private key, or expand **Paste the private key instead** and paste the complete PEM including its BEGIN/END lines. Set the published app bundle ID and choose the Apple push URL. No JSON file is needed for hosting. Leaving both private-key inputs empty retains an existing key; saved identifiers remain editable and the private key is never displayed. Older saved credentials and JSON uploads through the API remain compatible.
 4. Generate a separate random Worker credential of at least 32 characters. Enter it into the blank password field in this operator section. It is stored privately; leaving the field blank retains it. An externally configured `RELAY_PROXY_TOKEN` environment variable can also supply this credential. Do not include it in the repo.
@@ -81,3 +81,5 @@ Advanced offers **Allow this installation to host a relay**, independently of wh
 The Worker credential is optional on both the host and Worker. Configure matching values on both to enable header validation. Leaving the host password field blank retains an existing secret; an environment-provided RELAY_PROXY_TOKEN also enables validation. Endpoint authentication and callback ownership checks remain enabled in either case.
 
 Automatic policy checks default to enabled. Their interval starts once a device has registered with an APNs push token and push delivery is configured. With no push-capable devices, checks wait; existing saved on/off choices are preserved. Manual commands remain available when automatic checks are disabled.
+
+Hosted relay administration is a separate **Host a push relay** menu page. **Push delivery** configures this dashboard’s own device notifications; its delivery choices and endpoint key rotation are not shown on the hosted relay page.
