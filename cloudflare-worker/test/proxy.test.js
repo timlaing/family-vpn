@@ -64,13 +64,16 @@ test("network failures become 502", async () => {
 });
 
 
-test("missing Worker secret fails closed and arbitrary routes are blocked", async () => {
-  const stub = mock.method(globalThis, "fetch", () => { throw new Error("must not forward"); });
+test("optional Worker secret is omitted and caller header stripped; arbitrary routes blocked", async () => {
+  const stub = mock.method(globalThis, "fetch", (request) => {
+    assert.equal(request.headers.get("X-Relay-Proxy-Token"), null);
+    return new Response("ok");
+  });
   try {
-    const response = await worker.fetch(new Request("https://push.family-vpn.workers.dev/push", { method: "POST" }), { UPSTREAM_URL: env.UPSTREAM_URL });
-    assert.equal(response.status, 503);
+    const response = await worker.fetch(new Request("https://push.family-vpn.workers.dev/push", { method: "POST", headers: { "X-Relay-Proxy-Token": "caller-value" } }), { UPSTREAM_URL: env.UPSTREAM_URL });
+    assert.equal(response.status, 200);
     assert.equal((await worker.fetch(new Request("https://push.family-vpn.workers.dev/registrations", { method: "POST" }), env)).status, 404);
-    assert.equal(stub.mock.callCount(), 0);
+    assert.equal(stub.mock.callCount(), 1);
   } finally { stub.mock.restore(); }
 });
 

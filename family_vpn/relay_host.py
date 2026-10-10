@@ -49,7 +49,7 @@ def install_relay(app, manager, callback_sender=None):
     def authorize():
         if not settings.host_enabled: abort(404)
         supplied = request.headers.get('X-Relay-Proxy-Token','')
-        if not settings.host_proxy_token or not hmac.compare_digest(supplied.encode(),settings.host_proxy_token.encode()): abort(401)
+        if settings.host_proxy_token and not hmac.compare_digest(supplied.encode(),settings.host_proxy_token.encode()): abort(401)
 
     kwargs = {'callback_sender':callback_sender} if callback_sender else {}
     relay = create_relay(str(manager.data/'relay.sqlite'),manager.secret('relay-host-enrollment'),

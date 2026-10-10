@@ -10,7 +10,7 @@ export default {
     if (!["/endpoints", "/rotate", "/push"].includes(incoming.pathname)) {
       return new Response("Not Found", { status: 404 });
     }
-    if (!env.UPSTREAM_URL || !env.RELAY_PROXY_TOKEN) {
+    if (!env.UPSTREAM_URL) {
       return new Response("Proxy is not configured", { status: 503 });
     }
     let upstream;
@@ -28,7 +28,8 @@ export default {
     try {
       const proxyRequest = new Request(upstream.toString(), request);
       // Replace any caller-supplied value. Never expose this Worker secret to clients.
-      proxyRequest.headers.set("X-Relay-Proxy-Token", env.RELAY_PROXY_TOKEN);
+      proxyRequest.headers.delete("X-Relay-Proxy-Token");
+      if (env.RELAY_PROXY_TOKEN) proxyRequest.headers.set("X-Relay-Proxy-Token", env.RELAY_PROXY_TOKEN);
       proxyRequest.headers.set("Host", upstream.host);
       const response = await fetch(proxyRequest, { redirect: "manual" });
       const safeResponse = new Response(response.body, response);

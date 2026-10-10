@@ -1,7 +1,7 @@
 {% extends 'base.html' %}{% block content %}
 {% include 'navigation.html' %}
 <section class="card provisioning advanced">
-<h2>Push delivery</h2><p>{{ 'Primary · Published Family VPN app' if settings.push_choice=='primary' else 'Custom · Direct Apple APNs' }}</p>
+<h2>Push delivery</h2><p>{{ 'Primary relay · Published Family VPN app' if settings.push_choice=='primary' else 'Direct APNs · Your Apple credentials' }}</p>
 {% if error %}<p class="warning" role="alert">{{ error }}</p>{% endif %}
 {% if settings.push_choice=='custom' %}
 <form method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><input type="hidden" name="push_choice" value="custom">
@@ -14,13 +14,13 @@
 {% if settings.push_choice=='primary' %}<form action="{{ url_for('relay_rotate') }}" method="post"><input type="hidden" name="csrf" value="{{ csrf_token() }}"><button class="secondary" {{ 'disabled' if not settings.relay_server or not settings.callback_url else '' }}>Force rotate key</button></form><p>Registered keys rotate automatically every 24 hours while this app can reach the relay.</p>{% endif %}
 <p class="setup-next"><a href="{{ url_for('push_setup') }}">Choose push delivery / register endpoint</a></p>
 </section>
-<details class="card provisioning relay-operator"><summary>Host the primary push relay on this app</summary><p>For the publisher’s HA installation. Other dashboards connect through the Worker to this app’s REST interface.</p>
+<details class="card provisioning relay-operator"><summary>Host a push relay on this installation</summary><p>Hosting is independent of this dashboard’s delivery choice. Use Apple credentials matching the app you serve; the primary host uses the published Family VPN app credentials. Other dashboards connect to this REST interface directly or through a Worker.</p>
 <form action="{{ url_for('relay_operator') }}" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf" value="{{ csrf_token() }}">
-<label class="checkbox-label"><input type="checkbox" name="host_enabled" value="true" {{ 'checked' if settings.host_enabled else '' }}> Enable hosted relay</label>
-<label>Publisher key file<input type="file" name="host_key_file" accept=".json"><small>APNs JSON with key_id, team_id and private_key. {{ 'A key is stored; leave empty to retain it.' if host_key_configured else 'Upload credentials before enabling.' }}</small></label>
+<label class="checkbox-label"><input type="checkbox" name="host_enabled" value="true" {{ 'checked' if settings.host_enabled else '' }}> Allow this installation to host a relay</label>
+<label>Relay APNs key file<input type="file" name="host_key_file" accept=".json"><small>APNs JSON with key_id, team_id and private_key. {{ 'A key is stored; leave empty to retain it.' if host_key_configured else 'Upload credentials before enabling.' }}</small></label>
 <label>Bundle ID<input name="host_topic" value="{{ settings.host_topic }}" required></label>
 <label>Apple push URL<select name="host_push_url"><option value="https://api.push.apple.com" {{ 'selected' if settings.host_push_url=='https://api.push.apple.com' else '' }}>Production · TestFlight / App Store</option><option value="https://api.sandbox.push.apple.com" {{ 'selected' if settings.host_push_url=='https://api.sandbox.push.apple.com' else '' }}>Development · Sandbox</option></select></label>
-<label>Worker credential<input type="password" name="proxy_token" autocomplete="new-password" placeholder="{{ 'Stored · leave blank to retain' if settings.host_proxy_token else 'Match the Worker RELAY_PROXY_TOKEN secret' }}"><small>Stored privately. The saved value is never displayed or returned to clients.</small></label>
+<label>Worker credential (optional)<input type="password" name="proxy_token" autocomplete="new-password" placeholder="{{ 'Stored · leave blank to retain' if settings.host_proxy_token else 'Match the Worker RELAY_PROXY_TOKEN secret' }}"><small>When configured, every relay request must include the matching X-Relay-Proxy-Token header. With no configured credential, this extra check is disabled. Leave blank to retain a stored credential. Saved values remain private.</small></label>
 <label>Maximum requests per endpoint per minute<input type="number" name="host_limit" min="1" max="100" value="{{ settings.host_limit }}"></label>
 <button>Save hosted relay</button></form>
 {% if settings.host_enabled %}<div class="table-scroll"><table><thead><tr><th>VPN endpoint</th><th>Last push</th><th>Key rotated</th><th>Limit / min</th></tr></thead><tbody>{% for endpoint in hosted_endpoints %}<tr><td>{{ endpoint.server }}</td><td>{{ endpoint.last_push|when }}</td><td>{{ endpoint.rotated_at|when }}</td><td>{{ endpoint.quota }}</td></tr>{% else %}<tr><td colspan="4">No registered endpoints.</td></tr>{% endfor %}</tbody></table></div><p>Registrations expire after 30 days without a push. No device records are retained here.</p>{% endif %}

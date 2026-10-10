@@ -126,6 +126,9 @@ def test_hosted_relay_is_guarded_and_no_saved_secrets_are_rendered(tmp_path):
         assert b'name="relay_callback"' not in page
         assert b'Force rotate key' in page
         assert manager.load().host_proxy_token == 'p'*32
+        assert client.post('/endpoints',base_url='http://localhost:8500',json={},headers={'X-Relay-Proxy-Token':'wrong'}).status_code == 401
+        settings.host_proxy_token = ''
+        assert client.post('/endpoints',base_url='http://localhost:8500',json={}).status_code == 400
         assert (tmp_path/'host-apns.p8').stat().st_mode & 0o777 == 0o600
     finally: app.extensions['dispatcher'].close()
 
@@ -206,3 +209,11 @@ def test_existing_relay_database_migrates_without_losing_registration(tmp_path):
     assert endpoint['secret'] == 't'*32
     assert endpoint['last_push'] > 0
     assert endpoint['rotated_at'] > 0
+
+
+def test_hosting_can_be_enabled_without_worker_credential(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, _ = key_upload()
+    manager.update_host({'host_enabled':'true'}, settings, upload)
+    assert manager.load().host_enabled
+    assert manager.load().host_proxy_token == ''

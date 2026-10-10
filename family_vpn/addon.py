@@ -202,7 +202,6 @@ class AddonConfiguration:
         credentials = self.read_credentials(upload) if upload and upload.filename else None
         enabled = form.get('host_enabled') == 'true'
         if enabled and not (credentials or (self.data/'host-credentials.json').exists()): raise ValueError('Upload publisher APNs credentials first')
-        if enabled and not (proxy or settings.host_proxy_token): raise ValueError('Set the private Worker credential first')
         values = {field:getattr(settings,field) for field in FIELDS}
         values.update(host_enabled=enabled,host_topic=topic,host_push_url=url,host_limit=int(form.get('host_limit',settings.host_limit)))
         self.validate(values)

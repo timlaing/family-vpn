@@ -11,7 +11,7 @@ Keep these values in Cloudflare Worker settings, outside the repository:
 | `UPSTREAM_URL` | Environment variable | Primary HA app's public HTTPS REST base, including its prefix if any |
 | `RELAY_PROXY_TOKEN` | Secret environment variable | Random private credential matching the app's hosted-relay operator setting |
 
-The Worker accepts only POST `/endpoints`, `/rotate` and `/push`. It appends these paths to the configured upstream base and preserves query, exact body bytes and endpoint authentication headers. It replaces a caller-supplied `X-Relay-Proxy-Token` with its private secret. Missing configuration fails closed. The credential is not returned to callers, removed from response headers, and never logged. Network errors use generic messages.
+The Worker accepts only POST `/endpoints`, `/rotate` and `/push`. It appends these paths to the configured upstream base and preserves query, exact body bytes and endpoint authentication headers. It replaces a caller-supplied `X-Relay-Proxy-Token` with its private secret. A missing upstream address fails closed; the Worker credential is optional. The credential is not returned to callers, removed from response headers, and never logged. Network errors use generic messages.
 
 Responses preserve upstream status/body; redirects are returned without following them. GET `/health` returns 405 at the Worker; check the HA app's health route directly. The upstream REST locations must expose the hosted relay routes (`--host-relay` in the proxy generator) and preserve HMAC headers. Owner callbacks go directly from the HA relay to the owner's REST base.
 
@@ -32,3 +32,5 @@ npm test
 ```
 
 These tests do not establish the deployed Worker, upstream availability or physical-device delivery. After deploying, configure the primary HA relay and register a dashboard as described in [push relay setup](../docs/PUSH_RELAY.md).
+
+`RELAY_PROXY_TOKEN` is optional. If configured, the Worker injects it and the HA host must use the matching credential. Without it, the Worker removes caller-supplied `X-Relay-Proxy-Token` headers and forwards without this extra credential. The host checks this header only when its own credential is configured. `UPSTREAM_URL` remains required. Endpoint signatures still authenticate rotation and push requests.

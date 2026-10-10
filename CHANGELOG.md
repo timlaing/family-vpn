@@ -1,3 +1,8 @@
+# 0.5.1
+
+- Clarify Primary relay and Direct APNs choices, with independent optional relay hosting.
+- Validate the Worker header only when a host credential is configured; support Workers without a proxy secret.
+
 # 0.5.0
 
 - Host the primary push relay inside the HA app and configure publisher credentials through private Ingress uploads.
