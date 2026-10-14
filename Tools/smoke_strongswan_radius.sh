@@ -21,16 +21,16 @@ docker run -d --name "$name" --cap-add NET_ADMIN --cap-add NET_RAW --sysctl net.
   --mount "type=bind,source=$data/runtime/swanctl,target=/etc/swanctl,readonly" \
   --mount "type=bind,source=$data/runtime/authentication,target=/etc/family-vpn-auth,readonly" "$image" >/dev/null
 for attempt in {1..30}; do
-  if docker exec "$name" swanctl --list-conns 2>/dev/null | grep -q 'EAP_RADIUS'; then break; fi
+  if docker exec "$name" swanctl --list-conns 2>/dev/null | grep 'EAP_RADIUS' >/dev/null; then break; fi
   if [[ "$attempt" == 30 ]]; then docker logs "$name"; exit 1; fi
   sleep 1
 done
-docker exec "$name" swanctl --stats | grep -q 'eap-radius'
-docker logs "$name" 2>&1 | grep -q 'loaded 1 RADIUS server configuration'
+docker exec "$name" swanctl --stats | grep 'eap-radius' >/dev/null
+docker logs "$name" 2>&1 | grep 'loaded 1 RADIUS server configuration' >/dev/null
 # Container restart must reload the same backend without duplicating includes.
 docker restart "$name" >/dev/null
 for attempt in {1..30}; do
-  if docker exec "$name" swanctl --list-conns 2>/dev/null | grep -q 'EAP_RADIUS'; then break; fi
+  if docker exec "$name" swanctl --list-conns 2>/dev/null | grep 'EAP_RADIUS' >/dev/null; then break; fi
   if [[ "$attempt" == 30 ]]; then docker logs "$name"; exit 1; fi
   sleep 1
 done

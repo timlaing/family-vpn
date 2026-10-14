@@ -55,7 +55,7 @@ docker run -d --name "$name-vpn" --cap-add NET_ADMIN --cap-add NET_RAW \
   --sysctl net.ipv4.ip_forward=1 -e VPN_CONFIGURATION_DIR=/data -e VPN_CONTROL_DIR=/control \
   -v "$name-data:/data:ro" -v "$name-control:/control" "$vpn_image" >/dev/null
 for attempt in {1..30}; do
-  if docker exec "$name-vpn" swanctl --list-conns 2>/dev/null | grep -q 'family-vpn:'; then break; fi
+  if docker exec "$name-vpn" swanctl --list-conns 2>/dev/null | grep 'family-vpn:' >/dev/null; then break; fi
   if [[ "$attempt" == 30 ]]; then docker logs "$name-vpn"; exit 1; fi
   sleep 1
 done
