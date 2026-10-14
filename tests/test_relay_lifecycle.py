@@ -94,7 +94,8 @@ def test_uploaded_custom_credentials_are_private_and_only_apple_urls_are_allowed
     assert value['private_key'] not in manager.path.read_text()
     assert manager.load().apns_key_id == value['key_id']
     with pytest.raises(ValueError): manager.update_push({'push_choice':'custom','push_url':'https://other-relay.example.org'},settings)
-    with pytest.raises(ValueError): manager.read_credentials(FileStorage(stream=io.BytesIO(b'bad key'),filename='key.json'))
+    invalid_upload = FileStorage(stream=io.BytesIO(b'bad key'),filename='key.json')
+    with pytest.raises(ValueError): manager.read_credentials(invalid_upload)
     manager.update_push({'push_choice':'primary'},settings)
     assert settings.push_mode == 'relay'
     assert settings.relay_url == 'https://push.family-vpn.workers.dev'
@@ -119,12 +120,21 @@ def test_hosted_relay_is_guarded_and_no_saved_secrets_are_rendered(tmp_path):
         body = body_bytes({'server':'vpn.example.org','callback':'https://owner.example.org/relay-results','token':'t'*32,'limit':10})
         assert client.post('/endpoints',base_url='http://localhost:8500',data=body,headers={**signed_headers('t'*32,'/endpoints',body),'X-Relay-Proxy-Token':'p'*32}).status_code == 201
         assert client.post('/relay-operator',base_url='http://localhost:8500').status_code == 404
-        page = ingress('/advanced').data
+        page = ingress('/relay-operator').data
         for secret in (settings.host_proxy_token,settings.relay_secret,settings.admin_secret,settings.enrollment_secret,value['private_key']):
             assert secret.encode() not in page
+        assert b'name="host_key_id" value="ABCDEFGHIJ"' in page
+        assert b'name="host_team_id" value="0123456789"' in page
+        assert b'name="host_private_key"' in page
         assert b'name="key_file"' not in page
         assert b'name="relay_callback"' not in page
-        assert b'Force rotate key' in page
+        assert b'Force rotate key' not in page
+        assert b'<h2>Push delivery</h2>' not in page
+        delivery = ingress('/push-status').data
+        assert b'Check relay and callback' in delivery
+        assert b'name="key_file"' not in delivery
+        assert b'name="host_key_id"' not in delivery
+        assert client.get('/relay-operator',base_url='http://localhost:8500').status_code == 404
         assert manager.load().host_proxy_token == 'p'*32
         assert client.post('/endpoints',base_url='http://localhost:8500',json={},headers={'X-Relay-Proxy-Token':'wrong'}).status_code == 401
         settings.host_proxy_token = ''
@@ -217,3 +227,130 @@ def test_hosting_can_be_enabled_without_worker_credential(tmp_path):
     manager.update_host({'host_enabled':'true'}, settings, upload)
     assert manager.load().host_enabled
     assert manager.load().host_proxy_token == ''
+
+
+@pytest.mark.parametrize('source', ['upload', 'paste'])
+def test_hosted_apns_fields_store_valid_p256_credentials_privately(tmp_path, source):
+    manager, settings = manager_for(tmp_path)
+    _, value = key_upload()
+    form = {'host_enabled':'true', 'host_key_id':value['key_id'], 'host_team_id':value['team_id']}
+    upload = None
+    if source == 'upload':
+        upload = FileStorage(stream=io.BytesIO(value['private_key'].encode()), filename='renamed-key.p8')
+    else:
+        form['host_private_key'] = value['private_key']
+    manager.update_host(form, settings, upload)
+    host = manager.host_settings(manager.load())
+    assert host.apns_ready
+    assert host.apns_key_id == value['key_id']
+    assert host.apns_team_id == value['team_id']
+    assert (tmp_path/'host-apns.p8').read_text() == value['private_key'].strip()
+    assert (tmp_path/'host-apns.p8').stat().st_mode & 0o777 == 0o600
+    assert set(json.loads((tmp_path/'host-credentials.json').read_text())) == {'key_id','team_id'}
+    assert value['private_key'] not in manager.path.read_text()
+
+
+@pytest.mark.parametrize(('field','invalid'), [
+    ('host_key_id','too-short'), ('host_team_id','lowercase1'),
+    ('host_private_key','not a key'), ('host_private_key','x'*16385),
+])
+def test_invalid_hosted_apns_inputs_preserve_existing_credentials(tmp_path, field, invalid):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    manager.update_host({'host_enabled':'true'}, settings, upload)
+    before = {p.name:p.read_bytes() for p in tmp_path.iterdir() if p.is_file()}
+    form = {'host_enabled':'true', 'host_key_id':value['key_id'], 'host_team_id':value['team_id'], 'host_private_key':value['private_key']}
+    form[field] = invalid
+    with pytest.raises(ValueError): manager.update_host(form, settings)
+    after = {p.name:p.read_bytes() for p in tmp_path.iterdir() if p.is_file()}
+    assert after == before
+    assert settings.host_enabled
+
+
+def test_hosted_private_key_cannot_be_uploaded_and_pasted_together(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    form = {'host_key_id':value['key_id'], 'host_team_id':value['team_id'], 'host_private_key':value['private_key']}
+    with pytest.raises(ValueError, match='not both'): manager.update_host(form, settings, upload)
+    assert not manager.has_host_credentials()
+
+
+def test_hosted_private_key_rejects_wrong_curve(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    key = ec.generate_private_key(ec.SECP384R1())
+    pem = key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()).decode()
+    form = {'host_key_id':'ABCDEFGHIJ', 'host_team_id':'0123456789', 'host_private_key':pem}
+    with pytest.raises(ValueError, match='P-256'): manager.update_host(form, settings)
+    assert not manager.has_host_credentials()
+
+
+def test_hosted_saved_private_key_is_retained_when_only_identifiers_change(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    manager.update_host({'host_enabled':'true'}, settings, upload)
+    manager.update_host({'host_enabled':'true', 'host_key_id':value['key_id'], 'host_team_id':value['team_id']}, settings)
+    assert (tmp_path/'host-apns.p8').read_text() == value['private_key']
+    manager.update_host({'host_enabled':'true', 'host_key_id':'9876543210', 'host_team_id':'ZYXWVUTSRQ'}, settings)
+    host = manager.host_settings(settings)
+    assert host.apns_key_id == '9876543210'
+    assert host.apns_team_id == 'ZYXWVUTSRQ'
+    assert (tmp_path/'host-apns.p8').read_text() == value['private_key']
+
+
+def test_host_public_url_persisted_and_validated(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, _ = key_upload()
+    manager.update_host({'host_enabled':'true', 'host_url':'https://push.example.org/'}, settings, upload)
+    assert manager.load().host_url == 'https://push.example.org'
+    for url in ('http://push.example.org', 'https://push.example.org/path', 'https://user:password@push.example.org'):
+        with pytest.raises(ValueError):
+            manager.update_host({'host_enabled':'true', 'host_url':url}, settings)
+        assert manager.load().host_url == 'https://push.example.org'
+
+
+def test_direct_push_accepts_separate_identifiers_and_renamed_private_key(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    _, value = key_upload()
+    upload = FileStorage(stream=io.BytesIO(value['private_key'].encode()), filename='publisher.p8')
+    form = {'push_choice':'custom','push_url':'https://api.push.apple.com',
+            'key_id':value['key_id'],'team_id':value['team_id']}
+    manager.update_push(form, settings, upload)
+    loaded = manager.load()
+    assert loaded.apns_ready
+    assert loaded.apns_key_id == value['key_id']
+    assert loaded.apns_team_id == value['team_id']
+    assert (tmp_path/'custom-apns.p8').read_text() == value['private_key'].strip()
+    manager.update_push(form, settings)
+    assert manager.load().apns_ready
+
+
+def test_optional_host_reuses_direct_credentials(tmp_path):
+    manager, settings = manager_for(tmp_path)
+    upload, value = key_upload()
+    manager.update_push({'push_choice':'custom','push_url':'https://api.push.apple.com'},settings,upload)
+    manager.enable_host_from_direct({'host_url':'https://relay.example.org','host_limit':'12'},settings)
+    assert manager.load().host_enabled
+    assert manager.load().host_url == 'https://relay.example.org'
+    assert manager.load().host_limit == 12
+    assert manager.host_settings(settings).apns_key_id == value['key_id']
+    manager.update_push({'push_choice':'custom','push_url':'https://api.push.apple.com','hosting':'no'},settings)
+    assert not manager.load().host_enabled
+
+
+def test_relay_ping_authentication_callback_replay_and_quota(tmp_path):
+    callbacks = []
+    relay = create_relay(str(tmp_path/'ping.sqlite'),'e'*32,'m'*32,Sender(),
+        callback_sender=lambda url, secret, body: callbacks.append(body) or True)
+    client = relay.test_client()
+    assert register(client).status_code == 201
+    callbacks.clear()
+    body = body_bytes({'server':'vpn.example.org','probe':str(uuid.uuid4())})
+    headers = signed_headers('t'*32,'/ping',body)
+    assert client.post('/ping',data=body,content_type='application/json').status_code == 401
+    response = client.post('/ping',data=body,headers=headers)
+    assert response.json == {'callback':'delivered'}
+    assert callbacks[0]['kind'] == 'ping'
+    assert client.post('/ping',data=body,headers=headers).status_code == 409
+    for _ in range(9):
+        assert client.post('/ping',data=body,headers=signed_headers('t'*32,'/ping',body)).status_code == 200
+    assert client.post('/ping',data=body,headers=signed_headers('t'*32,'/ping',body)).status_code == 429

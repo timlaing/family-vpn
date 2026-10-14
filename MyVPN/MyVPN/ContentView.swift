@@ -183,14 +183,33 @@ struct ContentView: View {
         Section("Connect to your dashboard") {
             Text("In your dashboard, choose Add device. Connect to its enrollment network, then scan the code or paste its setup link here.")
             #if os(iOS)
-            Button { scannerOpen = true } label: { Label("Scan setup code", systemImage: "qrcode.viewfinder") }
-                .buttonStyle(.borderedProminent).controlSize(.large)
+            Button { scannerOpen = true } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "qrcode.viewfinder").font(.title2)
+                    Text("Scan setup code")
+                }
+            }
+            .buttonStyle(.borderedProminent).controlSize(.large)
+            .accessibilityLabel("Scan setup QR code")
             #endif
-            TextField("Paste device setup link", text: $setupLink)
-                .autocorrectionDisabled()
-            Button("Use setup link") { receiveSetupLink(setupLink) }
-                .disabled(setupLink.isEmpty)
-            DisclosureGroup("Manual registration for older dashboards") {
+            HStack(spacing: 12) {
+                TextField("Paste device setup link", text: $setupLink)
+                    .autocorrectionDisabled()
+                    .onSubmit { if !setupLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { receiveSetupLink(setupLink) } }
+                    #if os(iOS)
+                    .textInputAutocapitalization(.never)
+                    .keyboardType(.URL)
+                    .submitLabel(.go)
+                    #endif
+                Button { receiveSetupLink(setupLink) } label: {
+                    Image(systemName: "checkmark.circle.fill").font(.title2)
+                }
+                .buttonStyle(.borderless)
+                .disabled(setupLink.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .accessibilityLabel("Use setup link")
+                .accessibilityHint("Review and confirm registration with this dashboard")
+            }
+            DisclosureGroup("Manual registration") {
                 TextField("HTTPS registration endpoint", text: $endpoint)
                 SecureField("Enrollment secret", text: $enrollmentSecret)
                 Button("Register this installation") {
@@ -221,7 +240,7 @@ struct ContentView: View {
         Section {
             VStack(spacing: 18) {
                 ZStack {
-                    VPNArtwork(shieldSize: 124, shieldColor: .teal.opacity(0.35), accentColor: .teal.opacity(0.85))
+                    VPNArtwork(shieldSize: 124, accentColor: .teal.opacity(0.85))
                     Image(systemName: connectionSymbol)
                         .font(.system(size: 64, weight: .medium)).foregroundStyle(connectionColor)
                         .padding(4).background(.background, in: Circle())

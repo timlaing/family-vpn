@@ -34,7 +34,7 @@ repos:
         name: Check standalone and add-on dependency locks
         language: system
         entry: python3 scripts/check_runtime_locks.py
-        files: (^requirements\.lock$|^family_vpn/requirements\.lock$)
+        files: (^requirements\.lock$|^family_vpn/requirements\.(lock|txt)$)
         pass_filenames: false
       - id: check-action-refs
         name: Check workflow action references

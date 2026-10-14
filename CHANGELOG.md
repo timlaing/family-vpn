@@ -1,5 +1,31 @@
 # Unreleased
 
+# 0.6.3
+
+- Simplify push setup to Primary relay or Direct APNs, with optional relay hosting after direct setup.
+- Configure direct APNs using separate Key ID, Team ID and private-key file fields.
+- Collect hosted relay URL, optional Worker token and rate limit on a separate page, reusing direct Apple credentials.
+- Add a dedicated push delivery status page linked from the main dashboard, with back navigation and no credential forms.
+- Show last push results and production/sandbox endpoints; ping a random registered device for direct APNs, hiding connectivity controls when no devices have push tokens.
+- Add authenticated relay ping and signed callback checks with replay protection and endpoint rate limits.
+- Fix hosted relay form markup and retain only Push setup in the navigation menu.
+
+
+# 0.6.2
+
+- Separate hosted relay administration from push delivery and configure the public relay HTTPS URL.
+
+- Configure hosted relay APNs credentials with separate Key ID, Team ID and private-key upload/paste fields; keep saved private keys hidden.
+
+- Show setup connection errors beside the check buttons in a prominent accessible alert, and scroll to the result after checking.
+
+- Expose the add-on hash-pinned runtime dependencies in a Dependabot-readable manifest and check it stays synchronized.
+
+- Resolve open SonarQube findings in dashboard/relay handlers, scanner delegates, configurable support links, stylesheet contrast and tests.
+
+- Share Family VPN artwork throughout the native apps, show QR and inline setup-link actions, and simplify manual registration wording.
+- Improve dashboard setup progress, password-manager generation hints and icon-only navigation.
+
 - Publish tested AMD64/ARM64 strongSwan gateway and management images to GHCR on version tags or manual runs.
 
 - Run the endpoint dashboard as a non-root user, collect strongSwan test coverage and resolve endpoint analysis findings.
