@@ -5,6 +5,11 @@ updates:
     schedule:
       interval: weekly
     labels: [dependencies, github_actions]
+    groups:
+      codeql-actions:
+        patterns: [github/codeql-action/*]
+      release-drafter-actions:
+        patterns: [release-drafter/release-drafter*]
     open-pull-requests-limit: 5
   - package-ecosystem: pip
     directories: [/, /family_vpn, /MyVPN/Watchdog]
