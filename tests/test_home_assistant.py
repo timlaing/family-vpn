@@ -153,7 +153,7 @@ class TestHomeAssistant:
             assert response.status_code == 200
             assert content.encode() in response.data
             assert b'aria-label="Open navigation"' in response.data
-            for target in ('provisioning', 'administration', 'activity', 'advanced'):
+            for target in ('provisioning', 'administration', 'activity', 'push-setup'):
                 assert (PREFIX+'/'+target).encode() in response.data
             assert self.client.get(path, base_url='http://localhost:8500').status_code == 404
         assert b'Save VPN provisioning' not in self.ingress().data
@@ -215,3 +215,23 @@ def test_relay_callback_is_external_only_and_advanced_is_ingress_only():
         assert fixture.client.post('/relay-results', base_url='http://localhost:8500', json={}).status_code == 401
     finally:
         fixture.teardown_method()
+
+    def test_direct_connectivity_hidden_without_push_devices_and_ping_targeted(self):
+        from unittest.mock import patch
+        self.settings.push_mode = 'direct'
+        self.settings.push_choice = 'custom'
+        self.settings.apns_key_id = 'ABCDEFGHIJ'
+        self.settings.apns_team_id = '0123456789'
+        self.settings.apns_key_file = '/data/test.p8'
+        page = self.ingress('/push-status').data
+        assert b'Ping a registered device' not in page
+        assert b'<dt>Connectivity</dt>' not in page
+        with self.app.extensions['database'].connect() as db:
+            db.execute("INSERT INTO devices(id,status_hash,registered,token) VALUES('sample','synthetic',0,?)",('ab'*32,))
+        page = self.ingress('/push-status').data
+        assert b'Ping a registered device' in page
+        csrf = re.search(rb'name="csrf" value="([^"]+)"',page).group(1).decode()
+        with patch.object(self.app.extensions['dispatcher'],'trigger',return_value=True) as trigger:
+            result = self.ingress('/push-connectivity',method='post',data={'csrf':csrf})
+            assert result.status_code == 302
+            trigger.assert_called_once_with('sample',requested_command=None)

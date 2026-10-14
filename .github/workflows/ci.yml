@@ -82,7 +82,7 @@ jobs:
           BUILD_CONTEXT: ${{ matrix.context }}
           BUILD_ARCH: ${{ matrix.arch }}
         run: |
-          cmp requirements.lock family_vpn/requirements.lock
+          python3 scripts/check_runtime_locks.py
           docker build --pull --build-arg "BUILD_ARCH=$BUILD_ARCH" -t vpnweb:test "$BUILD_CONTEXT"
       - name: Check production entry point without APNs credentials
         env:

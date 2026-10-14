@@ -1,3 +1,22 @@
+# 0.6.3
+
+- Simplify push setup to Primary relay or Direct APNs, with optional relay hosting after direct setup.
+- Configure direct APNs using separate Key ID, Team ID and private-key file fields.
+- Collect hosted relay URL, optional Worker token and rate limit on a separate page, reusing direct Apple credentials.
+- Add a dedicated push delivery status page linked from the main dashboard, with back navigation and no credential forms.
+- Show last push results and production/sandbox endpoints; ping a random registered device for direct APNs, hiding connectivity controls when no devices have push tokens.
+- Add authenticated relay ping and signed callback checks with replay protection and endpoint rate limits.
+- Fix hosted relay form markup and retain only Push setup in the navigation menu.
+
+# 0.6.2
+
+- Separate hosted relay administration from dashboard push delivery into dedicated menu pages.
+- Configure the public hosted relay HTTPS URL and show its registration and push addresses.
+- Provide separate Apple Key ID and Team ID fields with private-key upload or paste; retain saved keys when blank and never display stored private keys.
+- Show setup connection failures beside the check buttons in a prominent accessible alert.
+- Improve setup progress, password-manager hints and navigation styling.
+- Resolve dashboard/relay quality findings and synchronize pinned runtime dependency manifests.
+
 # 0.6.0
 
 - Add a guided published-app setup flow, copy-ready reverse-proxy configuration, and one-use HTTPS connectivity checks.

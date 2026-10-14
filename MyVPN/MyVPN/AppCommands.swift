@@ -41,6 +41,8 @@ struct VPNCommands: Commands {
 
 struct VPNHelpView: View {
     var showsDone = true
+    var documentationURL = Bundle.main.object(forInfoDictionaryKey: "FamilyVPNDocumentationURL") as? String ?? ""
+    var issuesURL = Bundle.main.object(forInfoDictionaryKey: "FamilyVPNIssuesURL") as? String ?? ""
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
@@ -59,8 +61,12 @@ struct VPNHelpView: View {
                 }
                 Section("Support") {
                     Text("For account or connection problems, contact the administrator of your VPN environment.")
-                    Link("Setup documentation", destination: URL(string: "https://github.com/timlaing/family-vpn#readme")!)
-                    Link("Report an application issue", destination: URL(string: "https://github.com/timlaing/family-vpn/issues")!)
+                    if let url = URL(string: documentationURL), url.scheme == "https" {
+                        Link("Setup documentation", destination: url)
+                    }
+                    if let url = URL(string: issuesURL), url.scheme == "https" {
+                        Link("Report an application issue", destination: url)
+                    }
                     Text("Do not include passwords, enrollment secrets or private network details in public reports.").font(.footnote)
                 }
                 if showsDone { Button("Done") { dismiss() }.buttonStyle(.borderedProminent) }
