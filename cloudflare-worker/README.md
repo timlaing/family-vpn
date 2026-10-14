@@ -25,6 +25,18 @@ wrangler deploy
 
 The Worker name is `push`; the account's Workers subdomain must be `family-vpn` for the published address. `keep_vars = true` preserves dashboard-managed variables. Configure the secret through Cloudflare's dashboard or `wrangler secret put RELAY_PROXY_TOKEN`. Do not put the secret in Wrangler `vars`. See [Wrangler configuration](https://developers.cloudflare.com/workers/wrangler/configuration/) and [secret bindings](https://developers.cloudflare.com/workers/configuration/secrets/).
 
+### Branch previews
+
+Workers Builds uses `npx wrangler preview` for branch deployments. The required `[previews.vars]` block in `wrangler.toml` defines the preview upstream; previews forward requests to that configured service. Production variables remain managed in the dashboard.
+
+Previews do not inherit production variables or secrets. If the upstream requires `RELAY_PROXY_TOKEN`, configure the matching credential as a Previews Base secret in the dashboard, or run:
+
+```sh
+wrangler preview base-config secret put RELAY_PROXY_TOKEN
+```
+
+Keep the credential out of `wrangler.toml`. Base secret changes apply to newly created previews; update an existing preview separately when needed. See [Worker Preview configuration](https://developers.cloudflare.com/workers/previews/configuration/).
+
 For local development, supply both variables in a private `.dev.vars` file and run `wrangler dev`. Offline tests mock forwarding:
 
 ```sh
