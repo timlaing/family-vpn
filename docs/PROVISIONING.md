@@ -1,5 +1,13 @@
 # Dashboard VPN provisioning
 
+## Gateway and Wi-Fi provisioning
+
+Configure the VPN gateway, certificate identity and trusted Wi-Fi names in the dashboard before device registration. After changes, send Push VPN / Wi-Fi / CA to updated devices while the existing VPN is available, or re-register on the configured registration LAN. New CA trust requires approval in system Settings. The app stores deployment settings in Keychain; it no longer provides a developer gateway or editable local trusted Wi-Fi list. Subnet examples are illustrative and must be replaced with your own network ranges.
+
+Published-app and custom-build push delivery: see [push relay setup](PUSH_RELAY.md). Choose Primary relay or Direct APNs in **Push setup**. Direct APNs setup also offers optional relay hosting. View push delivery status from the main dashboard.
+
+For the simplest published-app setup, follow the [quick start](QUICK_START.md). A separate [strongSwan Docker/Compose endpoint](../strongswan-endpoint/README.md) is available for Linux deployments.
+
 Set the VPN gateway hostname or IP address, server certificate identity, and trusted Wi-Fi SSIDs in the authenticated dashboard before registering devices. The certificate identity defaults to the gateway. SSIDs are exact, case-sensitive names; an empty list keeps VPN enforcement enabled on every Wi-Fi network.
 
 Updated apps request `X-FamilyVPN-VPN-Protocol: 2` during authenticated LAN registration. The response includes `vpn.server`, `vpn.remoteIdentifier`, `vpn.trustedSSIDs`, a UUID `vpn.revision`, and optional base64 DER `vpn.caCertificate`. Missing configuration returns HTTP 409 before credentials rotate. The app validates and stores these settings in Keychain and applies the Wi-Fi policy when provisioning changes, including after restart. VPN credentials remain local to the device.

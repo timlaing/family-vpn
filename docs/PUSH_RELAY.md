@@ -16,13 +16,13 @@ The same Home Assistant app can host the primary relay and use it for its own en
 5. For Direct APNs, Continue opens Advanced. Upload your APNs credential file, enter the custom app’s **Bundle ID**, and choose **Push URL**: production (`https://api.push.apple.com`) or development (`https://api.sandbox.push.apple.com`). Save returns to Push setup. Finish registration to continue to Status & reports. This records local setup; no endpoint is registered with the primary relay in Direct APNs mode.
 6. Enroll the native app from your permitted registration network, then send a manual **Refresh status**. Confirm APNs acceptance, a device execution acknowledgement and a new report before enabling automatic checks in Administration.
 
-Advanced hides client provider settings for Primary. Its only key action is **Force rotate key**, alongside registration/rotation status. Direct APNs displays only the credential upload, bundle ID and push URL. A separate collapsed operator section configures hosting on the publisher’s installation. Uploaded key contents and saved Worker/endpoint credentials are never returned in page HTML.
+Push setup offers Primary relay or Direct APNs. Direct setup accepts separate Apple identifiers and a private-key file, and optionally continues to hosted relay URL, Worker token and rate limit. The main dashboard links to a separate push delivery status page. Saved private keys and Worker/endpoint credentials are never returned in page HTML.
 
 Protect the app’s `/data` and backups. They include its SQLite databases, endpoint keys and APNs credentials. Existing callback settings migrate to the single REST address. Existing saved direct APNs settings remain Direct APNs; new installations default to Primary.
 
 ## APNs credential upload
 
-Apple token authentication requires the private `.p8` key, Key ID and Apple Team ID. To keep the visible form to three inputs, upload a private JSON file containing:
+Apple token authentication requires the private `.p8` key, Key ID and Apple Team ID. Hosted relays accept these separately in the operator form described below. For the dashboard’s **Direct APNs** delivery choice, the three-input form uses a private JSON credential file containing:
 
 ```json
 {
@@ -41,11 +41,12 @@ The `.p8` signing key does not expire. APNs JWT authentication tokens do: the ap
 ## Hosting the primary relay on Home Assistant
 
 1. Update the Family VPN app and complete its normal dashboard setup.
-2. Open **Advanced → Host the primary push relay on this app**.
-3. Upload the publisher’s APNs JSON credential, set the published app bundle ID, and choose the Apple push URL.
+2. Open **Host a push relay**.
+   Set **Public relay URL** to the HTTPS origin other dashboards will use (for example `https://push.example.org`). This may be your Worker domain or a direct proxy domain; configure it to forward `/endpoints` and `/push` to this installation’s REST interface. This advertised address is separate from the Apple push URL and the dashboard callback address.
+3. Enter the publisher’s **Apple Key ID** and **Apple Team ID** separately. Upload Apple’s downloaded `.p8` private key, or expand **Paste the private key instead** and paste the complete PEM including its BEGIN/END lines. Set the published app bundle ID and choose the Apple push URL. No JSON file is needed for hosting. Leaving both private-key inputs empty retains an existing key; saved identifiers remain editable and the private key is never displayed. Older saved credentials and JSON uploads through the API remain compatible.
 4. Generate a separate random Worker credential of at least 32 characters. Enter it into the blank password field in this operator section. It is stored privately; leaving the field blank retains it. An externally configured `RELAY_PROXY_TOKEN` environment variable can also supply this credential. Do not include it in the repo.
 5. Set **Maximum requests per endpoint per minute** (default 10; configurable 1–100), enable the hosted relay and save.
-6. Publish this same app’s REST base through Nginx Proxy Manager. Generate the complete locations with `--host-relay` in addition to `--public-reports` and your LAN/VPN boundaries. The relay API routes are POST `/endpoints`, `/rotate` and `/push`. When a Worker credential is configured, each hosted request requires its matching header. If none is configured, that additional check is disabled. Rotation and push always require the endpoint HMAC. Ingress forms are never exposed on this listener.
+6. Publish this same app’s REST base through Nginx Proxy Manager. Generate the complete locations with `--host-relay` in addition to `--public-reports` and your LAN/VPN boundaries. The relay API routes are POST `/endpoints`, `/rotate`, `/push` and `/ping`. When a Worker credential is configured, each hosted request requires its matching header. If none is configured, that additional check is disabled. Rotation and push always require the endpoint HMAC. Ingress forms are never exposed on this listener.
 7. On the Cloudflare Worker, keep `UPSTREAM_URL` in Worker settings, pointing at this REST base. A path prefix is supported, for example `https://dashboard.example.org/family-vpn`.
 8. Add **`RELAY_PROXY_TOKEN` as a Cloudflare secret environment variable**, matching the value entered in the app. The Worker inserts it into `X-Relay-Proxy-Token`, replacing any client-supplied header. It is never offered through a token-download endpoint or returned in response headers. The Worker requires UPSTREAM_URL. RELAY_PROXY_TOKEN is optional; when absent it strips any caller-supplied proxy credential and forwards without one.
 9. Deploy the updated Worker, then register an owner dashboard through Push setup. The relay must be able to reach public HTTPS dashboard callbacks and Apple APNs over HTTP/2.
@@ -80,3 +81,7 @@ Advanced offers **Allow this installation to host a relay**, independently of wh
 The Worker credential is optional on both the host and Worker. Configure matching values on both to enable header validation. Leaving the host password field blank retains an existing secret; an environment-provided RELAY_PROXY_TOKEN also enables validation. Endpoint authentication and callback ownership checks remain enabled in either case.
 
 Automatic policy checks default to enabled. Their interval starts once a device has registered with an APNs push token and push delivery is configured. With no push-capable devices, checks wait; existing saved on/off choices are preserved. Manual commands remain available when automatic checks are disabled.
+
+Hosted relay administration is a separate **Host a push relay** menu page. **Push delivery** configures this dashboard’s own device notifications; its delivery choices and endpoint key rotation are not shown on the hosted relay page.
+
+The main status page links to **Push delivery status**. Relay connectivity checks use signed `/ping` requests and a matching signed callback, subject to the endpoint request limit. Ping does not refresh the 30-day push inactivity expiry. Add `/ping` to existing proxy locations and deploy the updated Worker route allowlist before using this check. Direct APNs connectivity is based on the last push response; it does not confirm delivery to a device. Connectivity check state resets on dashboard restart.

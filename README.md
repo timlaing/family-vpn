@@ -6,6 +6,15 @@ Family VPN combines native iOS/iPadOS/macOS apps in `MyVPN/` with a Python/Flask
 
 See [Apple device setup and use](docs/APPLE_APPS.md) to register the app, approve certificate trust, install the VPN and use administrator controls.
 
+## Repository components
+
+| Component | Purpose | Documentation |
+| --- | --- | --- |
+| Apple apps (`MyVPN/`) | Native iOS, iPadOS and macOS VPN clients, enrollment and administrator controls. | [README](MyVPN/README.md) |
+| Dashboard and Home Assistant app (`family_vpn/`) | Device provisioning, commands, status reports, APNs delivery and optional relay hosting. | [README](family_vpn/README.md) |
+| Cloudflare Worker (`cloudflare-worker/`) | HTTPS proxy for the hosted push relay, with optional private Worker authentication. | [README](cloudflare-worker/README.md) |
+| strongSwan endpoint (`strongswan-endpoint/`) | Standalone Docker VPN gateway and browser configuration/account interface. | [README](strongswan-endpoint/README.md) |
+
 ## Home Assistant installation
 
 [![Add Family VPN to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Ftimlaing%2Ffamily-vpn)
@@ -18,7 +27,7 @@ This repository includes a Home Assistant app/add-on in `family_vpn/`. The dashb
 
 - [VPN endpoint setup](docs/VPN_ENDPOINT_SETUP.md): [MikroTik RouterOS](docs/MIKROTIK_IKEV2.md), [strongSwan](docs/STRONGSWAN_IKEV2.md) and [certificate setup](docs/VPN_CERTIFICATES.md) and [dashboard provisioning](docs/PROVISIONING.md).
 
-- [Contributing](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
+- [Contributing and local development](CONTRIBUTING.md), [security policy](SECURITY.md) and [privacy policy](PRIVACY.md).
 - [API contract](docs/API.md) and [deployment](docs/DEPLOYMENT.md).
 - [Changelog](CHANGELOG.md) and [MIT licence](LICENSE).
 
@@ -33,30 +42,6 @@ Requires Python 3.12–3.14 on macOS/Linux, or Docker for Linux containers. CI t
 - Connection-state and policy-check reports, with server receipt timestamps and a bounded 200-event operational history.
 - Separate enrollment/admin credentials, session authentication, CSRF protection, login throttling, restricted response headers and private SQLite permissions.
 - Dashboard distinguishes APNs acceptance from actual device execution. Device reports describe their last execution opportunity, not live coverage. Silent pushes are discretionary, particularly after force-quit.
-
-## Local preview (no secrets or real pushes)
-
-```sh
-python3 -m venv .venv
-.venv/bin/pip install -r requirements.lock
-.venv/bin/python app.py --demo --port 8500
-```
-
-Open http://127.0.0.1:8500. Preview data is synthetic; every POST is blocked and no APNs key is accessed. Stop with Control-C.
-
-## Configure a local service
-
-```sh
-.venv/bin/python setup_local.py
-set -a
-source .env
-set +a
-.venv/bin/python app.py --port 8500
-```
-
-Open `/login`. Read your private `.env` locally and enter ADMIN_BEARER as the dashboard access key. Do not paste secrets into chat or Git. This generated configuration disables automatic pushes and enables loopback HTTP cookies. Without APNs configuration, enrollment/status work but push requests return 503.
-
-The native app requires HTTPS. For a real device, deploy behind your trusted HTTPS reverse proxy and set LOCAL_HTTP=false. Use certificates trusted by the device, not an unapproved TLS bypass.
 
 ## Production
 
@@ -101,25 +86,6 @@ The [HTTP API guide](docs/API.md) is the complete route and provisioning contrac
 
 The Home Assistant dashboard and configuration use Ingress, not the REST listener. A queued command or Apple acceptance does not establish device execution; verify its acknowledgement and subsequent report. See [remote commands](docs/REMOTE_COMMANDS.md) and [proxy setup](docs/HOME_ASSISTANT.md).
 
-## Test
-
-Install the separate test dependencies; production images do not include pytest.
-
-```sh
-.venv/bin/python -m pip install -r requirements-test.txt
-.venv/bin/python -m pytest -v
-```
-
-Tests use temporary SQLite files, synthetic tokens/provider responses and a fake sender. Coverage includes enrollment/authentication, scoped reports, credential rotation, CSRF, login throttling, payload limits, privacy, queue coalescing, token rotation during delivery, pruning, bounded history and read-only preview. These do not prove real APNs delivery, device scheduling or production deployment.
-
 ## Licence
 
 Copyright 2026 Tim Laing. Released under the [MIT licence](LICENSE). Third-party dependencies retain their own licences.
-
-## Gateway and Wi-Fi provisioning
-
-Configure the VPN gateway, certificate identity and trusted Wi-Fi names in the dashboard before device registration. After changes, send Push VPN / Wi-Fi / CA to updated devices while the existing VPN is available, or re-register on the configured registration LAN. New CA trust requires approval in system Settings. The app stores deployment settings in Keychain; it no longer provides a developer gateway or editable local trusted Wi-Fi list. Subnet examples are illustrative and must be replaced with your own network ranges. See [provisioning](https://github.com/timlaing/family-vpn/blob/main/docs/PROVISIONING.md).
-
-Published-app and custom-build push delivery: see [push relay setup](docs/PUSH_RELAY.md). Choose Primary or Custom in **Push setup**; configure uploads and hosted-relay administration in **Advanced**.
-
-For the simplest published-app setup, follow the [quick start](docs/QUICK_START.md). A separate [strongSwan Docker/Compose endpoint](strongswan-endpoint/README.md) is available for Linux deployments.

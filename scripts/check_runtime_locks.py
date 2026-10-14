@@ -4,10 +4,8 @@
 from pathlib import Path
 
 root = Path(__file__).resolve().parent.parent
-if (root / "requirements.lock").read_bytes() != (
-    root / "family_vpn/requirements.lock"
-).read_bytes():
-    raise SystemExit(
-        "Runtime locks differ; synchronize requirements.lock and family_vpn/requirements.lock"
-    )
-print("Runtime locks match")
+runtime = (root / "requirements.lock").read_bytes()
+for relative in ("family_vpn/requirements.lock", "family_vpn/requirements.txt"):
+    if (root / relative).read_bytes() != runtime:
+        raise SystemExit(f"Runtime locks differ; synchronize requirements.lock and {relative}")
+print("Runtime locks and add-on dependency manifest match")

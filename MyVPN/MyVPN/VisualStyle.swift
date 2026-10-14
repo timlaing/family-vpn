@@ -1,19 +1,28 @@
 import SwiftUI
 
+struct FamilyVPNBrand: View {
+    var size: CGFloat = 54
+    var body: some View {
+        Image("FamilyVPNBrand")
+            .resizable().interpolation(.high).scaledToFit()
+            .frame(width: size, height: size)
+            .clipShape(RoundedRectangle(cornerRadius: size * 0.22))
+            .accessibilityHidden(true)
+    }
+}
+
 /// Shared vector artwork and adaptive layout; no connection state is inferred by the artwork.
 struct VPNArtwork: View {
     var shieldSize: CGFloat = 54
-    var shieldColor: Color = .white
     var accentColor: Color = .mint.opacity(0.75)
     var body: some View {
         ZStack {
             ForEach(0..<3) { index in
-                Circle().stroke(.white.opacity(0.09), lineWidth: 1)
+                Circle().stroke(accentColor.opacity(0.12), lineWidth: 1)
                     .frame(width: CGFloat(90 + index * 38), height: CGFloat(90 + index * 38))
             }
-            Image(systemName: "shield.lefthalf.filled")
-                .font(.system(size: shieldSize, weight: .light))
-                .foregroundStyle(shieldColor, accentColor)
+            FamilyVPNBrand(size: shieldSize)
+                .opacity(0.7)
         }
         .frame(width: 170, height: 170)
         .accessibilityHidden(true)
@@ -106,13 +115,7 @@ private struct VPNPageStyle: ViewModifier {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
-                    #if os(macOS)
-                    VPNArtwork().scaleEffect(0.45).frame(width: 76, height: 76)
-                    #else
-                    Image(systemName: "shield.lefthalf.filled")
-                        .font(.system(size: 42, weight: .light)).foregroundStyle(.mint.opacity(0.8))
-                        .accessibilityHidden(true)
-                    #endif
+                    FamilyVPNBrand(size: 58)
                 }
                 .padding(.horizontal, 28).padding(.vertical, 24)
                 .background {

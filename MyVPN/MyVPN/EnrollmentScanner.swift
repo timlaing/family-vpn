@@ -16,15 +16,17 @@ struct EnrollmentScanner: UIViewControllerRepresentable {
         catch { DispatchQueue.main.async { context.coordinator.unavailable() } }
         return scanner
     }
-    func updateUIViewController(_ controller: DataScannerViewController, context: Context) {}
-    static func dismantleUIViewController(_ controller: DataScannerViewController, coordinator: Coordinator) { controller.stopScanning() }
+    func updateUIViewController(_: DataScannerViewController, context _: Context) {
+        // Scanning configuration is fixed when the controller is created.
+    }
+    static func dismantleUIViewController(_ controller: DataScannerViewController, coordinator _: Coordinator) { controller.stopScanning() }
     final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         let scanned: (String) -> Void
         let unavailable: () -> Void
         var completed = false
         init(scanned: @escaping (String) -> Void, unavailable: @escaping () -> Void) { self.scanned = scanned; self.unavailable = unavailable }
-        func dataScanner(_ scanner: DataScannerViewController, becameUnavailableWithError error: DataScannerViewController.ScanningUnavailable) { unavailable() }
-        func dataScanner(_ scanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems: [RecognizedItem]) {
+        func dataScanner(_: DataScannerViewController, becameUnavailableWithError _: DataScannerViewController.ScanningUnavailable) { unavailable() }
+        func dataScanner(_ scanner: DataScannerViewController, didAdd addedItems: [RecognizedItem], allItems _: [RecognizedItem]) {
             guard !completed else { return }
             for item in addedItems {
                 if case .barcode(let barcode) = item, let value = barcode.payloadStringValue {
