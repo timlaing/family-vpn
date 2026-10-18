@@ -1,6 +1,25 @@
 # Family VPN
 
-[![CI](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml) [![Home Assistant lint](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml) [![MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/ci.yml)
+[![Home Assistant lint](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/lint.yml)
+[![CodeQL](https://github.com/timlaing/family-vpn/actions/workflows/codeql.yml/badge.svg)](https://github.com/timlaing/family-vpn/actions/workflows/codeql.yml)
+[![GitHub stars](https://img.shields.io/github/stars/timlaing/family-vpn.svg)](https://github.com/timlaing/family-vpn/stargazers)
+[![GitHub issues](https://img.shields.io/github/issues/timlaing/family-vpn.svg)](https://github.com/timlaing/family-vpn/issues)
+[![License](https://img.shields.io/github/license/timlaing/family-vpn.svg)](LICENSE)
+
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
+[![Duplicated Lines (%)](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=duplicated_lines_density)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=coverage)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=bugs)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
+[![Technical Debt](https://sonarcloud.io/api/project_badges/measure?project=timlaing_family-vpn&metric=sqale_index)](https://sonarcloud.io/summary/new_code?id=timlaing_family-vpn)
 
 Family VPN combines native iOS/iPadOS/macOS apps in `MyVPN/` with a Python/Flask dashboard and Home Assistant add-on in `family_vpn/`. The dashboard provisions administrator access, sends signed VPN commands and receives authenticated status updates. The native app remains authoritative for VPN policy.
 
@@ -8,12 +27,12 @@ See [Apple device setup and use](docs/APPLE_APPS.md) to register the app, approv
 
 ## Repository components
 
-| Component | Purpose | Documentation |
-| --- | --- | --- |
-| Apple apps (`MyVPN/`) | Native iOS, iPadOS and macOS VPN clients, enrollment and administrator controls. | [README](MyVPN/README.md) |
-| Dashboard and Home Assistant app (`family_vpn/`) | Device provisioning, commands, status reports, APNs delivery and optional relay hosting. | [README](family_vpn/README.md) |
-| Cloudflare Worker (`cloudflare-worker/`) | HTTPS proxy for the hosted push relay, with optional private Worker authentication. | [README](cloudflare-worker/README.md) |
-| strongSwan endpoint (`strongswan-endpoint/`) | Standalone Docker VPN gateway and browser configuration/account interface. | [README](strongswan-endpoint/README.md) |
+| Component                                        | Purpose                                                                                  | Documentation                           |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------- | --------------------------------------- |
+| Apple apps (`MyVPN/`)                            | Native iOS, iPadOS and macOS VPN clients, enrollment and administrator controls.         | [README](MyVPN/README.md)               |
+| Dashboard and Home Assistant app (`family_vpn/`) | Device provisioning, commands, status reports, APNs delivery and optional relay hosting. | [README](family_vpn/README.md)          |
+| Cloudflare Worker (`cloudflare-worker/`)         | HTTPS proxy for the hosted push relay, with optional private Worker authentication.      | [README](cloudflare-worker/README.md)   |
+| strongSwan endpoint (`strongswan-endpoint/`)     | Standalone Docker VPN gateway and browser configuration/account interface.               | [README](strongswan-endpoint/README.md) |
 
 ## Home Assistant installation
 
@@ -71,18 +90,18 @@ If endpoint/enrollment changes, re-register. If you replace the database or rota
 
 The [HTTP API guide](docs/API.md) is the complete route and provisioning contract. Routes below are relative to the deployment prefix (for example `/family-vpn/`). Source restrictions are enforced by the reverse proxy, in addition to bearer authentication.
 
-| Route | Access | Purpose |
-| --- | --- | --- |
-| POST /registrations | Registration LAN + enrollment bearer | Provision device settings and rotate its reporting credential |
-| POST /status | Public HTTPS + device bearer | Report connection and policy status |
-| POST /command-results | Public HTTPS + device bearer | Acknowledge command execution or failure |
-| GET /commands | VPN source + device bearer | Retrieve signed pending commands |
-| GET /vpn-configuration | VPN source + device bearer | Retrieve a pending VPN/Wi-Fi/CA snapshot |
-| GET /api/devices | VPN source + admin bearer (or standalone admin session) | Sanitized device status |
-| GET /api/commands | VPN source + admin bearer (or standalone admin session) | Sanitized command history |
-| POST /api/commands | VPN source + admin bearer | Queue refresh, suspend, enable or reprovisioning |
-| POST /api/push | VPN source + admin bearer | Queue checks for one or all devices |
-| GET /health | VPN source at the proxy; no bearer | Process liveness only |
+| Route                  | Access                                                  | Purpose                                                       |
+| ---------------------- | ------------------------------------------------------- | ------------------------------------------------------------- |
+| POST /registrations    | Registration LAN + enrollment bearer                    | Provision device settings and rotate its reporting credential |
+| POST /status           | Public HTTPS + device bearer                            | Report connection and policy status                           |
+| POST /command-results  | Public HTTPS + device bearer                            | Acknowledge command execution or failure                      |
+| GET /commands          | VPN source + device bearer                              | Retrieve signed pending commands                              |
+| GET /vpn-configuration | VPN source + device bearer                              | Retrieve a pending VPN/Wi-Fi/CA snapshot                      |
+| GET /api/devices       | VPN source + admin bearer (or standalone admin session) | Sanitized device status                                       |
+| GET /api/commands      | VPN source + admin bearer (or standalone admin session) | Sanitized command history                                     |
+| POST /api/commands     | VPN source + admin bearer                               | Queue refresh, suspend, enable or reprovisioning              |
+| POST /api/push         | VPN source + admin bearer                               | Queue checks for one or all devices                           |
+| GET /health            | VPN source at the proxy; no bearer                      | Process liveness only                                         |
 
 The Home Assistant dashboard and configuration use Ingress, not the REST listener. A queued command or Apple acceptance does not establish device execution; verify its acknowledgement and subsequent report. See [remote commands](docs/REMOTE_COMMANDS.md) and [proxy setup](docs/HOME_ASSISTANT.md).
 
