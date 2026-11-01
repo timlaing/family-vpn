@@ -46,3 +46,19 @@ Install the separate test dependencies; production images do not include pytest.
 ```
 
 Tests use temporary SQLite files, synthetic tokens/provider responses and a fake sender. Coverage includes enrollment/authentication, scoped reports, credential rotation, CSRF, login throttling, payload limits, privacy, queue coalescing, token rotation during delivery, pruning, bounded history and read-only preview. These do not prove real APNs delivery, device scheduling or production deployment.
+
+### Dashboard browser checks
+
+Theme tests use a temporary, read-only demo database and Chromium at desktop and
+mobile sizes. Install the Python test dependencies above, then run:
+
+```bash
+cd tests/browser
+npm ci
+npx playwright install chromium
+npm test
+```
+
+The test server uses the repository's `.venv/bin/python` by default. Set
+`BROWSER_TEST_PYTHON` to another Python executable if needed. Port 18500 must be
+available. CI runs these checks separately from the Python suite.

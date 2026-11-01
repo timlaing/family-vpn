@@ -38,6 +38,30 @@ jobs:
           python -m compileall -q app.py wsgi.py setup_local.py family_vpn
       - name: Check patch whitespace
         run: git show --format= --check HEAD
+  browser_themes:
+    name: Dashboard themes (desktop and mobile)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: '3.14'
+      - name: Install locked Python dependencies
+        run: |
+          python -m pip install --only-binary=:all: --no-deps --require-hashes -r requirements-test.txt
+      - name: Install locked browser dependencies
+        working-directory: tests/browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Check theme behavior, contrast, and responsive header
+        working-directory: tests/browser
+        env:
+          BROWSER_TEST_PYTHON: python
+        run: npm test
   worker_proxy:
     name: Cloudflare Worker proxy tests
     runs-on: ubuntu-latest
