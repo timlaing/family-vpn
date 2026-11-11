@@ -3,12 +3,12 @@ on:
   push:
     branches: [main]
     paths:
-      - 'MyVPN/**'
-      - '.github/workflows/xcode.yml'
+      - "MyVPN/**"
+      - ".github/workflows/xcode.yml"
   pull_request:
     paths:
-      - 'MyVPN/**'
-      - '.github/workflows/xcode.yml'
+      - "MyVPN/**"
+      - ".github/workflows/xcode.yml"
   workflow_dispatch:
 permissions:
   contents: read
@@ -20,7 +20,7 @@ jobs:
     name: Build and test app
     # Fork PR code never executes on the self-hosted macOS runner.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: xcode-27
+    runs-on: [self-hosted, macOS, ARM64, xcode, xcode-27]
     env:
       DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
     timeout-minutes: 45
@@ -55,5 +55,4 @@ jobs:
           xcodebuild test \
             -project MyVPN/FamilyVPN.xcodeproj \
             -scheme FamilyVPN \
-            -destination "id=$SIMULATOR_ID" \
-            CODE_SIGNING_ALLOWED=NO
+            -destination "id=$SIMULATOR_ID"
