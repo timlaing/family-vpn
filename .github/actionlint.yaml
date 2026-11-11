@@ -1,0 +1,4 @@
+# Existing CI runner label for self-hosted Xcode builds on the maintainer's Mac.
+self-hosted-runner:
+  labels:
+    - xcode-27

@@ -1,0 +1,59 @@
+name: Xcode
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'MyVPN/**'
+      - '.github/workflows/xcode.yml'
+  pull_request:
+    paths:
+      - 'MyVPN/**'
+      - '.github/workflows/xcode.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: xcode-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: Build and test app
+    # Fork PR code never executes on the self-hosted macOS runner.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode.app/Contents/Developer
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Select an available iPhone simulator
+        run: |
+          set -euo pipefail
+          xcrun simctl list devices available -j | python3 -c '
+          import json
+          import os
+          import re
+          import sys
+          devices = json.load(sys.stdin)["devices"]
+          ios = [key for key in devices if re.fullmatch(r".*\.iOS-\d+-\d+", key)]
+          if not ios:
+              sys.exit("No iOS simulator runtime installed")
+          latest = max(ios, key=lambda key: tuple(int(part) for part in key.rsplit("iOS-", 1)[1].split("-")))
+          phones = [row for row in devices[latest] if row["name"].startswith("iPhone") and row.get("isAvailable")]
+          if not phones:
+              sys.exit("No available iPhone simulator")
+          selected = min(phones, key=lambda row: row["name"])
+          with open(os.environ["GITHUB_ENV"], "a") as stream:
+              stream.write("SIMULATOR_ID=" + selected["udid"] + "\n")
+          print("Selected " + selected["name"] + " (" + selected["udid"] + ")")
+          '
+      - name: Build and run unit tests
+        run: |
+          set -euo pipefail
+          xcodebuild test \
+            -project MyVPN/FamilyVPN.xcodeproj \
+            -scheme FamilyVPN \
+            -destination "id=$SIMULATOR_ID" \
+            CODE_SIGNING_ALLOWED=NO
