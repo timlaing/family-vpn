@@ -16,9 +16,30 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: "3.14"
       - name: Install pinned prek
         run: |
           python -m pip install --only-binary=:all: --no-deps --require-hashes -r requirements-tools.lock
       - name: Run repository hooks
         run: prek run --all-files --show-diff-on-failure
+
+  validation-result:
+    name: Validate prek
+    needs:
+      - hooks
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every validation job to pass
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          failed = [name for name, job in results.items() if job['result'] != 'success']
+          if failed:
+              raise SystemExit('Validation incomplete: ' + ', '.join(failed))
+          PY
