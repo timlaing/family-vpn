@@ -16,7 +16,7 @@ Native Xcode tests use a persistent self-hosted runner. Fork PRs must not execut
 
 ## Bootstrap and recovery
 
-After `Analysis inputs` (`analysis-inputs.yml`) succeeds on the current PR head, dispatch `sonar.yml` on the reviewed branch with `source_run_id` set to that successful run. It validates the producing workflow, result, revision and PR before scanning. Complete the owner-attested notifier bootstrap below, then dispatch `coderabbit-after-checks.yml` with the full current `revision` once validation and analysis succeed.
+After `Analysis inputs` (`analysis-inputs.yml`) succeeds on the current PR head, dispatch `sonar.yml` on the reviewed branch with `source_run_id` set to that successful run and `source_revision` set to its full head SHA. It validates the producing workflow, result, revision and PR before scanning. Complete the owner-attested notifier bootstrap below, then dispatch `coderabbit-after-checks.yml` with the full current `revision` once validation and analysis succeed.
 
 ## Apply the matching repository policy
 
