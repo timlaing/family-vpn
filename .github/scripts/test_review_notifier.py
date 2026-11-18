@@ -16,7 +16,11 @@ ROOT = REPOSITORY / ".github/workflows"
 POLICY = ROOT / "review-notifier-policy.yml"
 NOTIFIER = ROOT / "review-events.yml"
 DOCUMENT = yaml.safe_load(POLICY.read_text())
-STEP = next(item for item in DOCUMENT["jobs"]["validate"]["steps"] if item.get("id") == "validate")
+STEP = next(
+    item
+    for item in DOCUMENT["jobs"]["validate"]["steps"]
+    if item.get("id") == "validate"
+)
 SCRIPT = "\n".join(STEP["run"].splitlines()[1:-1])
 
 
@@ -27,13 +31,17 @@ class ReviewNotifierTests(unittest.TestCase):
         """Initialize captured validator output for each fixture."""
         self.output = ""
 
-    def execute(self, notifier: str, candidate: str) -> subprocess.CompletedProcess[str]:
+    def execute(
+        self, notifier: str, candidate: str
+    ) -> subprocess.CompletedProcess[str]:
         """Run against a temporary candidate and the trusted workflow."""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "notifier.yml").write_text(notifier)
             protected = {}
-            for relative in json.loads(DOCUMENT["jobs"]["validate"]["env"]["PROTECTED_PATHS"]):
+            for relative in json.loads(
+                DOCUMENT["jobs"]["validate"]["env"]["PROTECTED_PATHS"]
+            ):
                 trusted = (REPOSITORY / relative).read_text()
                 protected[relative] = {
                     "trusted": trusted,
@@ -68,7 +76,9 @@ class ReviewNotifierTests(unittest.TestCase):
         for event in ["dismissed", "ready_for_review"]:
             candidate = NOTIFIER.read_text().replace(event, "edited")
             with self.subTest(event=event):
-                self.assertNotEqual(self.execute(candidate, POLICY.read_text()).returncode, 0)
+                self.assertNotEqual(
+                    self.execute(candidate, POLICY.read_text()).returncode, 0
+                )
 
     def test_extra_filters_and_jobs_cannot_delay_notifications(self) -> None:
         """Filters, code execution and extended timeouts fail closed."""
@@ -81,12 +91,19 @@ class ReviewNotifierTests(unittest.TestCase):
             NOTIFIER.read_text().replace('"true"', '"sleep 600"'),
             NOTIFIER.read_text().replace("timeout-minutes: 2", "timeout-minutes: 60"),
         ]:
-            self.assertNotEqual(self.execute(candidate, POLICY.read_text()).returncode, 0)
+            self.assertNotEqual(
+                self.execute(candidate, POLICY.read_text()).returncode, 0
+            )
 
     def test_enforcement_code_cannot_be_replaced_or_removed(self) -> None:
         """Keeping the trigger while replacing the trusted validator is rejected."""
-        for candidate in ["", POLICY.read_text().replace("createCommitStatus", "getCommit")]:
-            self.assertNotEqual(self.execute(NOTIFIER.read_text(), candidate).returncode, 0)
+        for candidate in [
+            "",
+            POLICY.read_text().replace("createCommitStatus", "getCommit"),
+        ]:
+            self.assertNotEqual(
+                self.execute(NOTIFIER.read_text(), candidate).returncode, 0
+            )
 
     def test_aliases_are_rejected(self) -> None:
         """Alias expansion cannot exhaust the trusted validator."""
@@ -100,12 +117,32 @@ class ReviewNotifierTests(unittest.TestCase):
 
     def test_action_updates_require_separate_provenance_verification(self) -> None:
         """Only same-action SHA changes reach the official-commit check."""
-        candidate = POLICY.read_text().replace("3a2844b7e9c422d3c10d287c895573f7108da1b3", "b" * 40)
+        pin = next(
+            step["uses"]
+            for step in DOCUMENT["jobs"]["validate"]["steps"]
+            if step.get("uses", "").startswith("actions/github-script@")
+        )
+        trusted_text = "".join(
+            (REPOSITORY / path).read_text()
+            for path in json.loads(
+                DOCUMENT["jobs"]["validate"]["env"]["PROTECTED_PATHS"]
+            )
+        )
+        fixture_sha = next(
+            letter * 40 for letter in "abcdef" if letter * 40 not in trusted_text
+        )
+        candidate = POLICY.read_text().replace(
+            pin, "actions/github-script@" + fixture_sha
+        )
         result = self.execute(NOTIFIER.read_text(), candidate)
         self.assertEqual(result.returncode, 0, result.stderr)
         updates = json.loads(self.output.removeprefix("changed-actions="))
-        self.assertEqual(updates, [{"repository": "actions/github-script", "sha": "b" * 40}])
-        candidate = POLICY.read_text().replace("actions/github-script@", "attacker/action@")
+        self.assertEqual(
+            updates, [{"repository": "actions/github-script", "sha": fixture_sha}]
+        )
+        candidate = POLICY.read_text().replace(
+            "actions/github-script@", "attacker/action@"
+        )
         self.assertNotEqual(self.execute(NOTIFIER.read_text(), candidate).returncode, 0)
 
 
