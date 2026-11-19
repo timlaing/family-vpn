@@ -2,9 +2,7 @@ name: Python devcontainer
 on:
   push:
     branches: [main]
-    paths: ['.devcontainer/**', 'scripts/**', 'requirements*', 'family_vpn/**', 'tests/**', '.pre-commit-config.yaml', 'ruff.toml', '.github/workflows/devcontainer.yml']
   pull_request:
-    paths: ['.devcontainer/**', 'scripts/**', 'requirements*', 'family_vpn/**', 'tests/**', '.pre-commit-config.yaml', 'ruff.toml', '.github/workflows/devcontainer.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,3 +22,24 @@ jobs:
             bash scripts/startup.sh
             /home/vscode/.venvs/family-vpn/bin/python -m pytest -q
             /home/vscode/.venvs/family-vpn/bin/prek run --all-files
+
+  validation-result:
+    name: Validate devcontainer
+    needs:
+      - validate
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every validation job to pass
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          failed = [name for name, job in results.items() if job['result'] != 'success']
+          if failed:
+              raise SystemExit('Validation incomplete: ' + ', '.join(failed))
+          PY

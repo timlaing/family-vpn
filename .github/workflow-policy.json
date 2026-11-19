@@ -1,0 +1,30 @@
+{
+  "default_workflow_permissions": "read",
+  "required_checks": [
+    "Validate ci",
+    "Validate codeql",
+    "Validate devcontainer",
+    "Validate lint",
+    "Validate prek",
+    "Validate xcode",
+    "Validate analysis-inputs",
+    "Analysis passed",
+    "Workflow policy",
+    "Review passed",
+    "Review notifier policy"
+  ],
+  "review_gate_requires_main": true,
+  "sha_pinning_required": true,
+  "validation_checks": [
+    "Validate ci",
+    "Validate codeql",
+    "Validate devcontainer",
+    "Validate lint",
+    "Validate prek",
+    "Validate xcode",
+    "Validate analysis-inputs",
+    "Analysis passed",
+    "Workflow policy",
+    "Review notifier policy"
+  ]
+}

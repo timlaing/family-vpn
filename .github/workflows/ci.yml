@@ -15,7 +15,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.12', '3.13', '3.14']
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -48,7 +48,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
-          python-version: '3.14'
+          python-version: "3.14"
       - name: Install locked Python dependencies
         run: |
           python -m pip install --only-binary=:all: --no-deps --require-hashes -r requirements-test.txt
@@ -134,3 +134,28 @@ jobs:
         run: docker build --pull -f strongswan-endpoint/Dockerfile.ui -t family-vpn-configuration:test strongswan-endpoint
       - name: Check browser provisioning and persistent volumes
         run: bash Tools/smoke_strongswan_ui.sh family-vpn-configuration:test family-vpn-strongswan:test
+
+  validation-result:
+    name: Validate ci
+    needs:
+      - tests
+      - browser_themes
+      - worker_proxy
+      - container
+      - strongswan
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require every validation job to pass
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 -I - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          failed = [name for name, job in results.items() if job['result'] != 'success']
+          if failed:
+              raise SystemExit('Validation incomplete: ' + ', '.join(failed))
+          PY

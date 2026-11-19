@@ -2,7 +2,7 @@ name: Publish strongSwan containers
 
 on:
   push:
-    tags: ['v*']
+    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -42,10 +42,18 @@ jobs:
     uses: ./.github/workflows/lint.yml
   quality:
     needs: prepare
-    uses: ./.github/workflows/sonar.yml
-    secrets:
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: read
+      contents: read
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        with:
+          script: |
+            const statuses = await github.paginate(github.rest.repos.listCommitStatusesForRef,
+              { ...context.repo, ref: context.sha, per_page: 100 });
+            const latest = statuses.find(s => s.context === 'Analysis passed' && s.creator?.login === 'github-actions[bot]');
+            if (latest?.state !== 'success') core.setFailed('The exact publication commit must pass Sonar analysis on main first');
   build:
     needs: [prepare, verify, lint, quality]
     runs-on: ${{ matrix.runner }}
